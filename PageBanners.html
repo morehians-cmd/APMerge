@@ -1,0 +1,261 @@
+<style>
+.pb-wrap{display:grid;gap:18px}
+.pb-pick{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.pb-pick select{min-width:280px;padding:10px 12px;border:1px solid var(--line,#dbe5f3);border-radius:10px;font:inherit;font-size:13.5px;background:transparent;color:inherit}
+.pb-badge{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8a5a12;background:#fff3df;border:1px solid #ffe0b8;border-radius:999px;padding:3px 9px}
+html[data-theme=dark] .pb-badge{background:#3a2a12;border-color:#5b4423;color:#f0c179}
+.pb-prev{position:relative;overflow:hidden;border-radius:14px;background:linear-gradient(110deg,#06265b,#08449c 70%,#1764bd);color:#fff;padding:34px 26px}
+.pb-prev.has-img{background-size:cover;background-position:center;background-repeat:no-repeat}
+.pb-prev .pb-eye{font-size:11px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#ff941f}
+.pb-prev h2{margin:6px 0 6px;font:800 clamp(24px,3vw,36px)/1.15 Inter,Poppins,sans-serif;letter-spacing:-.02em}
+.pb-prev p{margin:0;font-size:15px;color:#e5edff}
+.pb-intro{background:#fff;border:1px solid var(--line,#dbe5f3);border-top:0;border-radius:0 0 14px 14px;padding:14px 18px;margin-top:-2px}
+.pb-intro .pb-ieye{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#b06f16}
+.pb-intro h3{margin:4px 0 0;font:800 22px/1.2 Inter,Poppins,sans-serif;color:#0a367d;letter-spacing:-.02em}
+.pb-ilead{margin:7px 0 0;color:#3b5a86;font-size:13.5px;line-height:1.55;max-width:760px}
+.pb-intro.blocked{color:var(--mut);font-size:12.5px;padding:11px 18px}
+.pb-note{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border:1px solid #ffe0b8;border-radius:10px;background:#fff8ee;color:#8a5a12;font-size:12.5px;line-height:1.6}
+.pb-note b{display:block}
+html[data-theme=dark] .pb-intro{background:#10173a;border-color:#2a3558}
+html[data-theme=dark] .pb-intro h3{color:#dbe6ff}
+html[data-theme=dark] .pb-ilead{color:#a9bce0}
+@media(max-width:760px){.pb-prev{padding:24px 18px}}
+</style>
+<script>
+/* Page Banners editor — the title banner at the top of every interior page
+   (About, Admissions, Academics, Campus Life, Forms, News, Contact and their
+   sub-pages). Stored in the Content sheet through savePageBanner / resetPageBanner. */
+const PB_GROUPS = [
+  { t:'About Us', p:['about','about-values','about-history','about-leadership'] },
+  { t:'Admissions', p:['admissions','admissions-enrollment','admissions-requirements','admissions-scholarships','admissions-faq'] },
+  { t:'Academics', p:['academics','academics-kindergarten','academics-elementary','academics-junior-high','academics-senior-high','academics-college'] },
+  { t:'Campus Life', p:['campus-life','campus-organizations','campus-events','campus-sports','campus-clubs','campus-facilities'] },
+  { t:'Downloadable Forms', p:['resources','forms-tlc-application','forms-consent'] },
+  { t:'News & Updates', p:['news','news-announcements','news-latest','news-events','news-enrollment','news-achievements'] },
+  { t:'Contact', p:['contact'] }
+];
+const PB_EYE = 'MOREH ACADEMY · TAGUIG CITY';
+const PB_SUB = 'Welcome to Moreh Academy. School of Righteousness and Excellence.';
+var PB = { page:'about', saved:{}, defaults:{}, introSaved:{}, introDefaults:{}, blocked:[] };
+
+function pageBannersPage() {
+  if (typeof SYS === 'function' && !SYS()) return toast('The page banners are for the main administrator.', 'warn');
+  head('Page Banners', 'Edit the title banner on About, Admissions, Academics and every other interior page');
+  PB.saved = {}; PB.defaults = {};
+  $('view').innerHTML = '<div class="card"><div class="aemp">Loading page banners&hellip;</div></div>';
+  google.script.run.withSuccessHandler(function (r) {
+    if (!r || !r.success) {
+      $('view').innerHTML = '<div class="card"><div class="aemp">' + esc((r && r.error) || 'Could not load the page banners.') + '</div></div>';
+      return;
+    }
+    PB.saved = (r.data && r.data.saved) || {};
+    PB.defaults = (r.data && r.data.defaults) || {};
+    pbLoadIntros();
+  }).withFailureHandler(function (e) {
+    $('view').innerHTML = '<div class="card"><div class="aemp">' + esc(e.message || 'Could not load the page banners.') + '</div></div>';
+  }).getPageBanners();
+}
+
+function pbLoadIntros() {
+  google.script.run.withSuccessHandler(function (r) {
+    if (r && r.success && r.data) {
+      PB.introSaved = r.data.saved || {};
+      PB.introDefaults = r.data.defaults || {};
+    }
+    pbLoadBlocked();
+  }).withFailureHandler(function () { pbLoadBlocked(); }).getPageIntros();
+}
+
+function pbLoadBlocked() {
+  google.script.run.withSuccessHandler(function (r) {
+    PB.blocked = (r && r.success && r.data) || [];
+    pbShell();
+  }).withFailureHandler(function () { PB.blocked = []; pbShell(); }).getSavedPublicBlocks(S.token);
+}
+
+function pbIntroCard(slug, blocked) {
+  var v = PB.introSaved[slug] || PB.introDefaults[slug] || { eyebrow: '', title: '', lead: '' };
+  var hasLead = !!((PB.introDefaults[slug] || {}).lead);
+  if (blocked) {
+    return '<div class="card"><div class="ch"><h3>Intro text below the banner</h3><span style="color:var(--mut);font-size:13px">Eyebrow and heading</span></div>' +
+      '<div class="pb-note"><b>Website Pages content is saved for this page</b>' +
+      '<span>Its eyebrow and heading come from that saved content, so these fields would have no effect. ' +
+      'Edit the heading in <b>Website Pages</b>, or clear that page&rsquo;s content there to control it here.</span></div></div>';
+  }
+  return '<div class="card"><div class="ch"><h3>Intro text below the banner</h3><span style="color:var(--mut);font-size:13px">Eyebrow and heading</span></div>' +
+    '<div class="g">' +
+      '<div class="f" style="grid-column:1/-1"><label for="pbIEye">Small line above the heading</label>' +
+        '<input id="pbIEye" value="' + esc(v.eyebrow || '') + '" maxlength="60" oninput="pbPreview()"></div>' +
+      '<div class="f" style="grid-column:1/-1"><label for="pbITitle">Page heading</label>' +
+        '<input id="pbITitle" value="' + esc(v.title || '') + '" maxlength="90" oninput="pbPreview()"></div>' +
+      (hasLead
+        ? '<div class="f" style="grid-column:1/-1"><label for="pbILead">Paragraph under the heading</label>' +
+          '<textarea id="pbILead" maxlength="300" rows="3" oninput="pbPreview()" style="width:100%;resize:vertical">' + esc(v.lead || '') + '</textarea></div>'
+        : '<p class="pb-hint" style="grid-column:1/-1">This page has no paragraph under its heading, so there is no lead line to edit here.</p>') +
+    '</div>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">' +
+      '<button type="button" class="btn" id="pbIntroSave" data-act="pbsaveintro">Save intro text</button>' +
+      '<button type="button" class="btn alt" data-act="pbresetintro">Reset intro</button>' +
+    '</div>' +
+    '<p class="pb-hint">This is the heading block at the top of the page body, under the banner. ' +
+    'A page you have edited in <b>Website Pages</b> keeps its own heading &mdash; these fields apply to the pages still showing their default wording.</p></div>';
+}
+
+function pbTitle(slug) { return PB.defaults[slug] || slug; }
+
+function pbShell() {
+  var opts = PB_GROUPS.map(function (g) {
+    return '<optgroup label="' + esc(g.t) + '">' + g.p.map(function (slug) {
+      return '<option value="' + esc(slug) + '"' + (slug === PB.page ? ' selected' : '') + '>' + esc(pbTitle(slug)) + '</option>';
+    }).join('') + '</optgroup>';
+  }).join('');
+  $('view').innerHTML =
+    '<div class="sbar">' +
+      '<button type="button" class="btn" id="pbSave" data-act="pbsave">Save banner</button>' +
+      '<button type="button" class="btn alt" data-act="pbreset">Reset to standard</button>' +
+      '<button type="button" class="btn alt" data-act="pbview">View this page</button>' +
+    '</div>' +
+    '<div class="card">' +
+      '<div class="pb-pick"><label for="pbPage" style="font-weight:600;font-size:13px">Page</label>' +
+        '<select id="pbPage" onchange="pbOpen(this.value)">' + opts + '</select>' +
+        '<span id="pbBadge"></span>' +
+      '</div>' +
+      '<div class="pb-prev" id="pbPrev"><div class="pb-eye" id="pbEye"></div><h2 id="pbH"></h2><p id="pbS"></p></div>' +
+      '<div id="pbIntro"></div>' +
+    '</div>' +
+    '<div class="pb-wrap" id="pbForm"></div>' +
+    '<p class="wp-hint" style="color:var(--mut);font-size:12.5px;line-height:1.6">This is the banner strip at the top of the page, above the page body. ' +
+    'Clear a box to fall back to the standard wording. <b>Reset to standard</b> removes the customisation for this page only.</p>';
+  pbOpen(PB.page);
+}
+
+function pbOpen(slug) {
+  PB.page = slug;
+  var sel = $('pbPage');
+  if (sel && sel.value !== slug) sel.value = slug;
+  var v = PB.saved[slug] || { eyebrow: PB_EYE, title: pbTitle(slug), subtitle: PB_SUB, image: '' };
+  var badge = $('pbBadge');
+  if (badge) badge.className = PB.saved[slug] ? 'pb-badge' : '';
+  if (badge) badge.textContent = PB.saved[slug] ? 'Customised' : '';
+  $('pbForm').innerHTML =
+    '<div class="card"><div class="ch"><h3>Banner text</h3><span style="color:var(--mut);font-size:13px">' + esc(pbTitle(slug)) + '</span></div>' +
+      '<div class="g">' +
+        '<div class="f" style="grid-column:1/-1"><label for="pbEyeIn">Small line above the title</label>' +
+          '<input id="pbEyeIn" value="' + esc(v.eyebrow || '') + '" maxlength="60" oninput="pbPreview()"></div>' +
+        '<div class="f" style="grid-column:1/-1"><label for="pbTitleIn">Page title</label>' +
+          '<input id="pbTitleIn" value="' + esc(v.title || '') + '" maxlength="90" oninput="pbPreview()"></div>' +
+        '<div class="f" style="grid-column:1/-1"><label for="pbSubIn">Subtitle</label>' +
+          '<input id="pbSubIn" value="' + esc(v.subtitle || '') + '" maxlength="200" oninput="pbPreview()"></div>' +
+        '<div class="f" style="grid-column:1/-1"><label for="pbImgIn">Background photo (optional)</label>' +
+          '<input id="pbImgIn" value="' + esc(v.image || '') + '" maxlength="1000" placeholder="Leave blank for the navy banner" oninput="pbPreview()">' +
+          hhUploadBtn('pbImgIn', 'pbPreview') +
+          '<p class="wp-hint" style="color:var(--mut);font-size:12.5px;line-height:1.6"><b>Upload photo</b> resizes the picture in your browser ' +
+          'and stores it in the school photos folder for you. You can also paste a Google Drive thumbnail link, ' +
+          '<b>https://drive.google.com/thumbnail?id=FILE_ID&amp;sz=w2000</b>. A dark overlay is applied automatically so the white text stays readable.</p></div>' +
+      '</div>' +
+    '</div>' + pbIntroCard(slug, (PB.blocked || []).indexOf(slug) >= 0);
+  pbPreview();
+}
+
+function pbPreview() {
+  var g = function (id) { var el = $(id); return el ? el.value.trim() : ''; };
+  var box = $('pbPrev'), eye = $('pbEye'), h = $('pbH'), sub = $('pbS');
+  if (!box) return;
+  if (eye) eye.textContent = g('pbEyeIn') || PB_EYE;
+  if (h) h.textContent = g('pbTitleIn') || pbTitle(PB.page);
+  if (sub) sub.textContent = g('pbSubIn') || PB_SUB;
+  var intro = $('pbIntro');
+  if (intro) {
+    var blocked = (PB.blocked || []).indexOf(PB.page) >= 0;
+    intro.innerHTML = blocked
+      ? '<div class="pb-intro blocked"><span>Page body heading comes from Website Pages content for this page.</span></div>'
+      : '<div class="pb-intro"><div class="pb-ieye">' + esc(g('pbIEye') || (PB.introDefaults[PB.page] || {}).eyebrow || '') + '</div>' +
+        '<h3>' + esc(g('pbITitle') || (PB.introDefaults[PB.page] || {}).title || pbTitle(PB.page)) + '</h3>' +
+        (function () { var lead = g('pbILead') || ((PB.introDefaults[PB.page] || {}).lead || ''); return lead ? '<p class="pb-ilead">' + esc(lead) + '</p>' : ''; })() +
+        '</div>';
+  }
+  var img = g('pbImgIn').replace(/"/g, '');
+  box.className = img ? 'pb-prev has-img' : 'pb-prev';
+  box.style.backgroundImage = img
+    ? 'linear-gradient(105deg,#04215ae8,#063f96c9 60%,#1764bdbf),url("' + img + '")'
+    : '';
+}
+
+act.pbsave = function () {
+  var g = function (id) { var el = $(id); return el ? el.value.trim() : ''; };
+  var payload = { eyebrow: g('pbEyeIn'), title: g('pbTitleIn'), subtitle: g('pbSubIn'), image: g('pbImgIn') };
+  var btn = $('pbSave'), label = btn ? btn.textContent : 'Save banner';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+  google.script.run.withSuccessHandler(function (r) {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    if (!r || !r.success) return toast((r && r.error) || 'The banner was not saved.', false);
+    if (r.data && typeof r.data === 'object') PB.saved = r.data;
+    else PB.saved[PB.page] = payload;
+    var keep = PB.page;
+    pbShell();
+    pbOpen(keep);
+    toast(r.message || 'Banner saved.');
+  }).withFailureHandler(function (e) {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    toast(e.message || 'The banner was not saved.', false);
+  }).savePageBanner(S.token, PB.page, payload);
+};
+
+act.pbreset = function () {
+  if (!PB.saved[PB.page]) return toast('This page already uses the standard banner.', 'warn');
+  if (!confirm('Remove the customisation and restore the standard banner for this page?')) return;
+  google.script.run.withSuccessHandler(function (r) {
+    if (!r || !r.success) return toast((r && r.error) || 'The banner was not reset.', false);
+    if (r.data && typeof r.data === 'object') PB.saved = r.data;
+    var keep = PB.page;
+    pbShell();
+    pbOpen(keep);
+    toast(r.message || 'Banner reset.');
+  }).withFailureHandler(function (e) {
+    toast(e.message || 'The banner was not reset.', false);
+  }).resetPageBanner(S.token, PB.page);
+};
+
+act.pbsaveintro = function () {
+  var g = function (id) { var el = $(id); return el ? el.value.trim() : ''; };
+  var payload = { eyebrow: g('pbIEye'), title: g('pbITitle'), lead: g('pbILead') };
+  var btn = $('pbIntroSave'), label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+  google.script.run.withSuccessHandler(function (r) {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    if (!r || !r.success) return toast((r && r.error) || 'The intro text was not saved.', false);
+    if (r.data && typeof r.data === 'object') PB.introSaved = r.data;
+    var keep = PB.page;
+    pbShell();
+    pbOpen(keep);
+    toast(r.message || 'Intro text saved.');
+  }).withFailureHandler(function (e) {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    toast(e.message || 'The intro text was not saved.', false);
+  }).savePageIntro(S.token, PB.page, payload);
+};
+
+act.pbresetintro = function () {
+  if (!PB.introSaved[PB.page]) return toast('This page already shows its default intro text.', 'warn');
+  if (!confirm('Restore the default eyebrow and heading for this page?')) return;
+  google.script.run.withSuccessHandler(function (r) {
+    if (!r || !r.success) return toast((r && r.error) || 'The intro text was not reset.', false);
+    if (r.data && typeof r.data === 'object') PB.introSaved = r.data;
+    var keep = PB.page;
+    pbShell();
+    pbOpen(keep);
+    toast(r.message || 'Intro text reset.');
+  }).withFailureHandler(function (e) {
+    toast(e.message || 'The intro text was not reset.', false);
+  }).resetPageIntro(S.token, PB.page);
+};
+
+act.pbview = function () {
+  google.script.run.withSuccessHandler(function (u) {
+    if (!u) return toast('The website address is not available yet.', false);
+    window.open(u + '?page=' + PB.page, '_blank');
+  }).withFailureHandler(function () {
+    toast('The website address is not available yet.', false);
+  }).getHomeUrl();
+};
+</script>

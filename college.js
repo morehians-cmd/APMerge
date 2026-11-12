@@ -1,0 +1,222 @@
+/* Moreh College roster and program editor.
+ *
+ * Reads the standalone College SIS workbook through College.gs. Everything here is
+ * read-only except the program table (COLLEGE PROGRAMS tab), which full
+ * administrators can edit so a new program such as BSCrim can be added without
+ * opening the spreadsheet. */
+(function () {
+  const style = document.createElement('style');
+  style.textContent = `
+.col-page{display:grid;gap:16px;min-width:0}
+.col-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.col-head h2{margin:0;color:#0f2c56;font:800 21px/1.2 Montserrat,Inter,sans-serif}
+.col-head p{margin:4px 0 0;color:#64748b;font-size:13px}
+.col-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.col-kpi{padding:14px 16px;border:1px solid #e4eaf3;border-radius:11px;background:#fff;box-shadow:0 1px 3px #0a2a5b0a}
+.col-kpi small{display:block;color:#64748b;font-size:11.5px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.col-kpi b{display:block;margin-top:6px;color:#0f2c56;font-size:24px;font-weight:800;line-height:1.1}
+.col-kpi span{display:block;margin-top:4px;color:#7a8aa1;font-size:11px}
+.col-filters{display:grid;grid-template-columns:minmax(180px,2fr) repeat(3,minmax(130px,1fr)) auto;gap:10px;align-items:center;padding:12px 14px;border:1px solid #e4eaf3;border-radius:11px;background:#fff}
+.col-filters input,.col-filters select{width:100%;min-width:0;height:36px;padding:0 10px;border:1px solid #d9e2ef;border-radius:8px;background:#fff;color:#12233f;font:500 13px Inter,sans-serif}
+.col-filters input:focus,.col-filters select:focus{outline:2px solid #bfd7fb;outline-offset:1px;border-color:#8fb9f5}
+.col-panel{border:1px solid #e4eaf3;border-radius:11px;background:#fff;overflow:hidden;box-shadow:0 1px 3px #0a2a5b0a}
+.col-table{width:100%;border-collapse:collapse;font-size:13px}
+.col-table th{position:sticky;top:0;padding:10px 12px;background:#f6f9fe;border-bottom:1px solid #e4eaf3;color:#4b6b95;font-size:11px;font-weight:700;text-align:left;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.col-table td{padding:10px 12px;border-bottom:1px solid #eef2f8;color:#22385c;vertical-align:middle}
+.col-table tbody tr:last-child td{border-bottom:0}
+.col-table tbody tr:hover{background:#f9fbff}
+.col-id{font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:#1a56b8;white-space:nowrap}
+.col-name{font-weight:600;color:#12233f}
+.col-sub{display:block;color:#8496ad;font-size:11px}
+.col-tag{display:inline-block;padding:2px 8px;border-radius:999px;background:#e8f0fe;color:#1a56b8;font-size:11px;font-weight:700;white-space:nowrap}
+.col-tag.mut{background:#eef2f8;color:#64748b}
+.col-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 14px;border-top:1px solid #eef2f8;color:#64748b;font-size:11.5px}
+.col-empty{padding:26px 18px;border:1px dashed #dbe3ee;border-radius:11px;background:#f9fbfe;color:#63748c;font-size:13px;line-height:1.65;text-align:center}
+.col-scroll{overflow:auto;max-height:min(62vh,620px)}
+.col-prog td{padding:8px 10px}
+.col-prog input,.col-prog select{width:100%;min-width:0;height:34px;padding:0 8px;border:1px solid #d9e2ef;border-radius:7px;background:#fff;color:#12233f;font:500 12.5px Inter,sans-serif}
+.col-prog input[readonly]{background:#f4f7fc;color:#64748b}
+.col-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.col-newrow{background:#f8fbff}
+.col-note{padding:12px 14px;border:1px solid #ffe0b8;border-radius:10px;background:#fff8ee;color:#8a5a12;font-size:12.5px;line-height:1.6}
+@media(max-width:900px){.col-filters{grid-template-columns:1fr 1fr}.col-filters>*:first-child{grid-column:1/-1}}
+@media(max-width:620px){.col-filters{grid-template-columns:1fr}}
+`;
+  document.head.appendChild(style);
+})();
+
+var COLF = { q: '', program: '', yearLevel: '', term: '' };
+
+function colEsc(v) { return esc(v == null ? '' : String(v)); }
+
+function colOpts(list, current, allLabel) {
+  var out = ['<option value="">' + colEsc(allLabel) + '</option>'];
+  (list || []).forEach(function (v) {
+    var val = typeof v === 'string' ? v : (v.label || '');
+    if (!val) return;
+    out.push('<option value="' + colEsc(val) + '"' + (current === val ? ' selected' : '') + '>' + colEsc(val) + '</option>');
+  });
+  return out.join('');
+}
+
+/* ---------- roster ---------- */
+
+function collegePage() {
+  if (typeof A !== 'function' || !A()) return toast('College records are available to administrators only.', 'warn');
+  head('College Roster', 'Moreh College students by program, year level and semester');
+  COLF = { q: '', program: '', yearLevel: '', term: '' };
+  $('view').innerHTML = '<div class="col-page"><div class="col-empty">Loading college records&hellip;</div></div>';
+  collegeLoad();
+}
+
+function collegeSet(key, value) { COLF[key] = value; collegeLoad(); }
+
+function collegeLoad() {
+  var host = $('view') && $('view').querySelector('.col-page');
+  if (!host) return;
+  call('collegeRoster', [T(), COLF], function (r) { collegeRender(r.data); });
+}
+
+function collegeRender(d) {
+  var host = $('view').querySelector('.col-page');
+  if (!host) return;
+  if (!d || d.configured === false) {
+    host.innerHTML =
+      '<div class="col-head"><div><h2>College Roster</h2><p>The College SIS workbook is not reachable yet.</p></div></div>' +
+      '<div class="col-empty"><b>The College workbook is not available.</b><br>' +
+        colEsc((d && d.message) || 'Add a COLLEGE_SS_ID script property pointing at the College SIS file.') +
+        '<br><br>Once it is reachable, this page lists every college student by program, year level and semester.</div>';
+    return;
+  }
+  var st = d.stats || {};
+  var rows = d.rows || [];
+  var programs = d.programs || [];
+  var top = (st.byProgram || []).filter(function (p) { return p.count; }).sort(function (a, b) { return b.count - a.count; })[0];
+
+  var sexN = function (label) {
+    var hit = (st.bySex || []).filter(function (x) { return x.label === label; })[0];
+    return hit ? hit.count : 0;
+  };
+  var kpis =
+    '<div class="col-kpi"><small>College students</small><b>' + (st.total || 0) + '</b><span>' + (st.allTimeTotal || 0) + ' on record, all years</span></div>' +
+    '<div class="col-kpi"><small>Programs</small><b>' + programs.filter(function (p) { return p.active !== 'No'; }).length + '</b><span>' + (top ? 'Largest: ' + colEsc(top.code) + ' (' + top.count + ')' : 'No enrollments yet') + '</span></div>' +
+    '<div class="col-kpi"><small>Year levels</small><b>' + (st.byYearLevel || []).length + '</b><span>' + (st.byTerm || []).length + ' semester(s) on record</span></div>' +
+    '<div class="col-kpi"><small>Male / Female</small><b>' + sexN('Male') + ' / ' + sexN('Female') + '</b><span>From the Gender column</span></div>';
+
+  var body = rows.length ? rows.map(function (r) {
+    return '<tr>' +
+      '<td><span class="col-id">' + colEsc(r.id || '—') + '</span>' + (r.regNo ? '<span class="col-sub">' + colEsc(r.regNo) + '</span>' : '') + '</td>' +
+      '<td><span class="col-name">' + colEsc(r.name || '—') + '</span>' + (r.contact ? '<span class="col-sub">' + colEsc(r.contact) + '</span>' : '') + '</td>' +
+      '<td><span class="col-tag">' + colEsc(r.program || '—') + '</span>' + (r.programName ? '<span class="col-sub">' + colEsc(r.programName) + '</span>' : '') + '</td>' +
+      '<td>' + colEsc(r.yearLevel || '—') + '</td>' +
+      '<td>' + colEsc(r.section || '—') + (r.room ? '<span class="col-sub">' + colEsc(r.room) + '</span>' : '') + '</td>' +
+      '<td>' + colEsc(r.term || '—') + (r.sy ? '<span class="col-sub">' + colEsc(r.sy) + '</span>' : '') + '</td>' +
+      '<td><span class="col-tag mut">' + colEsc(r.status || 'Enrolled') + '</span></td>' +
+    '</tr>';
+  }).join('') :
+    '<tr><td colspan="7"><div class="col-empty">No college students match these filters.' +
+      (st.allTimeTotal ? '' : ' The STUDENTS sheet in the College SIS workbook has no rows yet.') + '</div></td></tr>';
+
+  host.innerHTML =
+    '<div class="col-head"><div><h2>College Roster</h2><p>' + (d.total || 0) + ' student(s) in the current selection' + (d.updated ? ' &middot; updated ' + colEsc(d.updated) : '') + '</p></div>' +
+      '<div class="col-actions"><button type="button" class="btn alt" data-col="manage">Manage Programs</button>' +
+      '<button type="button" class="btn" data-col="reload">Refresh</button></div></div>' +
+    '<div class="col-kpis">' + kpis + '</div>' +
+    '<div class="col-filters">' +
+      '<input id="col-q" type="search" placeholder="Search name, student ID or registration no." value="' + colEsc(COLF.q) + '" oninput="collegeSet(\'q\',this.value)">' +
+      '<select onchange="collegeSet(\'program\',this.value)">' + colOpts(programs.filter(function (p) { return p.active !== 'No'; }).map(function (p) { return { label: p.code, name: p.name }; }), COLF.program, 'All programs') + '</select>' +
+      '<select onchange="collegeSet(\'yearLevel\',this.value)">' + colOpts((st.byYearLevel || []).map(function (y) { return y.label; }), COLF.yearLevel, 'All year levels') + '</select>' +
+      '<select onchange="collegeSet(\'term\',this.value)">' + colOpts((st.byTerm || []).map(function (t) { return t.label; }), COLF.term, 'All semesters') + '</select>' +
+      '<button type="button" class="btn alt" data-col="clear">Clear</button>' +
+    '</div>' +
+    '<div class="col-panel"><div class="col-scroll"><table class="col-table"><thead><tr>' +
+      '<th>Student ID</th><th>Name</th><th>Program</th><th>Year level</th><th>Section</th><th>Semester</th><th>Status</th>' +
+    '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+    '<div class="col-foot"><span>Showing ' + (d.shown || rows.length) + ' of ' + (d.total || rows.length) + '</span>' +
+      '<span>Source: College SIS workbook &middot; STUDENTS</span></div></div>';
+}
+
+/* ---------- programs ---------- */
+
+function collegeProgramsPage() {
+  if (typeof SYS === 'function' && !SYS()) return toast('Program management is restricted to the main administrator.', 'warn');
+  head('College Programs', 'Program codes, descriptions and durations used by the College SIS');
+  $('view').innerHTML = '<div class="col-page"><div class="col-empty">Loading programs&hellip;</div></div>';
+  collegeProgramsLoad();
+}
+
+function collegeProgramsLoad() {
+  call('getCollegePrograms', [T()], function (r) { collegeProgramsRender(r.data); });
+}
+
+function collegeProgramsRender(d) {
+  var host = $('view').querySelector('.col-page');
+  if (!host) return;
+  if (!d || d.configured === false) {
+    host.innerHTML = '<div class="col-empty"><b>The College workbook is not available.</b><br>' + colEsc((d && d.message) || '') + '</div>';
+    return;
+  }
+  var rows = d.programs || [];
+  var canEdit = !!d.canEdit;
+
+  var table = rows.map(function (p, i) {
+    return '<tr class="col-prog" data-row="' + i + '">' +
+      '<td><input data-f="code" value="' + colEsc(p.code) + '"' + (canEdit ? '' : ' readonly') + ' maxlength="16"></td>' +
+      '<td><input data-f="name" value="' + colEsc(p.name) + '"' + (canEdit ? '' : ' readonly') + '></td>' +
+      '<td><input data-f="dept" value="' + colEsc(p.dept) + '"' + (canEdit ? '' : ' readonly') + '></td>' +
+      '<td><input data-f="years" value="' + colEsc(p.years) + '"' + (canEdit ? '' : ' readonly') + ' inputmode="numeric"></td>' +
+      '<td><select data-f="active"' + (canEdit ? '' : ' disabled') + '><option value="Yes"' + (p.active !== 'No' ? ' selected' : '') + '>Active</option><option value="No"' + (p.active === 'No' ? ' selected' : '') + '>Inactive</option></select></td>' +
+      '<td>' + (canEdit ? '<button type="button" class="btn" data-col="saveprog">Save</button>' : '') + '</td>' +
+    '</tr>';
+  }).join('');
+
+  var newRow = canEdit ?
+    '<tr class="col-prog col-newrow" data-row="new">' +
+      '<td><input data-f="code" placeholder="BSCrim" maxlength="16"></td>' +
+      '<td><input data-f="name" placeholder="Bachelor of Science in Criminology"></td>' +
+      '<td><input data-f="dept" value="College"></td>' +
+      '<td><input data-f="years" value="4" inputmode="numeric"></td>' +
+      '<td><select data-f="active"><option value="Yes" selected>Active</option><option value="No">Inactive</option></select></td>' +
+      '<td><button type="button" class="btn" data-col="addprog">Add</button></td>' +
+    '</tr>' : '';
+
+  host.innerHTML =
+    '<div class="col-head"><div><h2>College Programs</h2><p>These codes drive the roster, the program filter and the College figures on the dashboard.</p></div>' +
+      '<div class="col-actions"><button type="button" class="btn alt" data-col="roster">Back to Roster</button></div></div>' +
+    (canEdit ? '' : '<div class="col-note">You can view programs but only a full administrator can change them.</div>') +
+    '<div class="col-panel"><div class="col-scroll"><table class="col-table"><thead><tr>' +
+      '<th>Code</th><th>Program description</th><th>Department</th><th>Years</th><th>Status</th><th></th>' +
+    '</tr></thead><tbody>' + table + newRow + '</tbody></table></div>' +
+    '<div class="col-foot"><span>' + rows.length + ' program(s) &middot; ' + rows.filter(function (p) { return p.active !== 'No'; }).length + ' active</span>' +
+    '<span>' + (d.editable ? 'Stored in the COLLEGE PROGRAMS tab' : 'Saved to a new COLLEGE PROGRAMS tab on first edit') + '</span></div></div>' +
+    '<div class="col-note">Adding BSCrim here makes it available everywhere immediately &mdash; no code change and no edit to the workbook headers. ProgramFees and SUBJECTS rows for it can follow whenever the curriculum is ready.</div>';
+}
+
+function collegeProgValues(tr) {
+  if (!tr) return null;
+  var get = function (f) { var el = tr.querySelector('[data-f="' + f + '"]'); return el ? el.value : ''; };
+  return { code: get('code'), name: get('name'), dept: get('dept'), years: get('years'), active: get('active') };
+}
+
+document.addEventListener('click', function (e) {
+  var btn = e.target.closest && e.target.closest('[data-col]');
+  if (!btn) return;
+  var what = btn.getAttribute('data-col');
+  if (what === 'reload') return collegeLoad();
+  if (what === 'clear') { COLF = { q: '', program: '', yearLevel: '', term: '' }; return collegeLoad(); }
+  if (what === 'manage') return collegeProgramsPage();
+  if (what === 'roster') return collegePage();
+  if (what === 'saveprog' || what === 'addprog') {
+    var tr = btn.closest('tr');
+    var prog = collegeProgValues(tr);
+    if (!prog) return;
+    if (!String(prog.code || '').trim()) return toast('Enter a program code first.', 'warn');
+    if (!String(prog.name || '').trim()) return toast('Enter a program description first.', 'warn');
+    btn.disabled = true;
+    call('saveCollegeProgram', [T(), prog], function (r) {
+      toast(r.data.message || 'Program saved.');
+      collegeProgramsLoad();
+    });
+    setTimeout(function () { btn.disabled = false; }, 1500);
+  }
+});

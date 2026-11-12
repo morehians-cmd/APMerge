@@ -1,0 +1,26 @@
+<script>
+/* Activity Log page — reads the sanitized audit feed from DashboardAudit.gs.
+   Full administrators only; the server already withholds learner details. */
+function activityLogPage() {
+  if (typeof FULL === 'function' && !FULL()) return toast('The activity log is for the full administrator and managers.', 'warn');
+  head('Activity Log', 'Recent actions recorded in the portal audit trail');
+  $('view').innerHTML =
+    '<div class="sbar"><button type="button" class="btn alt" onclick="activityLogPage()">Refresh</button></div>' +
+    '<div class="card"><div class="ch"><h3>Recent activity</h3>' +
+      '<span style="color:var(--mut);font-size:13px">Newest first &middot; learner details are not shown</span></div>' +
+      '<div id="alhits"><div class="aemp">Loading&hellip;</div></div></div>';
+  call('getRecentActivity', [T(), 30], function (r) {
+    var items = (r.data && r.data.items) || [];
+    var host = $('alhits');
+    if (!host) return;
+    host.innerHTML = items.length
+      ? '<div class="tw"><table class="at"><thead><tr><th>When</th><th>Account</th><th>Role</th><th>Action</th></tr></thead><tbody>' +
+        items.map(function (x) {
+          return '<tr><td>' + esc(x.date) + (x.time ? ' <span style="color:var(--mut)">' + esc(x.time) + '</span>' : '') + '</td>' +
+            '<td>' + esc(x.actor) + '</td><td>' + esc(x.role) + '</td>' +
+            '<td style="text-transform:capitalize">' + esc(String(x.action || '').replace(/[._]/g, ' ')) + '</td></tr>';
+        }).join('') + '</tbody></table></div>'
+      : '<div class="aemp">No activity has been recorded yet.</div>';
+  });
+}
+</script>

@@ -1,0 +1,346 @@
+<style>
+.wp-grid{display:grid;grid-template-columns:238px minmax(0,1fr);gap:16px;align-items:start}
+.wp-list{display:flex;flex-direction:column;gap:4px;padding:8px}
+.wp-list button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:0;background:transparent;color:inherit;font:inherit;font-size:13px;padding:9px 11px;border-radius:9px;cursor:pointer}
+.wp-list button:hover{background:rgba(6,70,168,.08)}
+.wp-list button.on{background:#0646a8;color:#fff}
+html[data-theme=dark] .wp-list button.on{background:#2b6fd4}
+.wp-sec{margin-bottom:16px}
+.wp-ta{width:100%;min-height:120px;padding:12px 14px;border:1px solid var(--line,#dbe5f3);border-radius:10px;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical;color:inherit;background:transparent}
+.wp-ta:focus{outline:2px solid #9cc0ff;outline-offset:1px}
+.wp-acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.wp-acts .muted{margin-left:auto;color:var(--mut);font-size:12px}
+.wp-prev{margin-top:10px;padding:12px 14px;border:1px dashed var(--line,#dbe5f3);border-radius:10px;font-size:13.5px;line-height:1.65}
+.wp-prev p:first-child{margin-top:0}.wp-prev p:last-child{margin-bottom:0}
+.wp-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:12px}
+.wp-gal .wp-empty{grid-column:1/-1}
+.wp-photo{border:1px solid var(--line,#dbe5f3);border-radius:10px;overflow:hidden;background:#f6f9fe;display:flex;flex-direction:column}
+html[data-theme=dark] .wp-photo{background:#10173a}
+.wp-photo .shot{aspect-ratio:4/3;background:#e8eef8 center/cover no-repeat;display:grid;place-items:center;color:#8496ad;font-size:11px}
+html[data-theme=dark] .wp-photo .shot{background-color:#0a1130}
+.wp-photo .cap{padding:7px}
+.wp-photo .cap input{width:100%;font-size:12px;padding:6px 8px;border:1px solid var(--line,#dbe5f3);border-radius:7px;background:transparent;color:inherit}
+.wp-photo .tools{display:flex;gap:6px;padding:0 7px 7px}
+.wp-photo .tools button{flex:1;font-size:11.5px;padding:5px 6px;border-radius:7px;border:1px solid var(--line,#dbe5f3);background:transparent;color:inherit;cursor:pointer}
+.wp-photo .tools button:hover{background:rgba(6,70,168,.08)}
+.wp-photo .tools button.del{color:#b3261e}
+.wp-hint{color:var(--mut);font-size:12.5px;line-height:1.6;margin:8px 0 0}
+.wp-empty{padding:16px;border:1px dashed var(--line,#dbe5f3);border-radius:10px;color:var(--mut);font-size:13px}
+@media(max-width:900px){.wp-grid{grid-template-columns:1fr}.wp-list{flex-direction:row;flex-wrap:wrap}}
+</style>
+<script>
+/* Website Pages editor — edits the public page text blocks (Content sheet, via
+   getBlock / saveBlock) and each page's gallery photos (Gallery.gs).
+   Text is stored as simple HTML; the server sanitizes it before saving. */
+const WP_PAGES = [
+  { id:'home', name:'Home page', icon:'home', sections:[
+    { t:'Intro text', k:'pubhome', hint:'Shown on the homepage below the banner.' }
+  ]},
+  { id:'about', name:'About Us', icon:'bldg', sections:[
+    { t:'Introduction', k:'pubabout' },
+    { t:'Core values', k:'pub_about_values', g:'about-values' },
+    { t:'Our history', k:'pub_about_history', g:'history' },
+    { t:'Leadership', k:'pub_about_leadership', g:'about-leadership' }
+  ]},
+  { id:'admissions', name:'Admissions', icon:'adm', sections:[
+    { t:'Introduction', k:'pubadmissions' },
+    { t:'Enrollment steps', k:'pub_adm_enrollment', g:'admissions-enrollment' },
+    { t:'Requirements', k:'pub_adm_requirements', g:'admissions-requirements' },
+    { t:'Scholarships', k:'pub_adm_scholarships', g:'admissions-scholarships' },
+    { t:'Common questions', k:'pub_adm_faq', g:'admissions-faq' }
+  ]},
+  { id:'academics', name:'Academics', icon:'book', sections:[
+    { t:'Introduction', k:'pubacademics' },
+    { t:'Kindergarten', k:'pub_acad_kindergarten', g:'academics-kindergarten' },
+    { t:'Elementary', k:'pub_acad_elementary', g:'academics-elementary' },
+    { t:'Junior High School', k:'pub_acad_junior_high', g:'academics-junior-high' },
+    { t:'Senior High School', k:'pub_acad_senior_high', g:'academics-senior-high' },
+    { t:'College', k:'pub_acad_college', g:'academics-college' }
+  ]},
+  { id:'campus', name:'Campus Life', icon:'users', sections:[
+    { t:'Introduction', k:'pubcampus' },
+    { t:'Student organizations', k:'pub_campus_organizations', g:'campus-organizations' },
+    { t:'School events', k:'pub_campus_events', g:'campus-events' },
+    { t:'Sports', k:'pub_campus_sports', g:'campus-sports' },
+    { t:'Clubs', k:'pub_campus_clubs', g:'campus-clubs' },
+    { t:'Campus facilities & tour', k:'pub_campus_facilities', g:'facilities' }
+  ]},
+  { id:'forms', name:'Downloadable Forms', icon:'rep', sections:[
+    { t:'Introduction', k:'pubforms' },
+    { t:'TLC application', k:'pub_forms_tlc', g:'forms-tlc-application' },
+    { t:'Consent form', k:'pub_forms_consent', g:'forms-consent' }
+  ]},
+  { id:'news', name:'News & Updates', icon:'cal', sections:[
+    { t:'Introduction', k:'pubnews' },
+    { t:'Announcements', k:'pub_news_announcements', g:'news-announcements' },
+    { t:'Latest news', k:'pub_news_latest', g:'news-latest' },
+    { t:'Upcoming events', k:'pub_news_events', g:'news-events' },
+    { t:'Enrollment announcements', k:'pub_news_enrollment', g:'news-enrollment' },
+    { t:'Achievements', k:'pub_news_achievements', g:'news-achievements' }
+  ]},
+  { id:'contact', name:'Contact Information', icon:'mail', sections:[
+    { t:'Contact details', k:'pubcontact' }
+  ]}
+];
+var WP = { page:'home', blocks:{}, galleries:{} };
+
+function wpFind(id) { return WP_PAGES.filter(function (p) { return p.id === id; })[0] || WP_PAGES[0]; }
+
+function websitePagesPage() {
+  if (typeof SYS === 'function' && !SYS()) return toast('The website pages are for the main administrator.', 'warn');
+  head('Website Pages', 'Edit public page text and gallery photos without touching the spreadsheet');
+  WP.blocks = {}; WP.galleries = {};
+  $('view').innerHTML =
+    '<div class="sbar">' +
+      '<button type="button" class="btn alt" data-act="wpview">View public website</button>' +
+      '<button type="button" class="btn alt" data-act="wpreload">Reload saved content</button>' +
+    '</div>' +
+    '<div class="wp-grid">' +
+      '<div class="card"><div class="ch"><h3>Pages</h3></div><div class="wp-list" id="wpList"></div></div>' +
+      '<div id="wpBody"></div>' +
+    '</div>';
+  wpList();
+  wpOpen(WP.page);
+}
+
+function wpList() {
+  var host = $('wpList');
+  if (!host) return;
+  host.innerHTML = WP_PAGES.map(function (p) {
+    return '<button type="button" data-act="wpick" data-v="' + p.id + '"' + (p.id === WP.page ? ' class="on"' : '') + '>' +
+      (typeof I !== 'undefined' && I[p.icon] ? I[p.icon] : '') + '<span>' + esc(p.name) + '</span></button>';
+  }).join('');
+}
+
+act.wpick = function (id) { if (id) wpOpen(id); };
+
+function wpOpen(id) {
+  WP.page = wpFind(id).id;
+  wpList();
+  var p = wpFind(id), body = $('wpBody');
+  body.innerHTML = p.sections.map(function (s, i) {
+    return '<div class="card wp-sec" data-sec="' + esc(s.k) + '">' +
+      '<div class="ch"><h3>' + esc(s.t) + '</h3></div>' +
+      '<textarea class="wp-ta" id="wpTa_' + esc(s.k) + '" placeholder="Loading&hellip;" disabled></textarea>' +
+      '<div class="wp-acts">' +
+        '<button type="button" class="btn" data-act="wpsave" data-v="' + esc(s.k) + '">Save text</button>' +
+        '<button type="button" class="btn alt" data-act="wpprev" data-v="' + esc(s.k) + '">Preview</button>' +
+        '<span class="muted">Saved automatically as clean HTML</span>' +
+      '</div>' +
+      '<div class="wp-prev hidden" id="wpPrev_' + esc(s.k) + '"></div>' +
+      (s.g ? wpGalleryShell(s) : '') +
+      (s.hint ? '<p class="wp-hint">' + esc(s.hint) + '</p>' : '') +
+    '</div>';
+  }).join('') +
+    '<p class="wp-hint">Text boxes accept simple HTML: <b>&lt;p&gt;</b> for a paragraph, <b>&lt;strong&gt;</b> for bold, ' +
+    '<b>&lt;ul&gt;&lt;li&gt;</b> for a bullet list. If you type plain sentences with no tags at all, each line becomes its own paragraph. ' +
+    'Press <b>Preview</b> to see the result before saving. Changes appear on the public website as soon as you save. ' +
+    'Links cannot be added inside these text boxes &mdash; use the homepage banner buttons for those.</p>';
+  p.sections.forEach(function (s) { wpLoadBlock(s.k); });
+  p.sections.forEach(function (s) { if (s.g) wpLoadGallery(s); });
+}
+
+function wpLoadBlock(key) {
+  var ta = $('wpTa_' + key);
+  if (!ta) return;
+  google.script.run.withSuccessHandler(function (r) {
+    if (!r || !r.success) { ta.placeholder = 'Could not load this block.'; return; }
+    if (WP.blocks[key] == null) WP.blocks[key] = r.data || '';
+    ta.value = WP.blocks[key];
+    ta.disabled = false;
+    ta.placeholder = 'Nothing saved yet — the page shows its standard text. Type here to replace it.';
+  }).withFailureHandler(function () {
+    if (ta) ta.placeholder = 'Could not load this block.';
+  }).getBlock(S.token, key);
+}
+
+/** Plain sentences (no tags at all) become paragraphs, so a non-technical edit is never ignored. */
+function wpNormalize(html) {
+  var s = String(html || '').trim();
+  if (!s) return '';
+  if (/<[a-z!/][^>]*>/i.test(s)) return s;
+  return s.split(/\n{1,}/).map(function (line) {
+    return line.trim() ? '<p>' + esc(line.trim()) + '</p>' : '';
+  }).join('');
+}
+
+act.wpsave = function (key) {
+  if (!key) return;
+  var ta = $('wpTa_' + key);
+  if (!ta) return;
+  var html = wpNormalize(ta.value);
+  var btn = document.querySelector('[data-act="wpsave"][data-v="' + key + '"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+  google.script.run.withSuccessHandler(function (r) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save text'; }
+    if (!r || !r.success) return toast((r && r.error) || 'The text was not saved.', false);
+    WP.blocks[key] = r.data || '';
+    ta.value = WP.blocks[key];
+    var pv = $('wpPrev_' + key);
+    if (pv && !pv.classList.contains('hidden')) pv.innerHTML = WP.blocks[key] || '<i>Nothing saved — the page shows its standard text.</i>';
+    toast(r.message === 'Saved' ? 'Text saved.' : (r.message || 'Saved.'));
+  }).withFailureHandler(function (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save text'; }
+    toast(e.message || 'The text was not saved.', false);
+  }).saveBlock(S.token, key, html);
+};
+
+act.wpprev = function (key) {
+  var pv = $('wpPrev_' + key), ta = $('wpTa_' + key);
+  if (!pv || !ta) return;
+  var show = pv.classList.contains('hidden');
+  if (show) {
+    var html = wpNormalize(ta.value);
+    pv.innerHTML = html || '<i>Nothing saved — the page shows its standard text.</i>';
+  }
+  pv.classList.toggle('hidden', !show);
+};
+
+/* ---------- gallery ---------- */
+
+function wpGalleryShell(s) {
+  var fileId = 'wpGalFile_' + s.g;
+  return '<div class="wp-galbox" data-gal="' + esc(s.g) + '" style="margin-top:16px">' +
+    '<div class="wp-acts" style="margin-top:0"><b style="font-size:12.5px">Photos</b>' +
+      '<button type="button" class="btn alt" data-galadd="' + esc(s.g) + '" ' +
+        'onclick="document.getElementById(\'' + fileId + '\').click()">Upload photo</button>' +
+      '<input type="file" id="' + fileId + '" accept="image/*" hidden ' +
+        'onchange="wpUploadPhoto(\'' + esc(s.g) + '\', this.files[0]);this.value=\'\'">' +
+      '<span class="muted" id="wpGalNote_' + esc(s.g) + '"></span></div>' +
+    '<div class="wp-gal" id="wpGal_' + esc(s.g) + '"><div class="wp-empty">Loading photos&hellip;</div></div>' +
+    '<p class="wp-hint">The first photo is also used as this page&rsquo;s picture. Captions show under each photo; a caption is optional.</p>' +
+  '</div>';
+}
+
+function wpLoadGallery(s) {
+  var host = $('wpGal_' + s.g);
+  if (!host) return;
+  google.script.run.withSuccessHandler(function (r) {
+    if (!r || !r.success) { host.innerHTML = '<div class="wp-empty">' + esc((r && r.error) || 'Could not load the photos.') + '</div>'; return; }
+    WP.galleries[s.g] = r.data || [];
+    wpPhotos(s.g);
+  }).withFailureHandler(function (e) {
+    host.innerHTML = '<div class="wp-empty">' + esc(e.message || 'Could not load the photos.') + '</div>';
+  }).getGallery(S.token, s.g);
+}
+
+function wpPhotos(page) {
+  var host = $('wpGal_' + page), list = WP.galleries[page] || [];
+  if (!host) return;
+  var note = $('wpGalNote_' + page);
+  if (note) note.textContent = list.length ? (list.length + (list.length === 1 ? ' photo' : ' photos')) : '';
+  if (!list.length) {
+    host.innerHTML = '<div class="wp-empty">No photos on this page yet. Use <b>Upload photo</b> to add one.</div>';
+    return;
+  }
+  host.innerHTML = list.map(function (p) {
+    return '<div class="wp-photo" data-id="' + esc(p.id) + '">' +
+      '<div class="shot" id="wpShot_' + esc(p.id) + '">loading&hellip;</div>' +
+      '<div class="cap"><input value="' + esc(p.cap || '') + '" maxlength="120" placeholder="Caption (optional)" id="wpCap_' + esc(p.id) + '"></div>' +
+      '<div class="tools"><button type="button" data-act="wpgcap" data-v="' + esc(page) + '|' + esc(p.id) + '">Save caption</button>' +
+        '<button type="button" class="del" data-act="wpgdel" data-v="' + esc(page) + '|' + esc(p.id) + '">Remove</button></div>' +
+    '</div>';
+  }).join('');
+  list.forEach(function (p) { wpPhoto(page, p.id); });
+}
+
+function wpPhoto(page, id) {
+  google.script.run.withSuccessHandler(function (r) {
+    var box = $('wpShot_' + id);
+    if (!box) return;
+    if (!r || !r.success || !r.data) { box.textContent = 'unavailable'; return; }
+    box.textContent = '';
+    box.style.backgroundImage = 'url("' + String(r.data).replace(/"/g, '') + '")';
+  }).withFailureHandler(function () {
+    var box = $('wpShot_' + id);
+    if (box) box.textContent = 'unavailable';
+  }).getGalleryPhoto(S.token, page, id);
+}
+
+/** Shrinks a phone photo to a JPEG data URL small enough for the script quota. */
+function wpShrink(file) {
+  return new Promise(function (resolve, reject) {
+    var url = URL.createObjectURL(file), img = new Image();
+    img.onload = function () {
+      var tries = [[1600, 0.82], [1400, 0.78], [1200, 0.72], [1000, 0.65]], out = '';
+      for (var i = 0; i < tries.length; i++) {
+        var max = tries[i][0], q = tries[i][1], w = img.naturalWidth, h = img.naturalHeight;
+        if (Math.max(w, h) > max) { var f = max / Math.max(w, h); w = Math.round(w * f); h = Math.round(h * f); }
+        var c = document.createElement('canvas'); c.width = Math.max(1, w); c.height = Math.max(1, h);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        out = c.toDataURL('image/jpeg', q);
+        if (out.length <= 2000000) break;
+      }
+      URL.revokeObjectURL(url);
+      if (!out || out.length > 2200000) reject(new Error('That photo is too large even after resizing. Try a smaller one.'));
+      else resolve(out);
+    };
+    img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('That file could not be read as a photo.')); };
+    img.src = url;
+  });
+}
+
+/* Same flow as the other photo buttons: shrink in the browser, upload, then refresh the strip. */
+function wpUploadPhoto(page, file) {
+  var btn = document.querySelector('[data-galadd="' + page + '"]'), label = btn ? btn.textContent : '';
+  if (!file) return;
+  if (!/^image\//i.test(file.type)) return toast('Please choose a photo (JPEG or PNG).', false);
+  var done = function (msg, okFlag) {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    if (msg) toast(msg, okFlag === false ? false : undefined);
+  };
+  if (btn) { btn.disabled = true; btn.textContent = 'Uploading\u2026'; }
+  wpShrink(file).then(function (dataUrl) {
+    return new Promise(function (resolve, reject) {
+      google.script.run.withSuccessHandler(function (r) {
+        if (!r || !r.success) reject(new Error((r && r.error) || 'The photo was not added.'));
+        else resolve(r);
+      }).withFailureHandler(function (err) { reject(err); }).addGalleryPhoto(S.token, page, dataUrl, '');
+    });
+  }).then(function (r) {
+    WP.galleries[page] = (r.data && r.data.list) || [];
+    wpPhotos(page);
+    done(r.message || 'Photo added.');
+  }).catch(function (err) {
+    done(err && err.message ? err.message : 'The photo was not added.', false);
+  });
+}
+
+act.wpgcap = function (v) {
+  var parts = String(v || '').split('|'), page = parts[0], id = parts[1];
+  var box = $('wpCap_' + id);
+  if (!page || !id || !box) return;
+  google.script.run.withSuccessHandler(function (r) {
+    if (!r || !r.success) return toast((r && r.error) || 'The caption was not saved.', false);
+    WP.galleries[page] = r.data || [];
+    toast(r.message || 'Caption saved.');
+  }).withFailureHandler(function (e) {
+    toast(e.message || 'The caption was not saved.', false);
+  }).setGalleryCaption(S.token, page, id, box.value);
+};
+
+act.wpgdel = function (v) {
+  var parts = String(v || '').split('|'), page = parts[0], id = parts[1];
+  if (!page || !id) return;
+  if (!confirm('Remove this photo from the page? The image file is moved to the Drive trash.')) return;
+  google.script.run.withSuccessHandler(function (r) {
+    if (!r || !r.success) return toast((r && r.error) || 'The photo was not removed.', false);
+    WP.galleries[page] = r.data || [];
+    wpPhotos(page);
+    toast(r.message || 'Photo removed.');
+  }).withFailureHandler(function (e) {
+    toast(e.message || 'The photo was not removed.', false);
+  }).removeGalleryPhoto(S.token, page, id);
+};
+
+act.wpview = function () {
+  google.script.run.withSuccessHandler(function (u) {
+    if (u) window.open(u, '_blank');
+    else toast('The website address is not available yet.', false);
+  }).withFailureHandler(function () {
+    toast('The website address is not available yet.', false);
+  }).getHomeUrl();
+};
+
+act.wpreload = function () { websitePagesPage(); };
+</script>

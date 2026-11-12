@@ -1,0 +1,214 @@
+<style>
+.hs-form{display:grid;gap:18px}
+.hs-hint{color:var(--mut);font-size:12.5px;margin:8px 0 0;line-height:1.55}
+.hs-prev{display:grid;gap:12px}
+.hs-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:#6d8fc3;border:1px solid #6d8fc3;border-radius:10px;overflow:hidden}
+.hs-strip span{background:#eef4ff;color:#092d68;font-size:12px;font-weight:600;text-align:center;padding:11px 6px;line-height:1.3}
+.hs-about{background:linear-gradient(105deg,#fff,#f5f8fd);border:1px solid var(--line,#dbe5f3);border-radius:10px;padding:16px 18px}
+.hs-eye{font-size:11px;font-weight:600;color:#141b29;margin-bottom:7px}
+.hs-eye:before{content:"";display:inline-block;width:22px;height:3px;background:#ff941f;vertical-align:middle;margin-right:8px}
+.hs-about h3{margin:0 0 7px;font:700 20px/1.15 Poppins,Inter,sans-serif;color:#0a367d;letter-spacing:-.02em}
+.hs-about p{margin:0;font-size:12.5px;line-height:1.5;color:#18355f}
+.hs-upd{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(135deg,#07377f,#052a68);color:#fff;border-radius:9px;padding:10px 13px;font-size:13px;font-weight:600}
+.hs-upd b{font:600 14px Poppins,Inter,sans-serif}
+.hs-foot{display:flex;flex-wrap:wrap;gap:10px 18px;background:#06275d;color:#fff;border-radius:9px;padding:11px 14px;font-size:11.5px}
+.hs-foot span{opacity:.95}
+.hs-upd-wrap{border-radius:9px;overflow:hidden}
+.hs-upd{border-radius:0}
+.hs-upd-list{background:linear-gradient(135deg,#07377f,#052a68);color:#fff;padding:6px 13px 8px}
+.hs-updrow{display:grid;grid-template-columns:38px 1fr;gap:10px;padding:7px 0;border-bottom:1px solid #ffffff1a}
+.hs-updrow:last-child{border-bottom:0}
+.hs-date{background:#fff;color:#092f70;border-radius:5px;overflow:hidden;text-align:center;font-weight:800;font-size:13px;line-height:1.15;padding-bottom:2px}
+.hs-date b{display:block;background:#0861df;color:#fff;font-size:8.5px;padding:2px}
+.hs-updrow strong{display:block;font-size:11.5px;line-height:1.25}
+.hs-updrow small{display:block;font-size:10.5px;color:#d7e5ff;line-height:1.3}
+.hs-empty{font-size:11.5px;color:#d7e5ff;padding:5px 0 3px}
+.hs-item{border-top:1px solid var(--line,#dbe5f3);padding-top:12px;margin-top:12px}
+.hs-item:first-child{border-top:0;padding-top:0;margin-top:0}
+.hs-itemhead{font-size:12.5px;font-weight:700;margin-bottom:8px;color:var(--ink,#102b55)}
+.hs-itemhead span{font-weight:400;color:var(--mut)}
+.hs-about-wrap{display:grid;grid-template-columns:140px 1fr;gap:14px;align-items:start}
+.hs-photo{width:140px;height:104px;border-radius:8px;border:1px solid var(--line,#dbe5f3);background:#dce8f7 center/cover no-repeat}
+@media(max-width:760px){.hs-strip{grid-template-columns:repeat(2,1fr)}.hs-about-wrap{grid-template-columns:1fr}.hs-photo{width:100%;height:150px}}
+</style>
+<script>
+/* Homepage sections editor — the values strip, About block, Latest Updates
+   heading and footer contact lines below the homepage banner.
+   Reads and writes pubhome_content through getHomepageContent / saveHomepageContent. */
+function homepageSectionsPage() {
+  if (typeof SYS === 'function' && !SYS()) return toast('Homepage settings are for the main administrator.', 'warn');
+  head('Homepage Sections', 'Edit the headings and text below the homepage banner');
+  $('view').innerHTML = '<div class="card"><div class="aemp">Loading homepage text&hellip;</div></div>';
+  google.script.run.withSuccessHandler(function (r) {
+    if (!r || !r.success) {
+      $('view').innerHTML = '<div class="card"><div class="aemp">' + esc((r && r.error) || 'Could not load the homepage text.') + '</div></div>';
+      return;
+    }
+    hsRender(r.data || {});
+  }).withFailureHandler(function (e) {
+    $('view').innerHTML = '<div class="card"><div class="aemp">' + esc(e.message || 'Could not load the homepage text.') + '</div></div>';
+  }).getHomepageContent();
+}
+
+function hsField(id, label, value, max, wide, textarea, upload) {
+  var input = textarea
+    ? '<textarea id="' + id + '" maxlength="' + max + '" rows="3" oninput="hsPreview()" style="width:100%;resize:vertical">' + esc(value || '') + '</textarea>'
+    : '<input id="' + id + '" value="' + esc(value || '') + '" maxlength="' + max + '" oninput="hsPreview()">';
+  return '<div class="f"' + (wide ? ' style="grid-column:1/-1"' : '') + '><label for="' + id + '">' + label + '</label>' + input +
+    (upload ? hhUploadBtn(id, 'hsPreview') : '') + '</div>';
+}
+
+function hsItemRows(items) {
+  return [0, 1, 2, 3].map(function (i) {
+    var it = items[i] || {};
+    return '<div class="hs-item"><div class="hs-itemhead">Card line ' + (i + 1) +
+      (i === 0 ? ' <span>&middot; blank rows are ignored</span>' : '') + '</div>' +
+      '<div class="g">' +
+        hsField('hsIm' + i, 'Month badge', it.m, 4) +
+        hsField('hsId' + i, 'Day badge', it.d, 3) +
+        hsField('hsIt' + i, 'Title', it.t, 70) +
+        hsField('hsIs' + i, 'Small line (venue or note)', it.s, 90, true) +
+      '</div></div>';
+  }).join('');
+}
+
+function hsRender(c) {
+  var v = c.values || ['', '', '', '', ''];
+  $('view').innerHTML =
+    '<div class="sbar">' +
+      '<button type="button" class="btn" id="hsSave" data-act="hssave">Save &amp; publish</button>' +
+      '<button type="button" class="btn alt" data-act="hsreload">Reload saved version</button>' +
+      '<button type="button" class="btn alt" data-act="hsview">View homepage</button>' +
+    '</div>' +
+    '<div class="hs-form">' +
+      '<div class="card"><div class="ch"><h3>Preview</h3><span style="color:var(--mut);font-size:13px">The sections below the banner</span></div>' +
+        '<div class="hs-prev">' +
+          '<div class="hs-strip">' +
+            '<span id="hsV1"></span><span id="hsV2"></span><span id="hsV3"></span><span id="hsV4"></span><span id="hsV5"></span>' +
+          '</div>' +
+          '<div class="hs-about-wrap">' +
+            '<div class="hs-photo" id="hsPhoto"></div>' +
+            '<div class="hs-about">' +
+              '<div class="hs-eye" id="hsEye"></div><h3 id="hsTitle"></h3><p id="hsText"></p>' +
+            '</div>' +
+          '</div>' +
+          '<div class="hs-upd-wrap"><div class="hs-upd"><b id="hsUpd"></b><span style="font-size:11.5px;font-weight:600">View All &rarr;</span></div>' +
+            '<div class="hs-upd-list" id="hsUpdList"></div></div>' +
+          '<div class="hs-foot"><span id="hsLoc"></span><span id="hsPhone"></span><span id="hsMail"></span></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="card"><div class="ch"><h3>Values strip</h3><span style="color:var(--mut);font-size:13px">Five short labels</span></div>' +
+        '<div class="g">' +
+          hsField('hsVal1', 'Label 1', v[0], 40) +
+          hsField('hsVal2', 'Label 2', v[1], 40) +
+          hsField('hsVal3', 'Label 3', v[2], 40) +
+          hsField('hsVal4', 'Label 4', v[3], 40) +
+          hsField('hsVal5', 'Label 5', v[4], 40) +
+        '</div>' +
+        '<p class="hs-hint">These sit in the blue strip just under the banner. The icons stay the same; only the wording changes.</p>' +
+      '</div>' +
+      '<div class="card"><div class="ch"><h3>About section</h3><span style="color:var(--mut);font-size:13px">Next to the photo and Latest Updates</span></div>' +
+        '<div class="g">' +
+          hsField('hsAboutEye', 'Small line above the heading', c.aboutEyebrow, 60, true) +
+          hsField('hsAboutTitle', 'Heading', c.aboutTitle, 90, true) +
+          hsField('hsAboutText', 'Paragraph', c.aboutText, 400, true, true) +
+          hsField('hsAboutPhoto', 'Photo', c.aboutPhoto, 1000, true, false, true) +
+          hsField('hsAboutPhotoAlt', 'Photo description (for screen readers)', c.aboutPhotoAlt, 100, true) +
+        '</div>' +
+        '<p class="hs-hint">The photo sits to the left of this text. <b>Upload photo</b> resizes the picture in your browser ' +
+        'and stores it in the school photos folder for you; you can also paste a Google Drive thumbnail link, ' +
+        '<b>https://drive.google.com/thumbnail?id=FILE_ID&amp;sz=w1200</b>. ' +
+        'The &ldquo;Learn More&rdquo; button keeps linking to the About page.</p>' +
+      '</div>' +
+      '<div class="card"><div class="ch"><h3>Latest Updates card</h3><span style="color:var(--mut);font-size:13px">Heading and the lines inside</span></div>' +
+        '<div class="g">' + hsField('hsUpdTitle', 'Card heading', c.updatesTitle, 60, true) + '</div>' +
+        '<div style="margin-top:14px">' + hsItemRows(c.updatesItems || []) + '</div>' +
+        '<p class="hs-hint">Fill a title to show your own line here. <b>Leave every row blank</b> and the card goes back to pulling live announcements and upcoming events from your Events record.</p>' +
+      '</div>' +
+      '<div class="card"><div class="ch"><h3>Footer contact lines</h3><span style="color:var(--mut);font-size:13px">Homepage and every interior page</span></div>' +
+        '<div class="g">' +
+          hsField('hsLocIn', 'Location', c.footerLocation, 90, true) +
+          hsField('hsPhoneIn', 'Phone', c.footerPhone, 90) +
+          hsField('hsMailIn', 'Email', c.footerEmail, 90) +
+        '</div>' +
+        '<p class="hs-hint">These lines show in the footer of the homepage <b>and</b> of every interior page, so there is one place to change the school&rsquo;s contact details. Keep the small icons at the start if you want them to stay; clearing a box restores the standard wording.</p>' +
+      '</div>' +
+    '</div>';
+  hsPreview();
+}
+
+function hsPreview() {
+  var g = function (id) { var el = $(id); return el ? el.value.trim() : ''; };
+  var defaults = { hsV1: 'Quality Education', hsV2: 'Holistic Development', hsV3: 'Academic Excellence', hsV4: 'Supportive Community', hsV5: 'A Brighter Future' };
+  [1, 2, 3, 4, 5].forEach(function (i) {
+    var el = $('hsV' + i);
+    if (el) el.textContent = g('hsVal' + i) || defaults['hsV' + i];
+  });
+  var set = function (id, value) { var el = $(id); if (el) el.textContent = value; };
+  set('hsEye', g('hsAboutEye') || 'ABOUT MOREH ACADEMY');
+  set('hsTitle', g('hsAboutTitle') || 'Building a Strong Foundation for Lifelong Success');
+  set('hsText', g('hsAboutText') || 'Moreh Academy is a learning community committed to providing excellent and values-driven education from Kindergarten to Grade 12.');
+  var photo = $('hsPhoto');
+  if (photo) {
+    var url = g('hsAboutPhoto').replace(/"/g, '');
+    photo.style.backgroundImage = url ? 'url("' + url + '")' : '';
+  }
+  set('hsUpd', g('hsUpdTitle') || '📣 Latest Updates');
+  var list = $('hsUpdList');
+  if (list) {
+    var rows = [0, 1, 2, 3].map(function (i) {
+      return { m: g('hsIm' + i), d: g('hsId' + i), t: g('hsIt' + i), s: g('hsIs' + i) };
+    }).filter(function (r) { return r.t; });
+    list.innerHTML = rows.length
+      ? rows.map(function (r) {
+          return '<div class="hs-updrow"><div class="hs-date"><b>' + esc(String(r.m || 'INFO').toUpperCase()) + '</b>' + esc(r.d || '\u2014') + '</div>' +
+            '<div><strong>' + esc(r.t) + '</strong>' + (r.s ? '<small>' + esc(r.s) + '</small>' : '') + '</div></div>';
+        }).join('')
+      : '<div class="hs-empty">Live announcements and upcoming events from your Events record appear here.</div>';
+  }
+  set('hsLoc', g('hsLocIn') || '📍 Moreh Academy, Taguig City, Philippines');
+  set('hsPhone', g('hsPhoneIn') || '☎ Admissions: 0961 876 6886');
+  set('hsMail', g('hsMailIn') || '✉ registrar@morehacademy.com');
+}
+
+act.hssave = function () {
+  var g = function (id) { var el = $(id); return el ? el.value.trim() : ''; };
+  var payload = {
+    values: [g('hsVal1'), g('hsVal2'), g('hsVal3'), g('hsVal4'), g('hsVal5')],
+    aboutEyebrow: g('hsAboutEye'),
+    aboutTitle: g('hsAboutTitle'),
+    aboutText: g('hsAboutText'),
+    aboutPhoto: g('hsAboutPhoto'),
+    aboutPhotoAlt: g('hsAboutPhotoAlt'),
+    updatesTitle: g('hsUpdTitle'),
+    updatesItems: [0, 1, 2, 3].map(function (i) {
+      return { m: g('hsIm' + i), d: g('hsId' + i), t: g('hsIt' + i), s: g('hsIs' + i) };
+    }).filter(function (r) { return r.t; }),
+    footerLocation: g('hsLocIn'),
+    footerPhone: g('hsPhoneIn'),
+    footerEmail: g('hsMailIn')
+  };
+  var btn = $('hsSave'), label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+  google.script.run.withSuccessHandler(function (r) {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    if (!r || !r.success) return toast((r && r.error) || 'The homepage text was not saved.', false);
+    toast(r.message || 'Homepage sections saved.');
+    hsRender(r.data || payload);
+  }).withFailureHandler(function (e) {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    toast(e.message || 'The homepage text was not saved.', false);
+  }).saveHomepageContent(S.token, payload);
+};
+
+act.hsreload = function () { homepageSectionsPage(); };
+
+act.hsview = function () {
+  google.script.run.withSuccessHandler(function (u) {
+    if (u) window.open(u, '_top');
+    else toast('The homepage address is not available yet.', false);
+  }).withFailureHandler(function () {
+    toast('The homepage address is not available yet.', false);
+  }).getHomeUrl();
+};
+</script>
