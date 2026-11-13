@@ -89,9 +89,11 @@ function getPublicBlock(key) {
     // Admin's initial editor placeholders contain headings and generic "to be added" text.
     // Do not let those placeholders replace the complete public-page template.
     const visible = html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, '').trim();
-    const hasRealContent = /<(p|li|h[1-4]|details|summary|blockquote)\b/i.test(html) &&
-      !/Content to be added by the Administrator/i.test(html) && !!visible;
-    if (!hasRealContent) html = '';
+    // Any saved words are shown. Staff often type plain lines, <br> lists or bold labels rather than <p>
+    // paragraphs, and those were being thrown away. Only the old editor's generic placeholder is ignored,
+    // so a leftover stub cannot blank out a complete public page.
+    const isPlaceholder = /Content to be added by the Administrator/i.test(html);
+    if (!visible || isPlaceholder) html = '';
     return ok({ html: html });
   } catch (e) { return fail(e); }
 }
@@ -524,3 +526,53 @@ function saveHomepageHero(token, input) {
   finally { try { lock.releaseLock(); } catch(_) {} }
 }
 
+
+/* ---------- Editable section cards on the About Us landing page ---------- */
+
+const ABOUT_CARDS_KEY_ = 'pub_about_cards';
+/** The three cards under the About Us heading. Cleared fields fall back to these. */
+const ABOUT_CARDS_DEFAULTS_ = [
+  { title:'Vision, Mission & Core Values', text:'Explore this section for more information.', link:'?page=about-values' },
+  { title:'History', text:'Explore this section for more information.', link:'?page=about-history' },
+  { title:'School Leadership', text:'Explore this section for more information.', link:'?page=about-leadership' }
+];
+const ABOUT_CARD_LINK_RE_ = /^(?:https:\/\/[A-Za-z0-9-.]+(?::\d+)?(?:\/[^\s"'<>]*)?|\?page=[A-Za-z0-9_-]+)$/;
+/** Validates the three cards. A blank title or text keeps the approved wording; a link must be https or ?page=. */
+function aboutCardsClean_(input) {
+  const arr = Array.isArray(input) ? input : [];
+  return ABOUT_CARDS_DEFAULTS_.map((d, i) => {
+    const v = arr[i] && typeof arr[i] === 'object' ? arr[i] : {};
+    const link = String(v.link == null ? d.link : v.link).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 300) || d.link;
+    if (!ABOUT_CARD_LINK_RE_.test(link)) throw new Error('Card ' + (i + 1) + ': the link must start with https:// or ?page=');
+    return {
+      title: homeContentText_(v.title, 90, d.title),
+      text:  homeContentText_(v.text, 200, d.text),
+      link:  link
+    };
+  });
+}
+function aboutCardsRead_() {
+  const b = blockRow_(ABOUT_CARDS_KEY_);
+  let raw = null;
+  if (b.row) { try { raw = JSON.parse(String(b.sh.getRange(b.row, 2).getValue() || '')); } catch (_) { raw = null; } }
+  try { return aboutCardsClean_(raw); } catch (_) { return aboutCardsClean_(null); }
+}
+/** PUBLIC. The card wording and links only, so it is safe for the open web. */
+function getPublicAboutCards() {
+  try { return ok(aboutCardsRead_()); } catch (e) { return fail(e); }
+}
+/** OWNER ONLY. Current cards plus the standard wording, for the Website Pages editor. */
+function getAboutCards(token) {
+  try { owner_(token); return ok({ saved: aboutCardsRead_(), defaults: ABOUT_CARDS_DEFAULTS_ }); } catch (e) { return fail(e); }
+}
+/** OWNER ONLY. */
+function saveAboutCards(token, cards) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const u = owner_(token), clean = aboutCardsClean_(cards), b = blockRow_(ABOUT_CARDS_KEY_);
+    put_(b.sh, b.row || (b.sh.getLastRow() + 1), 1, [[ABOUT_CARDS_KEY_, JSON.stringify(clean)]]);
+    audit_(u, 'content.save', ABOUT_CARDS_KEY_, 'About Us section cards');
+    return ok(clean, 'Section cards saved.');
+  } catch (e) { return fail(e); } finally { try { lock.releaseLock(); } catch (_) {} }
+}
