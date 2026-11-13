@@ -38,7 +38,7 @@ const WP_PAGES = [
   ]},
   { id:'about', name:'About Us', icon:'bldg', sections:[
     { t:'Introduction', k:'pubabout' },
-    { t:'Section cards', k:'pub_about_cards', cards:'about',
+    { t:'Section cards', k:'pub_about_cards', cards:'about', n:3,
       hint:'The three cards under the About Us heading. Change the wording, or point a card at another page: an internal link is written ?page=about-history, an outside site starts with https://. A cleared title or small text falls back to the standard wording.' },
     { t:'Core values', k:'pub_about_values', g:'about-values' },
     { t:'Our history', k:'pub_about_history', g:'history' },
@@ -47,6 +47,8 @@ const WP_PAGES = [
   ]},
   { id:'admissions', name:'Admissions', icon:'adm', sections:[
     { t:'Introduction', k:'pubadmissions' },
+    { t:'Section cards', k:'pub_admissions_cards', cards:'admissions', n:4,
+      hint:'The four cards under the Admissions heading. Change the wording, or point a card at another page: an internal link is written ?page=admissions-enrollment, an outside site starts with https://. A cleared title or small text falls back to the standard wording.' },
     { t:'Enrollment steps', k:'pub_adm_enrollment', g:'admissions-enrollment' },
     { t:'Requirements', k:'pub_adm_requirements', g:'admissions-requirements' },
     { t:'Scholarships', k:'pub_adm_scholarships', g:'admissions-scholarships' },
@@ -54,6 +56,8 @@ const WP_PAGES = [
   ]},
   { id:'academics', name:'Academics', icon:'book', sections:[
     { t:'Introduction', k:'pubacademics' },
+    { t:'Section cards', k:'pub_academics_cards', cards:'academics', n:5,
+      hint:'The five cards under the Academics heading. Change the wording, or point a card at another page: an internal link is written ?page=academics-kindergarten, an outside site starts with https://. A cleared title or small text falls back to the standard wording.' },
     { t:'Kindergarten', k:'pub_acad_kindergarten', g:'academics-kindergarten' },
     { t:'Elementary', k:'pub_acad_elementary', g:'academics-elementary' },
     { t:'Junior High School', k:'pub_acad_junior_high', g:'academics-junior-high' },
@@ -62,6 +66,8 @@ const WP_PAGES = [
   ]},
   { id:'campus', name:'Campus Life', icon:'users', sections:[
     { t:'Introduction', k:'pubcampus' },
+    { t:'Section cards', k:'pub_campus_cards', cards:'campus', n:5,
+      hint:'The five cards under the Campus Life heading. Change the wording, or point a card at another page: an internal link is written ?page=campus-organizations, an outside site starts with https://. A cleared title or small text falls back to the standard wording.' },
     { t:'Student organizations', k:'pub_campus_organizations', g:'campus-organizations' },
     { t:'School events', k:'pub_campus_events', g:'campus-events' },
     { t:'Sports', k:'pub_campus_sports', g:'campus-sports' },
@@ -70,11 +76,15 @@ const WP_PAGES = [
   ]},
   { id:'forms', name:'Downloadable Forms', icon:'rep', sections:[
     { t:'Introduction', k:'pubforms' },
+    { t:'Section cards', k:'pub_forms_cards', cards:'forms', n:2,
+      hint:'The two cards under the Downloadable Forms heading. Change the wording, or point a card at another page: an internal link is written ?page=forms-consent, an outside site starts with https://. A cleared title or small text falls back to the standard wording.' },
     { t:'TLC application', k:'pub_forms_tlc', g:'forms-tlc-application' },
     { t:'Consent form', k:'pub_forms_consent', g:'forms-consent' }
   ]},
   { id:'news', name:'News & Updates', icon:'cal', sections:[
     { t:'Introduction', k:'pubnews' },
+    { t:'Section cards', k:'pub_news_cards', cards:'news', n:5,
+      hint:'The five cards under the News & Updates heading. Change the wording, or point a card at another page: an internal link is written ?page=news-latest, an outside site starts with https://. A cleared title or small text falls back to the standard wording.' },
     { t:'Announcements', k:'pub_news_announcements', g:'news-announcements' },
     { t:'Latest news', k:'pub_news_latest', g:'news-latest' },
     { t:'Upcoming events', k:'pub_news_events', g:'news-events' },
@@ -145,61 +155,77 @@ function wpOpen(id) {
   p.sections.forEach(function (s) { if (s.g) wpLoadGallery(s); });
 }
 
-/* ---------- section cards (the three cards under the About Us heading) ---------- */
+/* ---------- section cards (the link grid on each group landing page) ---------- */
+
+/** Each group has its own card ids, so two card sections can never read each other's boxes. */
+function wpCardId(group, i, field) { return 'wpC_' + group + '_' + i + field; }
 
 function wpCardsSection(s) {
-  var rows = [0, 1, 2].map(function (i) {
-    return '<div class="wp-sec" data-card="' + i + '" style="margin:14px 0 0">' +
+  var group = s.cards, n = s.n || 3, rows = [];
+  for (var i = 0; i < n; i++) {
+    rows.push('<div class="wp-sec" data-card="' + i + '" style="margin:14px 0 0">' +
       '<div class="ch"><h3>Card ' + (i + 1) + '</h3></div>' +
       '<div class="g">' +
-        '<div class="f"><label for="wpC' + i + 'T">Title</label>' +
-          '<input id="wpC' + i + 'T" maxlength="90"></div>' +
-        '<div class="f"><label for="wpC' + i + 'S">Small text</label>' +
-          '<input id="wpC' + i + 'S" maxlength="200"></div>' +
-        '<div class="f" style="grid-column:1/-1"><label for="wpC' + i + 'L">Link</label>' +
-          '<input id="wpC' + i + 'L" maxlength="300" style="text-transform:none" placeholder="?page=about-values"></div>' +
-      '</div></div>';
-  }).join('');
+        '<div class="f"><label for="' + wpCardId(group, i, 'T') + '">Title</label>' +
+          '<input id="' + wpCardId(group, i, 'T') + '" maxlength="90"></div>' +
+        '<div class="f"><label for="' + wpCardId(group, i, 'S') + '">Small text</label>' +
+          '<input id="' + wpCardId(group, i, 'S') + '" maxlength="200"></div>' +
+        '<div class="f" style="grid-column:1/-1"><label for="' + wpCardId(group, i, 'L') + '">Link</label>' +
+          '<input id="' + wpCardId(group, i, 'L') + '" maxlength="300" style="text-transform:none" placeholder="?page="></div>' +
+      '</div></div>');
+  }
   return '<div class="card wp-sec">' +
-    '<div class="ch"><h3>' + esc(s.t) + '</h3><span style="color:var(--mut);font-size:13px">Under the About Us heading</span></div>' +
-    rows +
-    '<div class="wp-acts"><button type="button" class="btn" data-act="wpcardsave">Save cards</button>' +
+    '<div class="ch"><h3>' + esc(s.t) + '</h3><span style="color:var(--mut);font-size:13px">Under the ' + esc(wpFind(WP.page).name) + ' heading</span></div>' +
+    rows.join('') +
+    '<div class="wp-acts"><button type="button" class="btn" data-act="wpcardsave" data-v="' + esc(group) + '">Save cards</button>' +
       '<span class="muted">Saved together with one button</span></div>' +
     (s.hint ? '<p class="wp-hint">' + esc(s.hint) + '</p>' : '') +
   '</div>';
 }
 
 function wpLoadCards(s) {
+  var group = s.cards;
   google.script.run.withSuccessHandler(function (r) {
     if (!r || !r.success) return toast((r && r.error) || 'Could not load the section cards.', false);
-    (r.data.saved || []).forEach(function (c, i) {
-      var t = $('wpC' + i + 'T'), x = $('wpC' + i + 'S'), l = $('wpC' + i + 'L');
+    var saved = (r.data && r.data.saved) || [], defaults = (r.data && r.data.defaults) || [];
+    saved.forEach(function (c, i) {
+      var t = $(wpCardId(group, i, 'T')), x = $(wpCardId(group, i, 'S')), l = $(wpCardId(group, i, 'L'));
       if (t) t.value = c.title || '';
       if (x) x.value = c.text || '';
       if (l) l.value = c.link || '';
     });
+    // An empty box falls back to the standard wording, so show that wording as the placeholder.
+    defaults.forEach(function (d, i) {
+      var t = $(wpCardId(group, i, 'T')), x = $(wpCardId(group, i, 'S')), l = $(wpCardId(group, i, 'L'));
+      if (t) t.placeholder = d.title || '';
+      if (x) x.placeholder = d.text || '';
+      if (l) l.placeholder = d.link || '';
+    });
   }).withFailureHandler(function (e) {
     toast(e.message || 'Could not load the section cards.', false);
-  }).getAboutCards(S.token);
+  }).getSectionCards(S.token, group);
 }
 
-act.wpcardsave = function () {
-  var cards = [0, 1, 2].map(function (i) {
-    var t = $('wpC' + i + 'T'), x = $('wpC' + i + 'S'), l = $('wpC' + i + 'L');
-    return { title: t ? t.value : '', text: x ? x.value : '', link: l ? l.value : '' };
-  });
-  var btn = document.querySelector('[data-act="wpcardsave"]');
+act.wpcardsave = function (group) {
+  if (!group) return;
+  var cards = [], i = 0;
+  while ($(wpCardId(group, i, 'T'))) {
+    var t = $(wpCardId(group, i, 'T')), x = $(wpCardId(group, i, 'S')), l = $(wpCardId(group, i, 'L'));
+    cards.push({ title: t.value, text: x ? x.value : '', link: l ? l.value : '' });
+    i++;
+  }
+  var btn = document.querySelector('[data-act="wpcardsave"][data-v="' + group + '"]');
   if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
   var done = function (r, err) {
     if (btn) { btn.disabled = false; btn.textContent = 'Save cards'; }
     if (err || !r || !r.success) return toast((err && err.message) || (r && r.error) || 'The section cards were not saved.', false);
     cards = r.data || cards;
-    cards.forEach(function (c, i) { var l = $('wpC' + i + 'L'); if (l) l.value = c.link || ''; });
+    cards.forEach(function (c, i) { var l = $(wpCardId(group, i, 'L')); if (l) l.value = c.link || ''; });
     toast(r.message || 'Section cards saved.');
   };
   google.script.run.withSuccessHandler(function (r) { done(r); })
     .withFailureHandler(function (e) { done(null, e); })
-    .saveAboutCards(S.token, cards);
+    .saveSectionCards(S.token, group, cards);
 };
 
 function wpLoadBlock(key) {
