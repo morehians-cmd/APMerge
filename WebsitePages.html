@@ -38,9 +38,12 @@ const WP_PAGES = [
   ]},
   { id:'about', name:'About Us', icon:'bldg', sections:[
     { t:'Introduction', k:'pubabout' },
+    { t:'Section cards', k:'pub_about_cards', cards:'about',
+      hint:'The three cards under the About Us heading. Change the wording, or point a card at another page: an internal link is written ?page=about-history, an outside site starts with https://. A cleared title or small text falls back to the standard wording.' },
     { t:'Core values', k:'pub_about_values', g:'about-values' },
     { t:'Our history', k:'pub_about_history', g:'history' },
-    { t:'Leadership', k:'pub_about_leadership', g:'about-leadership' }
+    { t:'Leadership', k:'pub_about_leadership', edit:'leaders',
+      hint:'The photo, name and position cards on this page are edited in Home \u203a Institutional \u203a About Moreh Academy, where each person is one card. Use Edit Key Leadership below. Text saved here appears above those cards.' }
   ]},
   { id:'admissions', name:'Admissions', icon:'adm', sections:[
     { t:'Introduction', k:'pubadmissions' },
@@ -119,6 +122,7 @@ function wpOpen(id) {
   wpList();
   var p = wpFind(id), body = $('wpBody');
   body.innerHTML = p.sections.map(function (s, i) {
+    if (s.cards) return wpCardsSection(s);
     return '<div class="card wp-sec" data-sec="' + esc(s.k) + '">' +
       '<div class="ch"><h3>' + esc(s.t) + '</h3></div>' +
       '<textarea class="wp-ta" id="wpTa_' + esc(s.k) + '" placeholder="Loading&hellip;" disabled></textarea>' +
@@ -127,6 +131,7 @@ function wpOpen(id) {
         '<button type="button" class="btn alt" data-act="wpprev" data-v="' + esc(s.k) + '">Preview</button>' +
         '<span class="muted">Saved automatically as clean HTML</span>' +
       '</div>' +
+      (s.edit ? '<div class="wp-acts" style="margin-top:8px"><button type="button" class="btn alt" data-act="wpabedit">' + esc(s.edit === 'leaders' ? 'Edit Key Leadership' : 'Open About editor') + '</button></div>' : '') +
       '<div class="wp-prev hidden" id="wpPrev_' + esc(s.k) + '"></div>' +
       (s.g ? wpGalleryShell(s) : '') +
       (s.hint ? '<p class="wp-hint">' + esc(s.hint) + '</p>' : '') +
@@ -136,9 +141,66 @@ function wpOpen(id) {
     '<b>&lt;ul&gt;&lt;li&gt;</b> for a bullet list. If you type plain sentences with no tags at all, each line becomes its own paragraph. ' +
     'Press <b>Preview</b> to see the result before saving. Changes appear on the public website as soon as you save. ' +
     'Links cannot be added inside these text boxes &mdash; use the homepage banner buttons for those.</p>';
-  p.sections.forEach(function (s) { wpLoadBlock(s.k); });
+  p.sections.forEach(function (s) { if (s.cards) wpLoadCards(s); else wpLoadBlock(s.k); });
   p.sections.forEach(function (s) { if (s.g) wpLoadGallery(s); });
 }
+
+/* ---------- section cards (the three cards under the About Us heading) ---------- */
+
+function wpCardsSection(s) {
+  var rows = [0, 1, 2].map(function (i) {
+    return '<div class="wp-sec" data-card="' + i + '" style="margin:14px 0 0">' +
+      '<div class="ch"><h3>Card ' + (i + 1) + '</h3></div>' +
+      '<div class="g">' +
+        '<div class="f"><label for="wpC' + i + 'T">Title</label>' +
+          '<input id="wpC' + i + 'T" maxlength="90"></div>' +
+        '<div class="f"><label for="wpC' + i + 'S">Small text</label>' +
+          '<input id="wpC' + i + 'S" maxlength="200"></div>' +
+        '<div class="f" style="grid-column:1/-1"><label for="wpC' + i + 'L">Link</label>' +
+          '<input id="wpC' + i + 'L" maxlength="300" style="text-transform:none" placeholder="?page=about-values"></div>' +
+      '</div></div>';
+  }).join('');
+  return '<div class="card wp-sec">' +
+    '<div class="ch"><h3>' + esc(s.t) + '</h3><span style="color:var(--mut);font-size:13px">Under the About Us heading</span></div>' +
+    rows +
+    '<div class="wp-acts"><button type="button" class="btn" data-act="wpcardsave">Save cards</button>' +
+      '<span class="muted">Saved together with one button</span></div>' +
+    (s.hint ? '<p class="wp-hint">' + esc(s.hint) + '</p>' : '') +
+  '</div>';
+}
+
+function wpLoadCards(s) {
+  google.script.run.withSuccessHandler(function (r) {
+    if (!r || !r.success) return toast((r && r.error) || 'Could not load the section cards.', false);
+    (r.data.saved || []).forEach(function (c, i) {
+      var t = $('wpC' + i + 'T'), x = $('wpC' + i + 'S'), l = $('wpC' + i + 'L');
+      if (t) t.value = c.title || '';
+      if (x) x.value = c.text || '';
+      if (l) l.value = c.link || '';
+    });
+  }).withFailureHandler(function (e) {
+    toast(e.message || 'Could not load the section cards.', false);
+  }).getAboutCards(S.token);
+}
+
+act.wpcardsave = function () {
+  var cards = [0, 1, 2].map(function (i) {
+    var t = $('wpC' + i + 'T'), x = $('wpC' + i + 'S'), l = $('wpC' + i + 'L');
+    return { title: t ? t.value : '', text: x ? x.value : '', link: l ? l.value : '' };
+  });
+  var btn = document.querySelector('[data-act="wpcardsave"]');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving\u2026'; }
+  var done = function (r, err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save cards'; }
+    if (err || !r || !r.success) return toast((err && err.message) || (r && r.error) || 'The section cards were not saved.', false);
+    cards = r.data || cards;
+    cards.forEach(function (c, i) { var l = $('wpC' + i + 'L'); if (l) l.value = c.link || ''; });
+    toast(r.message || 'Section cards saved.');
+  };
+  google.script.run.withSuccessHandler(function (r) { done(r); })
+    .withFailureHandler(function (e) { done(null, e); })
+    .saveAboutCards(S.token, cards);
+};
 
 function wpLoadBlock(key) {
   var ta = $('wpTa_' + key);
@@ -340,6 +402,11 @@ act.wpview = function () {
   }).withFailureHandler(function () {
     toast('The website address is not available yet.', false);
   }).getHomeUrl();
+};
+
+act.wpabedit = function () {
+  if (typeof aboutPage === 'function') aboutPage();
+  else toast('Open Home \u203a Institutional \u203a About Moreh Academy to edit the leadership team.', 'warn');
 };
 
 act.wpreload = function () { websitePagesPage(); };
