@@ -14,7 +14,7 @@ All data lives in the Google Spreadsheet the script is attached to. Website word
 | `appsscript.json` | Project manifest (Asia/Manila, V8, web app runs as the deploying user, public access). |
 | `Code.gs` | Core: schema, search, dashboard, reports, `doGet` routing, site constants. |
 | `Security.gs`, `Protection.gs`, `Hardening.gs`, `SignInGuard.gs`, `MailSwitch.gs`, `MailQueue.gs`, `StaffControl.gs` | Sign-in, sessions, hashing, audit, backups, mail, staff control. |
-| `Academic.gs`, `College.gs`, `Report.gs`, `ReEnroll.gs`, `Retention.gs`, `IdCard.gs`, `Cor.gs`, `Speed.gs`, `Housekeeping.gs`, `Contact.gs`, `Flags.gs`, `DashboardSpec.gs`, `DashboardAudit.gs` | Feature modules (academics, College roster, reports, ID cards, scheduled jobs). |
+| `Academic.gs`, `CollegeModule.gs`, `Report.gs`, `ReEnroll.gs`, `Retention.gs`, `IdCard.gs`, `Cor.gs`, `Speed.gs`, `Housekeeping.gs`, `Contact.gs`, `Flags.gs`, `DashboardSpec.gs`, `DashboardAudit.gs` | Feature modules (academics, College roster, reports, ID cards, scheduled jobs). |
 | `Public.gs`, `Gallery.gs`, `Content.gs` | Public site data: homepage content, page banners and intros, page text, photo galleries, uploads. |
 | `Index.html` | Dashboard shell. |
 | `College.html`, `ActivityLog.html`, `HomepageHero.html`, `HomepageSections.html`, `PageBanners.html`, `WebsitePages.html` | Dashboard screens, pulled in by `include()` at the end of `Index.html`. |
@@ -42,6 +42,7 @@ The script must be **bound to the school's spreadsheet**: the code reads and wri
 
 ## Notes
 
+- The College module is `CollegeModule.gs`, not `College.gs`: Apps Script will not hold two project files with the same name, and the dashboard screen is already `College.html`. The file's functions and API are unchanged.
 - New spreadsheet columns must be added at the **end** of `FIELDS` in `Code.gs` — the order matters for existing rows.
 - Photo uploads are resized in the browser before being stored, so staff never need to resize images themselves.
 - Keep secrets (`SALT`, `PEPPER`, the photo folder ID) out of screenshots, chats and public copies of this repository.
