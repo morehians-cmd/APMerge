@@ -25,7 +25,7 @@ function saveBlock(token, key, html) {
     const h = cleanPolicy_(html), b = blockRow_(key);
     put_(b.sh, b.row || (b.sh.getLastRow() + 1), 1, [[key, h]]);
     audit_(ou, 'content.save', key, '');
-    if (key === 'guide') invalidatePublicContentCache_();
+    invalidatePublicContentCache_();   // the homepage reuses these blocks; never leave a stale copy
     return ok(h, 'Saved');
   } catch (e) { return fail(e); } finally { try { lock.releaseLock(); } catch (_) {} }
 }
