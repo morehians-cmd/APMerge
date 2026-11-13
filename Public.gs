@@ -88,8 +88,9 @@ function getPublicBlock(key) {
     let html = saved ? cleanPolicy_(saved) : '';
     // Admin's initial editor placeholders contain headings and generic "to be added" text.
     // Do not let those placeholders replace the complete public-page template.
+    const visible = html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, '').trim();
     const hasRealContent = /<(p|li|h[1-4]|details|summary|blockquote)\b/i.test(html) &&
-      !/Content to be added by the Administrator/i.test(html);
+      !/Content to be added by the Administrator/i.test(html) && !!visible;
     if (!hasRealContent) html = '';
     return ok({ html: html });
   } catch (e) { return fail(e); }
