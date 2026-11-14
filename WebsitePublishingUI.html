@@ -1,0 +1,372 @@
+<style>
+.wp-wrap{display:grid;gap:16px}.wp-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.wp-actions{display:flex;gap:8px;flex-wrap:wrap}.wp-muted{color:var(--mut);font-size:13px}.wp-ver{display:grid;grid-template-columns:minmax(220px,1fr) auto;gap:12px;align-items:end}.wp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.wp-field{display:grid;gap:5px}.wp-field.wide{grid-column:1/-1}.wp-field label{font-size:12px;font-weight:700;color:var(--mut)}.wp-field input,.wp-field textarea,.wp-field select{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--card);color:var(--ink);font:inherit}.wp-field textarea{min-height:86px;resize:vertical}.wp-item{border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0}.wp-itemhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}.wp-avatar{width:58px;height:58px;border-radius:12px;background:var(--surface);background-position:center;background-size:cover;display:grid;place-items:center;font-weight:800;color:var(--mut);border:1px solid var(--line)}.wp-photo{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.wp-status{font-size:12px;font-weight:700;border-radius:20px;padding:5px 10px;background:var(--surface);color:var(--ink)}.wp-empty{padding:18px;text-align:center;color:var(--mut);border:1px dashed var(--line);border-radius:12px}.wp-section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 8px}.wp-section-title h3{margin:0}.wp-alert{border-left:3px solid var(--orange);padding:10px 12px;background:var(--surface);border-radius:8px;color:var(--mut);font-size:13px}
+@media(max-width:760px){.wp-grid,.wp-ver{grid-template-columns:1fr}.wp-field.wide{grid-column:auto}}
+</style>
+<script>
+const WPUI={permissions:{},versions:[],selected:'',username:'',publishingReady:false,publishingBlockers:[],canPrepare:false,diagnostics:null,about:null,photoCache:{},photoLoading:{},photoIndex:-1,payload:null,contentKey:'',contentValue:'',galleryPage:'',galleryValue:'',aboutSavedJSON:''};
+const WP_ICONS=['heart','award','users','bulb','shield','book','star','eye','target'];
+function openWebsitePublishingEditor(contentKey,galleryPage){
+  websitePublishingPage(contentKey||'',galleryPage||'');
+}
+function websitePublishingPage(initialContentKey,initialGalleryPage){
+  head('Website Publishing','Prepare, review, publish and restore approved public website content');
+  if(initialContentKey)WPUI.contentKey=initialContentKey;
+  if(initialGalleryPage)WPUI.galleryPage=initialGalleryPage;
+  WPUI.permissions={};WPUI.versions=[];WPUI.selected='';WPUI.about=null;
+  $('view').innerHTML='<div class="card"><div class="aemp">Loading website publishing permissions…</div></div>';
+  call('getMyWebsitePermissions',[T()],r=>{
+    WPUI.permissions=r.data.permissions||{};WPUI.username=String(r.data.username||'').toLowerCase();WPUI.publishingReady=!!(r.data.publishing&&r.data.publishing.publishEndpointEnabled);WPUI.publishingBlockers=(r.data.publishing&&r.data.publishing.blockers)||[];WPUI.canPrepare=!!r.data.canPrepare;
+    if(!Object.keys(WPUI.permissions).some(key=>WPUI.permissions[key]===true)){
+      if(WPUI.canPrepare){wpUiRenderSetup();return;}
+      $('view').innerHTML='<div class="card"><h3>Website publishing access</h3><p class="wp-muted">This account has not been assigned website publishing permissions. Ask the System Manager to assign the required individual website permissions.</p></div>';
+      return;
+    }
+    wpUiRefresh();
+  });
+}
+function wpUiSetupPanel(){
+  return '<div class="card"><h3 style="margin-top:0">Publishing foundation setup</h3><p class="wp-muted">Full administrators can prepare the additive publishing stores, inspect the current public-source inventory, seed the immutable baseline and validate its integrity. These actions do not change the public website.</p><div class="wp-actions"><button class="btn alt" data-act="wppreflight">Run read-only preflight</button><button class="btn alt" data-act="wpsetup">Prepare stores</button><button class="btn" data-act="wpseed">Seed / refresh baseline</button><button class="btn alt" data-act="wpvalidate">Validate baseline</button><button class="btn alt" data-act="wpselfcheck">Run self-check</button></div><pre id="wpDiagnostics" class="wp-muted" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:14px">'+(WPUI.diagnostics?esc(JSON.stringify(WPUI.diagnostics,null,2)):'No diagnostic has been run yet.')+'</pre></div>';
+}
+function wpUiRenderSetup(){
+  $('view').innerHTML='<div class="wp-wrap">'+wpUiSetupPanel()+'</div>';
+}
+function wpUiDiagnostic(fn){
+  call(fn,[T()],r=>{
+    WPUI.diagnostics=r.data||r;
+    toast(r.message||'Diagnostic completed.');
+    if(Object.keys(WPUI.permissions).some(key=>WPUI.permissions[key]===true))wpUiRefresh(WPUI.selected);
+    else wpUiRenderSetup();
+  });
+}
+
+function wpUiCan(key){return WPUI.permissions[key]===true}
+function wpUiRefresh(selectId){
+  call('listWebsiteVersions',[T()],r=>{
+    WPUI.versions=r.data||[];
+    if(selectId)WPUI.selected=selectId;
+    if(!WPUI.versions.some(v=>v.versionId===WPUI.selected))WPUI.selected=WPUI.versions.length?WPUI.versions[0].versionId:'';
+    wpUiRender();
+    if(WPUI.selected)wpUiLoad(WPUI.selected);
+  });
+}
+function wpUiSelected(){return WPUI.versions.find(v=>v.versionId===WPUI.selected)||null}
+function wpUiContentKeys_(){
+  const d=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};
+  const cards=Object.values(d.sectionCards||{}).map(group=>group&&group.key).filter(Boolean);
+  return Array.from(new Set([...(d.publicBlockKeys||[]),...Object.values(d.pageBlockKeys||{}),...cards,'pubhome_content','pubhome_hero','pubpage_intro','pubpage_banners']))
+    .filter(key=>key&&key!=='about_data').sort();
+}
+function wpUiDefaultContentValue_(key){
+  const d=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};
+  const values={pubhome_content:d.homepageContent||{},pubhome_hero:d.homepageHero||{},pubpage_intro:d.pageIntros||{},pubpage_banners:{}};
+  const group=Object.values(d.sectionCards||{}).find(item=>item&&item.key===key);
+  if(group)return JSON.stringify(group.defaults||[],null,2);
+  return Object.prototype.hasOwnProperty.call(values,key)?JSON.stringify(values[key],null,2):'';
+}
+function wpUiRender(){
+  const v=wpUiSelected(),p=WPUI.permissions;
+  const options=WPUI.versions.map(x=>'<option value="'+esc(x.versionId)+'" '+(x.versionId===WPUI.selected?'selected':'')+'>'+esc(x.status)+' · '+esc(x.versionId)+' · '+esc(x.createdBy)+'</option>').join('');
+  const versionCard='<div class="card"><div class="wp-top"><div><h3 style="margin:0">Version workspace</h3><div class="wp-muted">Immutable revisions · independent review · published history</div></div><div class="wp-actions">'+(wpUiCan('website.content.edit')?'<button class="btn" data-act="wpcreate">Create draft</button>':'')+'<button class="btn alt" data-act="wprefresh">Refresh</button></div></div><div class="wp-ver" style="margin-top:14px"><div class="wp-field"><label for="wpVersionSelect">Select version</label><select id="wpVersionSelect">'+(options||'<option value="">No versions yet</option>')+'</select></div><div>'+(v?'<span class="wp-status">'+esc(v.status)+'</span>':'')+'</div></div>'+(v?'<p class="wp-muted">Created by '+esc(v.createdBy)+' · Updated by '+esc(v.updatedBy)+' · '+esc(v.updatedAt||'')+'</p>':'<div class="wp-empty">No website versions are available. Prepare the publishing stores and seed the migration baseline before creating the first draft.</div>')+'</div>';
+  let actions='';
+  if(v){
+    if(['Draft','ChangesRequested'].includes(v.status)&&wpUiCan('website.content.edit'))actions+='<button class="btn" data-act="wpsave">Save About revision</button><button class="btn alt" data-act="wpsubmit">Submit for review</button>';
+    if(v.status==='InReview'&&wpUiCan('website.content.review'))actions+='<button class="btn" data-act="wpapprove">Approve</button><button class="btn alt" data-act="wprequest">Request changes</button>';
+    if(v.status==='Approved'&&wpUiCan('website.content.publish')&&WPUI.publishingReady)actions+='<button class="btn" data-act="wppublish">Publish approved version</button>';
+    if(['Archived','Published'].includes(v.status)&&wpUiCan('website.content.rollback')&&WPUI.publishingReady&&v.status!=='Published')actions+='<button class="btn alt" data-act="wprollback">Restore this version</button>';
+  }
+  const actionCard=actions?'<div class="wp-actions">'+actions+'</div>':'';
+  const editable=!!(v&&['Draft','ChangesRequested'].includes(v.status)&&wpUiCan('website.content.edit')&&String(v.createdBy||'').toLowerCase()===WPUI.username);
+  const editor=WPUI.about?wpUiAboutEditor(v):'';
+  const contentEditor=editable?wpUiContentEditor():'';
+  const galleryEditor=editable?wpUiGalleryEditor():'';
+  const publishGate=!WPUI.publishingReady?'<div class="card"><h3 style="margin-top:0">Publication is safely locked</h3><p class="wp-muted">The editor routes now use immutable drafts. Publishing and rollback remain disabled until Apps Script, Sheets, Drive, browser, media-promotion and rollback tests pass in development.</p><ul>'+WPUI.publishingBlockers.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'';
+  const setupPanel=WPUI.canPrepare?wpUiSetupPanel():'';
+  $('view').innerHTML='<div class="wp-wrap">'+setupPanel+publishGate+versionCard+actionCard+editor+contentEditor+galleryEditor+'</div>';
+  if(WPUI.about)wpUiLoadPhotos();
+}
+function wpUiTextHasUnsaved_(kind){
+  const content=$('wpContentValue'),gallery=$('wpGalleryValue'),stagedUrl=$('wpContentImageUrl');
+  if((kind==='all'||kind==='content')&&content&&content.value!==WPUI.contentSavedValue)return true;
+  if((kind==='all'||kind==='content')&&stagedUrl&&stagedUrl.value)return true;
+  if((kind==='all'||kind==='gallery')&&gallery&&gallery.value!==WPUI.gallerySavedValue)return true;
+  return false;
+}
+function wpUiAboutHasUnsaved_(){
+  if(!WPUI.about||!document.querySelector('#view [data-wp]'))return false;
+  wpUiCollect();
+  return JSON.stringify(WPUI.about)!==WPUI.aboutSavedJSON;
+}
+function wpUiOtherUnsaved_(except){
+  if(except!=='about'&&wpUiAboutHasUnsaved_())return true;
+  if(except!=='content'&&wpUiTextHasUnsaved_('content'))return true;
+  if(except!=='gallery'&&wpUiTextHasUnsaved_('gallery'))return true;
+  return false;
+}
+function wpUiHasUnsaved_(){
+  return wpUiAboutHasUnsaved_()||wpUiTextHasUnsaved_('content')||wpUiTextHasUnsaved_('gallery');
+}
+function wpUiConfirmDiscard_(kind){
+  const unsaved=kind==='all'?wpUiHasUnsaved_():wpUiTextHasUnsaved_(kind);
+  if(!unsaved)return true;
+  return confirm('You have unsaved draft editor changes. Discard those unsaved changes and continue?');
+}
+function wpUiSelect(id){
+  if(id!==WPUI.selected&&!wpUiConfirmDiscard_('all')){
+    const select=$('wpVersionSelect');if(select)select.value=WPUI.selected;
+    return;
+  }
+  WPUI.selected=id;WPUI.about=null;wpUiRender();if(id)wpUiLoad(id)
+}
+function wpUiLoad(id){
+  call('getWebsiteDraftAbout',[T(),id],r=>{
+    if(WPUI.selected!==id)return;
+    WPUI.about=r.data.about||{vision:{title:'',text:''},mission:{title:'',text:''},values:[],leaders:[],timeline:[]};
+    WPUI.aboutSavedJSON=JSON.stringify(WPUI.about);
+    call('getWebsiteVersion',[T(),id],v=>{
+      if(WPUI.selected!==id)return;
+      WPUI.payload=v.data.payload||null;
+      const rows=WPUI.payload&&Array.isArray(WPUI.payload.contentRows)?WPUI.payload.contentRows:[];
+      const available=wpUiContentKeys_();
+      if(!available.includes(WPUI.contentKey))WPUI.contentKey=available[0]||'';
+      const selected=rows.find(row=>Array.isArray(row)&&row[0]===WPUI.contentKey);
+      WPUI.contentValue=selected?String(selected[1]||''):wpUiDefaultContentValue_(WPUI.contentKey);WPUI.contentSavedValue=WPUI.contentValue;
+      const pages=WPUI.payload&&WPUI.payload.galleries?Object.keys(WPUI.payload.galleries):[];
+      if(!pages.includes(WPUI.galleryPage))WPUI.galleryPage=pages[0]||'';
+      WPUI.galleryValue=JSON.stringify(WPUI.payload&&WPUI.payload.galleries?WPUI.payload.galleries[WPUI.galleryPage]||[]:[],null,2);WPUI.gallerySavedValue=WPUI.galleryValue;
+      wpUiRender();
+    });
+  });
+}
+function wpUiContentHint_(key){
+  const d=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};
+  const group=Object.values(d.sectionCards||{}).find(item=>item&&item.key===key);
+  if(group)return 'JSON array of '+group.label+' cards. Each card has title, text and link. Use https:// or an internal ?page= link.';
+  if(key==='pubhome_hero')return 'JSON object with headline, subheadline, description, primaryText, primaryUrl, secondaryText, secondaryUrl and three image URLs.';
+  if(key==='pubhome_content')return 'JSON object for homepage section wording, values, About photo and footer details.';
+  if(key==='pubpage_intro')return 'JSON object keyed by page slug. Each value has eyebrow, title and lead. An empty object keeps the standard introductions.';
+  if(key==='pubpage_banners')return 'JSON object keyed by page slug. Each value has eyebrow, title, subtitle and image. An empty object keeps standard banners.';
+  if(key==='about_data')return 'Use the structured About editor above.';
+  if(Object.values(d.pageBlockKeys||{}).includes(key)|| (d.publicBlockKeys||[]).includes(key))return 'Public HTML content block. The value is sanitized before it is saved to the draft.';
+  return 'Edit this captured public website value in the selected draft only.';
+}
+function wpUiContentEditor(){
+  const options=wpUiContentKeys_().map(key=>'<option value="'+esc(key)+'" '+(key===WPUI.contentKey?'selected':'')+'>'+esc(key)+'</option>').join('');
+  return '<div class="card"><h3>Website content blocks and page settings</h3><p class="wp-muted">Edit a captured public website value in this draft only. The original live Content sheet is not changed.</p><div class="wp-field"><label>Content key</label><select id="wpContentKey">'+options+'</select></div><p class="wp-muted" id="wpContentHint">'+esc(wpUiContentHint_(WPUI.contentKey))+'</p><div class="wp-field"><label>Stage a photo for this draft</label><input id="wpContentImageFile" type="file" accept="image/jpeg,image/png,image/webp"><p class="wp-muted">The image is uploaded privately. Copy its thumbnail URL into the appropriate image field in the JSON or HTML below. It will not become public until this approved draft is published.</p><input id="wpContentImageUrl" readonly value="" aria-label="Staged image thumbnail URL" onclick="this.select()"></div><div class="wp-field" style="margin-top:10px"><label>Draft value</label><textarea id="wpContentValue" rows="12" style="font-family:monospace">'+esc(WPUI.contentValue)+'</textarea></div><div class="wp-actions"><button class="btn" data-act="wpcontentsave">Save content revision</button></div></div>';
+}
+function wpUiGalleryEditor(){
+  const pages=WPUI.payload&&WPUI.payload.galleries?Object.keys(WPUI.payload.galleries):[];
+  const options=pages.map(page=>'<option value="'+esc(page)+'" '+(page===WPUI.galleryPage?'selected':'')+'>'+esc(page)+'</option>').join('');
+  return '<div class="card"><h3>Draft gallery lists</h3><p class="wp-muted">Edit IDs and captions in this version. Removing an image here does not delete its Drive file. Uploads are privately staged and remain unpublished until an approved version is published.</p><div class="wp-field"><label>Gallery page</label><select id="wpGalleryPage">'+options+'</select></div><div class="wp-field" style="margin-top:10px"><label>Add a photo to this draft gallery</label><input id="wpGalleryFile" type="file" accept="image/jpeg,image/png,image/webp"></div><div class="wp-field" style="margin-top:10px"><label>Gallery JSON</label><textarea id="wpGalleryValue" rows="10" style="font-family:monospace">'+esc(WPUI.galleryValue)+'</textarea></div><div class="wp-actions"><button class="btn" data-act="wpgallerysave">Save gallery revision</button></div></div>';
+}
+function wpUiSaveContent(){
+  if(wpUiOtherUnsaved_('content'))return toast('Save or discard the pending About and gallery edits before saving this content key.',false);
+  const key=$('wpContentKey')?$('wpContentKey').value:WPUI.contentKey;
+  const value=$('wpContentValue')?$('wpContentValue').value:WPUI.contentValue;
+  call('saveWebsiteDraftContent',[T(),WPUI.selected,key,value],r=>{toast(r.message||'Draft content revision saved.');if(r.success)wpUiRefresh(r.data.versionId);});
+}
+function wpUiSaveGallery(){
+  if(wpUiOtherUnsaved_('gallery'))return toast('Save or discard the pending About and content edits before saving this gallery.',false);
+  const page=$('wpGalleryPage')?$('wpGalleryPage').value:WPUI.galleryPage;
+  let items;
+  try{items=JSON.parse($('wpGalleryValue').value);}catch(e){toast('Gallery content must be valid JSON.',false);return;}
+  call('saveWebsiteDraftGallery',[T(),WPUI.selected,page,items],r=>{toast(r.message||'Draft gallery revision saved.');if(r.success)wpUiRefresh(r.data.versionId);});
+}
+function wpUiField(path,label,value,max,wide,area){
+  const id='wp_'+path.replace(/[^A-Za-z0-9_]/g,'_');
+  return '<div class="wp-field '+(wide?'wide':'')+'"><label for="'+id+'">'+label+'</label>'+(area?'<textarea id="'+id+'" data-wp="'+path+'" maxlength="'+max+'">'+esc(value||'')+'</textarea>':'<input id="'+id+'" data-wp="'+path+'" maxlength="'+max+'" value="'+esc(value||'')+'">')+'</div>';
+}
+function wpUiAboutEditor(v){
+  const d=WPUI.about,editable=v&&['Draft','ChangesRequested'].includes(v.status)&&wpUiCan('website.content.edit')&&String(v.createdBy||'').toLowerCase()===WPUI.username;
+  if(!editable)return '<div class="card"><h3>About Moreh Academy</h3><p class="wp-muted">This version is read-only in its current status. The public reader continues using the currently published version until an approved version is published.</p>'+wpUiAboutReadOnly()+'</div>';
+  const values=d.values.map((x,i)=>'<div class="wp-item"><div class="wp-itemhead"><b>Core value '+(i+1)+'</b><button class="btn red" data-act="wpremove" data-v="values|'+i+'">Remove</button></div><div class="wp-grid">'+
+    '<div class="wp-field"><label>Icon</label><select data-wp="values.'+i+'.icon">'+WP_ICONS.map(k=>'<option value="'+k+'" '+(x.icon===k?'selected':'')+'>'+k+'</option>').join('')+'</select></div>'+
+    wpUiField('values.'+i+'.title','Title',x.title,60,false,false)+wpUiField('values.'+i+'.text','Description',x.text,400,true,true)+'</div></div>').join('');
+  const leaders=d.leaders.map((x,i)=>'<div class="wp-item"><div class="wp-itemhead"><b>Leader '+(i+1)+'</b><button class="btn red" data-act="wpremove" data-v="leaders|'+i+'">Remove</button></div><div class="wp-grid">'+
+    wpUiField('leaders.'+i+'.name','Full name',x.name,80,false,false)+wpUiField('leaders.'+i+'.title','Position',x.title,80,false,false)+
+    wpUiField('leaders.'+i+'.email','Email (optional)',x.email,120,false,false)+wpUiField('leaders.'+i+'.phone','Phone (optional)',x.phone,40,false,false)+
+    '<div class="wp-field wide"><label>Profile photo</label><div class="wp-photo"><div class="wp-avatar" data-wpphoto="'+esc(x.photo||'')+'" style="'+(WPUI.photoCache[x.photo]?'background-image:url('+WPUI.photoCache[x.photo]+')':'')+'">'+(WPUI.photoCache[x.photo]?'':esc((x.name||'?').slice(0,1).toUpperCase()))+'</div><button class="btn alt" data-act="wpphoto" data-v="'+i+'">Upload photo</button>'+(x.photo?'<button class="btn red" data-act="wpphotorm" data-v="'+i+'">Remove photo</button>':'')+'</div></div></div></div>').join('');
+  const timeline=d.timeline.map((x,i)=>'<div class="wp-item"><div class="wp-itemhead"><b>History milestone '+(i+1)+'</b><button class="btn red" data-act="wpremove" data-v="timeline|'+i+'">Remove</button></div><div class="wp-grid">'+
+    wpUiField('timeline.'+i+'.year','Year',x.year,12,false,false)+wpUiField('timeline.'+i+'.title','Milestone title',x.title,100,false,false)+wpUiField('timeline.'+i+'.text','Details',x.text,600,true,true)+'</div></div>').join('');
+  return '<div class="card"><div class="wp-top"><div><h3 style="margin:0">Edit About Moreh Academy</h3><div class="wp-muted">Vision · Mission · Core Values · Key Leadership · History</div></div></div><div class="wp-alert" style="margin:12px 0">This editor saves a new immutable draft revision. The legacy About HTML and all other website content are preserved unchanged.</div>'+
+    '<div class="wp-grid">'+wpUiField('vision.title','Vision headline',d.vision.title,120,false,false)+wpUiField('mission.title','Mission headline',d.mission.title,120,false,false)+
+    wpUiField('vision.text','Vision statement',d.vision.text,1200,true,true)+wpUiField('mission.text','Mission statement',d.mission.text,1200,true,true)+'</div>'+
+    '<div class="wp-section-title"><h3>Core Values</h3><button class="btn alt" data-act="wpadd" data-v="values">+ Add value</button></div>'+(values||'<div class="wp-empty">No core values added.</div>')+
+    '<div class="wp-section-title"><h3>Key Leadership Team</h3><button class="btn alt" data-act="wpadd" data-v="leaders">+ Add leader</button></div>'+(leaders||'<div class="wp-empty">No leaders added.</div>')+
+    '<div class="wp-section-title"><h3>History Timeline</h3><button class="btn alt" data-act="wpadd" data-v="timeline">+ Add milestone</button></div>'+(timeline||'<div class="wp-empty">No history milestones added.</div>')+
+    '<input type="file" id="wpPhotoFile" class="hidden" accept="image/jpeg,image/png,image/webp">'+
+    '<p class="wp-muted">Save creates a new version; the selected parent remains unchanged. Timeline entries are sorted by year on save.</p></div>';
+}
+function wpUiAboutReadOnly(){
+  const d=WPUI.about;
+  return '<div class="wp-grid"><div><b>Vision</b><p>'+esc(d.vision.title)+'</p><p>'+esc(d.vision.text)+'</p></div><div><b>Mission</b><p>'+esc(d.mission.title)+'</p><p>'+esc(d.mission.text)+'</p></div></div>'+
+    '<h4>Core Values</h4>'+d.values.map(x=>'<p><b>'+esc(x.title)+'</b> — '+esc(x.text)+'</p>').join('')+
+    '<h4>Key Leadership</h4>'+d.leaders.map(x=>'<p><b>'+esc(x.name)+'</b> · '+esc(x.title)+'</p>').join('')+
+    '<h4>History</h4>'+d.timeline.map(x=>'<p><b>'+esc(x.year)+' '+esc(x.title)+'</b> — '+esc(x.text)+'</p>').join('');
+}
+function wpUiCollect(){
+  if(!WPUI.about)return;
+  document.querySelectorAll('#view [data-wp]').forEach(el=>{
+    const p=el.dataset.wp.split('.');let o=WPUI.about;
+    for(let i=0;i<p.length-1;i++)o=o[p[i]];
+    o[p[p.length-1]]=el.value;
+  });
+}
+function wpUiLoadPhotos(){
+  if(!WPUI.about||!WPUI.selected)return;
+  WPUI.about.leaders.forEach(leader=>{
+    const id=leader.photo;
+    if(!id||WPUI.photoCache[id]||WPUI.photoLoading[id])return;
+    WPUI.photoLoading[id]=true;
+    google.script.run.withSuccessHandler(r=>{
+      if(r&&r.success&&r.data){WPUI.photoCache[id]=r.data;const el=document.querySelector('[data-wpphoto="'+id+'"]');if(el)el.style.backgroundImage='url('+r.data+')';if(el)el.textContent=''}
+    }).withFailureHandler(()=>{}).getWebsiteDraftAboutPhoto(T(),WPUI.selected,id);
+  });
+}
+function wpUiAdd(kind){
+  wpUiCollect();
+  const blanks={values:{icon:'star',title:'',text:''},leaders:{name:'',title:'',email:'',phone:'',photo:''},timeline:{year:'',title:'',text:''}};
+  const limits={values:8,leaders:12,timeline:12};
+  if(!blanks[kind]||WPUI.about[kind].length>=limits[kind])return toast('The '+kind+' limit has been reached.',false);
+  WPUI.about[kind].push(blanks[kind]);wpUiRender();
+}
+function wpUiRemove(value){
+  wpUiCollect();const p=value.split('|');if(!WPUI.about[p[0]])return;
+  WPUI.about[p[0]].splice(Number(p[1]),1);wpUiRender();
+}
+function wpUiSave(){
+  if(wpUiOtherUnsaved_('about'))return toast('Save or discard the pending content and gallery edits before saving About.',false);
+  wpUiCollect();
+  call('saveWebsiteDraftAbout',[T(),WPUI.selected,WPUI.about],r=>{
+    toast(r.message||'Draft revision saved.');
+    wpUiRefresh(r.data.versionId);
+  });
+}
+function wpUiSubmit(){
+  if(wpUiHasUnsaved_())return toast('Save or discard every pending About, content and gallery edit before submitting this version for review.',false);
+  call('submitWebsiteDraftForReview',[T(),WPUI.selected],r=>{
+    toast(r.message||'Draft submitted.');
+    wpUiRefresh(WPUI.selected);
+  });
+}
+function wpUiReview(decision){
+  const notes=decision==='RequestChanges'?prompt('Enter the changes required before approval:'):'';
+  if(decision==='RequestChanges'&&!String(notes||'').trim())return;
+  call('reviewWebsiteDraft',[T(),WPUI.selected,decision,notes||''],r=>{
+    toast(r.message||'Review saved.');
+    wpUiRefresh(WPUI.selected);
+  });
+}
+function wpUiPublish(){
+  if(!confirm('Publish this approved website version? The public homepage and pages will switch to this version.'))return;
+  call('publishWebsiteVersion',[T(),WPUI.selected],r=>{
+    toast(r.message||'Website version published.');
+    wpUiRefresh(WPUI.selected);
+  });
+}
+function wpUiRollback(){
+  const reason=prompt('Reason for restoring this archived version:')||'';
+  if(!confirm('Restore this version as the current public website?'))return;
+  call('rollbackWebsiteVersion',[T(),WPUI.selected,reason],r=>{
+    toast(r.message||'Website version restored.');
+    wpUiRefresh(WPUI.selected);
+  });
+}
+function wpUiPhoto(index){
+  wpUiCollect();WPUI.photoIndex=Number(index);
+  const el=$('wpPhotoFile');if(el)el.click();
+}
+document.addEventListener('change',e=>{
+  if(e.target.id==='wpContentImageFile'){
+    const file=e.target.files&&e.target.files[0];e.target.value='';
+    if(!file)return;
+    const versionId=WPUI.selected,key=WPUI.contentKey,image=new Image();let objectUrl='';
+    image.onerror=()=>{if(objectUrl)URL.revokeObjectURL(objectUrl);toast('The selected image could not be read.',false)};
+    image.onload=()=>{
+      if(objectUrl)URL.revokeObjectURL(objectUrl);
+      if(WPUI.selected!==versionId||WPUI.contentKey!==key){toast('The selected draft or content key changed before upload completed.',false);return;}
+      const scale=Math.min(1,1600/Math.max(image.width,image.height));
+      const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));
+      const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);
+      const dataUrl=canvas.toDataURL('image/jpeg',.86);
+      call('stageWebsiteMedia',[T(),dataUrl,file.name||'website-content-photo.jpg'],r=>{
+        if(WPUI.selected!==versionId||WPUI.contentKey!==key){toast('The image was staged privately, but the selected draft changed before its URL could be shown.',false);return;}
+        const field=$('wpContentImageUrl');if(field)field.value='https://drive.google.com/thumbnail?id='+r.data.assetId+'&sz=w1200';
+        toast('Photo staged privately. Copy its URL into the appropriate image field, then save the content revision.');
+      });
+    };
+    objectUrl=URL.createObjectURL(file);image.src=objectUrl;return;
+  }
+  if(e.target.id==='wpGalleryFile'){
+    const file=e.target.files&&e.target.files[0];e.target.value='';
+    if(!file)return;
+    const page=WPUI.galleryPage,versionId=WPUI.selected,image=new Image();let objectUrl='';
+    image.onerror=()=>{if(objectUrl)URL.revokeObjectURL(objectUrl);toast('The selected gallery image could not be read.',false)};
+    image.onload=()=>{
+      if(objectUrl)URL.revokeObjectURL(objectUrl);
+      if(WPUI.selected!==versionId||WPUI.galleryPage!==page){toast('The selected draft or gallery changed before upload completed.',false);return;}
+      const scale=Math.min(1,1600/Math.max(image.width,image.height));
+      const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));
+      const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);
+      const dataUrl=canvas.toDataURL('image/jpeg',.86);
+      call('stageWebsiteMedia',[T(),dataUrl,file.name||'gallery-photo.jpg'],r=>{
+        if(WPUI.selected!==versionId||WPUI.galleryPage!==page){toast('The photo was staged privately but the selected draft changed before attachment.',false);return;}
+        let items=[];try{items=JSON.parse($('wpGalleryValue').value||'[]');}catch(_){}
+        items.push({id:r.data.assetId,cap:''});WPUI.galleryValue=JSON.stringify(items,null,2);
+        const field=$('wpGalleryValue');if(field)field.value=WPUI.galleryValue;
+        toast('Photo staged privately. Save the gallery revision to attach it to this draft.');
+      });
+    };
+    objectUrl=URL.createObjectURL(file);image.src=objectUrl;return;
+  }
+  if(e.target.id==='wpContentKey'){
+    if(!wpUiConfirmDiscard_('content')){e.target.value=WPUI.contentKey;return}
+    WPUI.contentKey=e.target.value;const row=(WPUI.payload.contentRows||[]).find(x=>x[0]===WPUI.contentKey);WPUI.contentValue=row?String(row[1]||''):wpUiDefaultContentValue_(WPUI.contentKey);WPUI.contentSavedValue=WPUI.contentValue;const el=$('wpContentValue');if(el)el.value=WPUI.contentValue;const imageUrl=$('wpContentImageUrl');if(imageUrl)imageUrl.value='';const hint=$('wpContentHint');if(hint)hint.textContent=wpUiContentHint_(WPUI.contentKey);return
+  }
+  if(e.target.id==='wpGalleryPage'){
+    if(!wpUiConfirmDiscard_('gallery')){e.target.value=WPUI.galleryPage;return}
+    WPUI.galleryPage=e.target.value;const items=WPUI.payload.galleries[WPUI.galleryPage]||[];WPUI.galleryValue=JSON.stringify(items,null,2);WPUI.gallerySavedValue=WPUI.galleryValue;const el=$('wpGalleryValue');if(el)el.value=WPUI.galleryValue;return
+  }
+  if(e.target.id==='wpVersionSelect'){wpUiSelect(e.target.value);return}
+  if(e.target.id!=='wpPhotoFile')return;
+  const file=e.target.files&&e.target.files[0];e.target.value='';
+  if(!file||!WPUI.about||WPUI.photoIndex<0)return;
+  const index=WPUI.photoIndex,aboutRef=WPUI.about,versionId=WPUI.selected,image=new Image();
+  let objectUrl='';
+  image.onerror=()=>{if(objectUrl)URL.revokeObjectURL(objectUrl);toast('The selected image could not be read.',false)};
+  image.onload=()=>{
+    if(objectUrl)URL.revokeObjectURL(objectUrl);
+    const scale=Math.min(1,600/Math.max(image.width,image.height));
+    const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));
+    const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);
+    const dataUrl=canvas.toDataURL('image/jpeg',.86);
+    call('stageWebsiteMedia',[T(),dataUrl,file.name||'leader-photo.jpg'],r=>{
+      const id=r.data.assetId;
+      if(WPUI.about!==aboutRef||WPUI.selected!==versionId||!aboutRef.leaders[index]){
+        toast('The image was staged but the selected draft changed before it could be attached.',false);
+        return;
+      }
+      aboutRef.leaders[index].photo=id;WPUI.photoCache[id]=dataUrl;wpUiRender();
+    });
+  };
+  objectUrl=URL.createObjectURL(file);image.src=objectUrl;
+});
+act.wpcreate=()=>{if(!wpUiConfirmDiscard_('all'))return;call('createWebsiteDraft',[T()],r=>{toast(r.message);wpUiRefresh(r.data.versionId)})};
+act.wppreflight=()=>wpUiDiagnostic('websitePublishingPreflight');
+act.wpsetup=()=>{if(confirm('Create or verify the additive publishing sheets and private staging folder?'))wpUiDiagnostic('setupWebsitePublishingStores')};
+act.wpseed=()=>{if(confirm('Seed or refresh the immutable baseline from the current live website sources?'))wpUiDiagnostic('seedWebsitePublishingBaseline')};
+act.wpvalidate=()=>wpUiDiagnostic('validateWebsitePublishingBaseline');
+act.wpselfcheck=()=>wpUiDiagnostic('websitePublishingSelfCheck');
+act.wprefresh=()=>{if(wpUiConfirmDiscard_('all'))wpUiRefresh(WPUI.selected)};
+act.wpsave=()=>wpUiSave();
+act.wpcontentsave=()=>wpUiSaveContent();
+act.wpgallerysave=()=>wpUiSaveGallery();
+act.wpsubmit=()=>wpUiSubmit();
+act.wpapprove=()=>wpUiReview('Approve');
+act.wprequest=()=>wpUiReview('RequestChanges');
+act.wppublish=()=>wpUiPublish();
+act.wprollback=()=>wpUiRollback();
+act.wpadd=kind=>wpUiAdd(kind);
+act.wpremove=value=>wpUiRemove(value);
+act.wpphoto=index=>wpUiPhoto(index);
+act.wpphotorm=index=>{wpUiCollect();if(WPUI.about.leaders[index])WPUI.about.leaders[index].photo='';wpUiRender()};
+</script>
