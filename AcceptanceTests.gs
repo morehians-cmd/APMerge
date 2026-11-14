@@ -235,22 +235,52 @@ function runSecurityAcceptanceTests() {
 
 
   record('M5-03', 'Admissions dashboard specification applies Encoder grade and section scope before aggregation', () => {
-    const rows = [
-      { StudentID:'IN-001', GradeLevel:'Grade 1', Section:'A', SchoolYear:'2026-2027', EnrollStatus:'Enrolled', Classification:'New' },
-      { StudentID:'OUT-SECTION', GradeLevel:'Grade 1', Section:'B', SchoolYear:'2026-2027', EnrollStatus:'Enrolled', Classification:'New' },
-      { StudentID:'OUT-GRADE', GradeLevel:'Grade 2', Section:'A', SchoolYear:'2026-2027', EnrollStatus:'Enrolled', Classification:'New' },
-      { StudentID:'OUT-SHS', GradeLevel:'Grade 11', Section:'STEM-A', SchoolYear:'2026-2027', EnrollStatus:'Enrolled', Classification:'Old' }
+    const fixtures = [
+      { StudentID:'IN-001', FullName:'In Scope Learner', GradeLevel:'Grade 1', Section:'A', SchoolYear:activeSY_(), EnrollStatus:'Enrolled', Classification:'New', Category:'ESC', CreatedAt:'2026-11-14 09:00:00' },
+      { StudentID:'OUT-SECTION', FullName:'Other Section Learner', GradeLevel:'Grade 1', Section:'B', SchoolYear:activeSY_(), EnrollStatus:'Enrolled', Classification:'New', Category:'ESC', CreatedAt:'2026-11-14 09:01:00' },
+      { StudentID:'OUT-GRADE', FullName:'Other Grade Learner', GradeLevel:'Grade 2', Section:'A', SchoolYear:activeSY_(), EnrollStatus:'Enrolled', Classification:'New', Category:'TLC', CreatedAt:'2026-11-14 09:02:00' },
+      { StudentID:'OUT-SHS', FullName:'Senior High Learner', GradeLevel:'Grade 11', Section:'STEM-A', SchoolYear:activeSY_(), EnrollStatus:'Enrolled', Classification:'Old', Category:'PUB-QVR', Cluster:'STEM', CreatedAt:'2026-11-14 09:03:00' }
     ];
     const scope = { grades:['Grade 1'], sections:{ 'Grade 1':['A'] } };
-    const scoped = dsScopeRows_(rows, scope);
-    assert(scoped.length === 1 && scoped[0].StudentID === 'IN-001',
-      'Dashboard scope helper retained a cross-section or cross-grade student.');
-    const filtered = dsApply_(scoped, { level:'Elementary', status:'Enrolled' });
-    assert(filtered.length === 1 && filtered[0].StudentID === 'IN-001',
-      'Dashboard filters changed or widened the server-authoritative scope.');
-    assert(dsScopeRows_(rows, null).length === rows.length,
-      'Full/Manager unscoped dashboard behavior changed.');
-    return 'Encoder dashboard aggregation is restricted to assigned grade/section rows before filters; Full/Manager retains existing unscoped behavior.';
+    const originals = {
+      who:who_, rows:rows_, studentScope:studentSearchScope_,
+      college:dsCollegeLevels_, extra:dashboardExtra,
+      activity:getRecentActivity, schoolYears:dsSchoolYears_
+    };
+    let collegeCalls = 0;
+    try {
+      who_ = () => ({ Role:'admin', Clearance:'Encoder', Username:'acceptance-encoder' });
+      rows_ = key => key === 'S' ? fixtures : originals.rows(key);
+      studentSearchScope_ = () => scope;
+      dsCollegeLevels_ = () => { collegeCalls++; return [{ label:'Synthetic College', name:'Synthetic College', count:999 }]; };
+      dashboardExtra = () => ({ success:true, data:{ attention:{ counts:{ req:0, consent:0, cert:0 }, total:0, rows:[] } } });
+      getRecentActivity = () => ({ success:true, data:{ items:[] } });
+      dsSchoolYears_ = () => [activeSY_()];
+
+      const result = dashboardSpec('acceptance-encoder-token', {});
+      assert(result && result.success && result.data, 'dashboardSpec did not return a successful response for the synthetic Encoder.');
+      const data = result.data;
+      assert(data.totals.rows === 1 && data.totals.scoped === 1,
+        'Dashboard totals included cross-section or cross-grade learners.');
+      assert(data.recent.length === 1 && data.recent[0].id === 'IN-001',
+        'Recent registrations exposed an out-of-scope learner.');
+      assert(data.charts.byScholarship.reduce((sum, item) => sum + item.count, 0) === 1,
+        'Scholarship chart aggregated learners outside the Encoder scope.');
+      const college = data.levels.find(level => level.key === 'College');
+      assert(college && college.total === 0 && college.kids.length === 0 && collegeCalls === 0,
+        'College dashboard figures were exposed to an Encoder without a College scope assignment.');
+      assert(dsScopeRows_(fixtures, null).length === fixtures.length,
+        'Full/Manager unscoped dashboard behavior changed.');
+      return 'Authenticated endpoint harness confirms totals, recent registrations and charts include only assigned grade/section rows; College figures are withheld from Encoder; Full/Manager scope helper behavior is preserved.';
+    } finally {
+      who_ = originals.who;
+      rows_ = originals.rows;
+      studentSearchScope_ = originals.studentScope;
+      dsCollegeLevels_ = originals.college;
+      dashboardExtra = originals.extra;
+      getRecentActivity = originals.activity;
+      dsSchoolYears_ = originals.schoolYears;
+    }
   });
 
   record('M6-01', 'Report endpoints reject unauthenticated direct invocation', () => {
