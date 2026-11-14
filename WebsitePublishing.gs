@@ -23,6 +23,24 @@ function wpHash_(value) {
   return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bytes));
 }
 
+function wpSplitChunks_(value, maxChars) {
+  const textValue = String(value);
+  const size = Math.max(2, Number(maxChars) || WP_PREFLIGHT_CHUNK_CHARS_);
+  const parts = [];
+  let start = 0;
+  while (start < textValue.length) {
+    let end = Math.min(start + size, textValue.length);
+    if (end < textValue.length) {
+      const last = textValue.charCodeAt(end - 1);
+      if (last >= 0xD800 && last <= 0xDBFF) end--;
+    }
+    if (end <= start) end = Math.min(start + size + 1, textValue.length);
+    parts.push(textValue.slice(start, end));
+    start = end;
+  }
+  return parts.length ? parts : [''];
+}
+
 function wpText_(value) {
   return String(value == null ? '' : value);
 }
@@ -412,12 +430,9 @@ function seedWebsitePublishingBaseline(token) {
     }
 
     const versionId = 'WV-' + Utilities.getUuid();
-    const chunkCount = Math.max(1, Math.ceil(payloadJson.length / WP_PREFLIGHT_CHUNK_CHARS_));
-    const chunkRows = [];
-    for (let i = 0; i < chunkCount; i++) {
-      const part = payloadJson.slice(i * WP_PREFLIGHT_CHUNK_CHARS_, (i + 1) * WP_PREFLIGHT_CHUNK_CHARS_);
-      chunkRows.push([versionId, i + 1, chunkCount, part, wpHash_(part)]);
-    }
+    const payloadParts = wpSplitChunks_(payloadJson, WP_PREFLIGHT_CHUNK_CHARS_);
+    const chunkCount = payloadParts.length;
+    const chunkRows = payloadParts.map((part, index) => [versionId, index + 1, chunkCount, part, wpHash_(part)]);
 
     const chunkStart = chunks.getLastRow() + 1;
     chunks.getRange(chunkStart, 1, chunkRows.length, WP_CHUNK_HEADERS_.length).setNumberFormat('@');
