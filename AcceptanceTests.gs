@@ -283,6 +283,29 @@ function runSecurityAcceptanceTests() {
     }
   });
 
+  record('M5-04', 'College administration endpoints reject non-Full and non-Manager roles', () => {
+    const originalWho = who_;
+    const denied = ['Encoder','Guidance','Accounting','HeadTeacher','Teacher'];
+    try {
+      denied.forEach(clearance => {
+        who_ = () => ({ Role:'admin', Clearance:clearance, Username:'acceptance-'+clearance.toLowerCase() });
+        let rejected = false;
+        try { collegeAdmin_('acceptance-role-token'); } catch (e) {
+          rejected = /Not allowed/.test(String(e && e.message || e));
+        }
+        assert(rejected, clearance + ' unexpectedly received College administration access.');
+      });
+      ['Full','Manager'].forEach(clearance => {
+        who_ = () => ({ Role:'admin', Clearance:clearance, Username:'acceptance-'+clearance.toLowerCase() });
+        const actor = collegeAdmin_('acceptance-role-token');
+        assert(actor.Clearance === clearance, clearance + ' legacy administrator access was not preserved.');
+      });
+      return 'Encoder, Guidance, Accounting, HeadTeacher and Teacher denied; Full and Manager accepted by the shared College endpoint guard.';
+    } finally {
+      who_ = originalWho;
+    }
+  });
+
   record('M6-01', 'Report endpoints reject unauthenticated direct invocation', () => {
     const calls = [
       ['report', () => report('invalid-acceptance-token', 'daily')],
