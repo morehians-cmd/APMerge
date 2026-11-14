@@ -47,11 +47,11 @@ Do not manually change production trigger properties to perform these tests.
 |---|---|---|
 | M3.1 | Invoke setLogoFile from a non-owner account | Rejected before changing LOGO_FILE_ID |
 | M3.2 | Supply malformed, missing, trashed, non-image, empty and oversized files | Each rejected; existing logo property and cache remain unchanged |
-| M3.3 | Supply an image outside the approved branding folder | Rejected |
+| M3.3 | Configure the approved folder with `setApprovedBrandingFolder(folderId)` as script owner, then supply an image outside that folder | Rejected |
 | M3.4 | Supply a valid image in the approved branding folder | Accepted only from the editor-owner path |
 | M3.5 | Load the login page after changing the logo | New logo appears; stale logo cache is not served |
 
-Before M3.3, identify and record the actual approved branding folder. Do not assume PHOTO_FOLDER_ID is the branding folder.
+Before M3.3, identify and record the actual approved branding folder, then run `setApprovedBrandingFolder(folderId)` from the Apps Script editor as the script owner. The function rejects malformed, trashed or publicly shared folders. `setLogoFile(id)` now fails closed until this property is configured and accepts only files directly contained in that folder. Do not assume PHOTO_FOLDER_ID is the branding folder. M3-02 in `runSecurityAcceptanceTests()` checks the folder-membership helper with synthetic parent iterators; it does not verify real Drive ACLs or folder membership.
 
 ### M4 — Encoder grade/section scope
 
