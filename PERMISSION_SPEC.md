@@ -445,3 +445,23 @@ It returns check results and store row counts, not draft payloads or user permis
 - The self-check now includes the media metadata schema and verifies that the configured staging folder exists and is not shared with anyone or anyone-with-link.
 
 This is an isolated backend facility, not yet connected to the existing Index.html photo controls. Existing gallery, About-photo, and homepage-photo endpoints remain legacy live-write paths until the editor migration can be switched as a complete release unit. Staged files are not public and cannot appear on the public site merely by being uploaded.
+
+### Unified About Moreh Academy editor — required integration
+
+The existing **About Moreh Academy** page in `Index.html` is the canonical editor and presentation for institutional identity content. Preserve it as one cohesive editing experience; do not create separate, competing About editors or split these sections into unrelated page-block records.
+
+The single structured `Content` row with key `about_data` is the canonical source for:
+
+- **Vision** — `vision.title` and `vision.text`.
+- **Mission** — `mission.title` and `mission.text`.
+- **Core Values** — the ordered `values[]` collection (icon, title, description).
+- **History** — the ordered `timeline[]` collection (year, milestone title, details).
+- **Key Leadership** — the `leaders[]` collection (name, position, optional contact fields, and photo reference).
+
+The current editor already provides one Edit Page action, editable cards, add/remove controls for values, leaders and history milestones, leader-photo upload, and a single Save changes action. Keep its existing Moreh Academy visual language, responsive card layout, and public About-page presentation. Improve clarity and ease of editing within this same screen rather than introducing another workflow.
+
+The legacy free-text `about` row must remain readable during migration and must not be silently discarded. Preserve it in the version payload until the school explicitly migrates or clears that content. The separate legacy keys `pub_about_values`, `pub_about_history`, and `pub_about_leadership` are not replacements for the structured `about_data` record.
+
+Every website draft/baseline snapshot must retain the complete `about_data` JSON and all referenced leader-photo IDs as part of `contentRows`. The About editor's future draft-save adapter must update only the `about_data` row in the complete draft payload and submit the resulting full payload through the versioned draft API; it must not call the legacy live-write `saveAbout` endpoint once editor cutover is enabled. Keep the existing structured data shape and validation limits compatible so current records render without manual re-entry.
+
+The public renderer must read Vision, Mission, Core Values, History, and Key Leadership from the same selected published version. Publishing must validate all referenced leader photos and preserve their public-serving lifecycle; a draft upload must not make a photo public or mutate the currently published About page. Until the complete editor adapter, public-reader cutover, and media lifecycle are implemented together, retain the existing live About editor and keep publishing disabled.
