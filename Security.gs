@@ -43,10 +43,22 @@ const HASH_ITER  = 1000;             // run benchmarkHash(); aim for roughly <= 
 const SESS_IDLE  = { admin:1800, student:3600 };   // sliding idle timeout, seconds
 const SESS_ABS_MS = 8 * 3600 * 1000;               // absolute session cap
 
-/** Refuses anyone except the script owner running from the editor. */
+/**
+ * OWNER ONLY. The owner email must be pinned manually in Script Properties as
+ * MA_SCRIPT_OWNER_EMAIL while signed in as the project owner. Requiring both
+ * active and effective identities to match that pinned value prevents the
+ * execute-as-user deployment case from treating every caller as the owner.
+ * Missing or undisclosed identity fails closed.
+ */
+const SCRIPT_OWNER_EMAIL_PROPERTY_ = 'MA_SCRIPT_OWNER_EMAIL';
 function ownerOnly_() {
-  let a = ''; try { a = Session.getActiveUser().getEmail(); } catch (_) {}
-  if (!a || a !== Session.getEffectiveUser().getEmail()) throw new Error('Owner only.');
+  const expected = String(PropertiesService.getScriptProperties().getProperty(SCRIPT_OWNER_EMAIL_PROPERTY_) || '').trim().toLowerCase();
+  let active = '', effective = '';
+  try { active = String(Session.getActiveUser().getEmail() || '').trim().toLowerCase(); } catch (_) {}
+  try { effective = String(Session.getEffectiveUser().getEmail() || '').trim().toLowerCase(); } catch (_) {}
+  if (!expected || !EMAIL_RE.test(expected) || !active || !effective || active !== expected || effective !== expected) {
+    throw new Error('Owner only.');
+  }
 }
 
 const tempPw_ = () => Utilities.getUuid().replace(/-/g, '').slice(0, 12) + '#A1';
