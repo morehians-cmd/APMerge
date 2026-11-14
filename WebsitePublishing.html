@@ -91,12 +91,22 @@ function wpUiTextHasUnsaved_(kind){
   if((kind==='all'||kind==='gallery')&&gallery&&gallery.value!==WPUI.gallerySavedValue)return true;
   return false;
 }
+function wpUiAboutHasUnsaved_(){
+  if(!WPUI.about||!document.querySelector('#view [data-wp]'))return false;
+  wpUiCollect();
+  return JSON.stringify(WPUI.about)!==WPUI.aboutSavedJSON;
+}
+function wpUiOtherUnsaved_(except){
+  if(except!=='about'&&wpUiAboutHasUnsaved_())return true;
+  if(except!=='content'&&wpUiTextHasUnsaved_('content'))return true;
+  if(except!=='gallery'&&wpUiTextHasUnsaved_('gallery'))return true;
+  return false;
+}
+function wpUiHasUnsaved_(){
+  return wpUiAboutHasUnsaved_()||wpUiTextHasUnsaved_('content')||wpUiTextHasUnsaved_('gallery');
+}
 function wpUiConfirmDiscard_(kind){
-  let unsaved=wpUiTextHasUnsaved_(kind);
-  if(kind==='all'&&WPUI.about&&document.querySelector('#view [data-wp]')){
-    wpUiCollect();
-    if(JSON.stringify(WPUI.about)!==WPUI.aboutSavedJSON)unsaved=true;
-  }
+  const unsaved=kind==='all'?wpUiHasUnsaved_():wpUiTextHasUnsaved_(kind);
   if(!unsaved)return true;
   return confirm('You have unsaved draft editor changes. Discard those unsaved changes and continue?');
 }
@@ -149,11 +159,13 @@ function wpUiGalleryEditor(){
   return '<div class="card"><h3>Draft gallery lists</h3><p class="wp-muted">Edit IDs and captions in this version. Removing an image here does not delete its Drive file. Uploads are privately staged and remain unpublished until an approved version is published.</p><div class="wp-field"><label>Gallery page</label><select id="wpGalleryPage">'+options+'</select></div><div class="wp-field" style="margin-top:10px"><label>Add a photo to this draft gallery</label><input id="wpGalleryFile" type="file" accept="image/jpeg,image/png,image/webp"></div><div class="wp-field" style="margin-top:10px"><label>Gallery JSON</label><textarea id="wpGalleryValue" rows="10" style="font-family:monospace">'+esc(WPUI.galleryValue)+'</textarea></div><div class="wp-actions"><button class="btn" data-act="wpgallerysave">Save gallery revision</button></div></div>';
 }
 function wpUiSaveContent(){
+  if(wpUiOtherUnsaved_('content'))return toast('Save or discard the pending About and gallery edits before saving this content key.',false);
   const key=$('wpContentKey')?$('wpContentKey').value:WPUI.contentKey;
   const value=$('wpContentValue')?$('wpContentValue').value:WPUI.contentValue;
   call('saveWebsiteDraftContent',[T(),WPUI.selected,key,value],r=>{toast(r.message||'Draft content revision saved.');if(r.success)wpUiRefresh(r.data.versionId);});
 }
 function wpUiSaveGallery(){
+  if(wpUiOtherUnsaved_('gallery'))return toast('Save or discard the pending About and content edits before saving this gallery.',false);
   const page=$('wpGalleryPage')?$('wpGalleryPage').value:WPUI.galleryPage;
   let items;
   try{items=JSON.parse($('wpGalleryValue').value);}catch(e){toast('Gallery content must be valid JSON.',false);return;}
@@ -222,6 +234,7 @@ function wpUiRemove(value){
   WPUI.about[p[0]].splice(Number(p[1]),1);wpUiRender();
 }
 function wpUiSave(){
+  if(wpUiOtherUnsaved_('about'))return toast('Save or discard the pending content and gallery edits before saving About.',false);
   wpUiCollect();
   call('saveWebsiteDraftAbout',[T(),WPUI.selected,WPUI.about],r=>{
     toast(r.message||'Draft revision saved.');
@@ -229,6 +242,7 @@ function wpUiSave(){
   });
 }
 function wpUiSubmit(){
+  if(wpUiHasUnsaved_())return toast('Save or discard every pending About, content and gallery edit before submitting this version for review.',false);
   call('submitWebsiteDraftForReview',[T(),WPUI.selected],r=>{
     toast(r.message||'Draft submitted.');
     wpUiRefresh(WPUI.selected);
@@ -336,13 +350,13 @@ document.addEventListener('change',e=>{
   };
   objectUrl=URL.createObjectURL(file);image.src=objectUrl;
 });
-act.wpcreate=()=>call('createWebsiteDraft',[T()],r=>{toast(r.message);wpUiRefresh(r.data.versionId)});
+act.wpcreate=()=>{if(!wpUiConfirmDiscard_('all'))return;call('createWebsiteDraft',[T()],r=>{toast(r.message);wpUiRefresh(r.data.versionId)})};
 act.wppreflight=()=>wpUiDiagnostic('websitePublishingPreflight');
 act.wpsetup=()=>{if(confirm('Create or verify the additive publishing sheets and private staging folder?'))wpUiDiagnostic('setupWebsitePublishingStores')};
 act.wpseed=()=>{if(confirm('Seed or refresh the immutable baseline from the current live website sources?'))wpUiDiagnostic('seedWebsitePublishingBaseline')};
 act.wpvalidate=()=>wpUiDiagnostic('validateWebsitePublishingBaseline');
 act.wpselfcheck=()=>wpUiDiagnostic('websitePublishingSelfCheck');
-act.wprefresh=()=>wpUiRefresh(WPUI.selected);
+act.wprefresh=()=>{if(wpUiConfirmDiscard_('all'))wpUiRefresh(WPUI.selected)};
 act.wpsave=()=>wpUiSave();
 act.wpcontentsave=()=>wpUiSaveContent();
 act.wpgallerysave=()=>wpUiSaveGallery();
