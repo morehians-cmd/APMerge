@@ -410,7 +410,7 @@ act.wpgcap = function (v) {
 act.wpgdel = function (v) {
   var parts = String(v || '').split('|'), page = parts[0], id = parts[1];
   if (!page || !id) return;
-  if (!confirm('Remove this photo from the page? The image file is moved to the Drive trash.')) return;
+  if (!confirm('Remove this photo from the page? The image file will be retained for website version history and rollback.')) return;
   google.script.run.withSuccessHandler(function (r) {
     if (!r || !r.success) return toast((r && r.error) || 'The photo was not removed.', false);
     WP.galleries[page] = r.data || [];
