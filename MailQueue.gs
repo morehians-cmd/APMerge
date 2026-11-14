@@ -83,11 +83,13 @@ function queueMailMany_(items) {
 /** Admin / Encoder. MANUAL send: queues the current-status e-mail for the chosen learners (max 100 per click, within today's quota). */
 function emailStatus(token, ids) {
   try {
-    const u = who_(token, 'admin');
+    const u = who_(token, 'admin'), scope = studentSearchScope_(u);
     ids = Array.isArray(ids) ? ids.map(String).slice(0, 100) : [];
     if (!ids.length) throw new Error('Select at least one learner.');
     const want = {}; ids.forEach(i => want[i] = 1);
-    const withMail = rows_('S').filter(s => want[s.StudentID] && EMAIL_RE.test(s.Email || ''));
+    const selected = rows_('S').filter(s => want[s.StudentID]);
+    selected.forEach(s => assertStudentScope_(scope, s));
+    const withMail = selected.filter(s => EMAIL_RE.test(s.Email || ''));
     const waiting = Math.max(0, mqSh_().getLastRow() - 1), room = Math.max(0, quotaLeft_() - MAIL_RESERVE - waiting), send = withMail.slice(0, room);
     if (!send.length) throw new Error(room ? 'None of the selected learners has a valid email address.' : 'Today\'s e-mail allowance is used up. Try again tomorrow.');
     queueMailMany_(send.map(s => ({ to:s.Email, subject:SCHOOL + ' - Enrollment status update',
