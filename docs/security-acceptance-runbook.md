@@ -93,7 +93,7 @@ For every mutation test, capture the exact target StudentID, account username/cl
 
 ### M5 — Dashboard, role and endpoint matrix
 
-The automated suite includes M5-01 for dashboard, dashboardExtra, and dashboardDemo, plus M5-02 for event, notification, system-settings, school-year, and career-result endpoints. Each is invoked directly with an invalid session token. These checks prove only unauthenticated rejection; they do not replace the role-by-role and data-minimization tests below.
+The automated suite includes M5-01 for dashboard, dashboardExtra, and dashboardDemo, plus M5-02 for event, notification, system-settings, school-year, and career-result endpoints. M5-03 now checks the pure row-scope helper used by `dashboardSpec()` so Encoder dashboard aggregation cannot include cross-section or cross-grade rows. M5-01/M5-02 invoke their listed endpoints directly with an invalid session token; M5-03 is a helper regression test, not a live endpoint/account test. These checks prove only the specific behaviors stated; they do not replace the role-by-role and data-minimization tests below.
 
 Test both UI navigation and direct `google.script.run` invocation. Hidden buttons do not count as authorization.
 
@@ -108,7 +108,7 @@ Test both UI navigation and direct `google.script.run` invocation. Hidden button
 | Teacher | Shared Academic module within assigned academic scope |
 | Student | Own record and supported self-service only |
 
-Exercise `dashboard`, `dashboardExtra`, `dashboardDemo`, `searchStudents`, `getStudent`, `saveStudent`, notifications, scholarships, Holds endpoints, College dashboard/roster/program endpoints, ID-card endpoints, and all helper endpoints called by the corresponding screens. Verify sensitive demographic fields and unrelated student records are not returned.
+Exercise `dashboard`, `dashboardExtra`, `dashboardDemo`, `dashboardSpec`, `searchStudents`, `getStudent`, `saveStudent`, notifications, scholarships, Holds endpoints, College dashboard/roster/program endpoints, ID-card endpoints, and all helper endpoints called by the corresponding screens. For Encoder, compare `dashboardSpec` totals, charts, level cards, recent registrations and College figures against only the assigned grade/section fixture; also test direct calls with restrictive filters and with no filters. Verify sensitive demographic fields and unrelated student records are not returned.
 
 ### M6 — Reports
 
@@ -198,6 +198,20 @@ This 21/21 result does not prove the real Drive recovery side effects succeed un
 The earlier **2026-11-14T11:48:36.921Z, 20 passed / 0 failed / 20 total** execution remains historical evidence and predates M7-07 and the retryable media-recovery changes. It confirms the M4-03 behavior described in its result detail, but it is not the latest suite result and cannot override the 20/21 failure.
 
 The 12:13:03 execution is the first supplied runtime result for the 21-check suite and failed M7-07. The duplicate-selector source fix and strengthened mixed-state duplicate assertion were committed afterward; they still require a fresh Apps Script runtime result. It does not establish the case-insensitive duplicate-account subcase unless that exact assertion is confirmed in the synchronized test source and execution output. It also does not close the five manual evidence gates, prove every role's data-minimization boundary, test the new website-media compensation path in Apps Script, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
+
+### Follow-up source audit — Encoder dashboard scope defect
+
+After the 21/21 runtime result, a source-level review of the authenticated dashboard surface found that `dashboardSpec(token, filters)` accepted an Encoder account through `who_(token, 'admin')` but built its base `all` collection from every active-school-year student row. Its filters were presentation filters (level/type/status), not authorization filters. The endpoint also returned recent student names/IDs and aggregate totals, so this was a genuine scope-boundary defect even though the earlier M5-01 invalid-token check passed. The previous 21/21 result did not exercise this authenticated Encoder path.
+
+The defect has been corrected on `website-pages-fixes`:
+- `dashboardSpec()` now obtains `studentSearchScope_(u)` and applies `dsScopeRows_()` to the active-year rows before filters, counts, charts, recent registrations or attention data are assembled.
+- The helper preserves existing Full/Manager behavior because their scope is `null`.
+- College dashboard aggregates are omitted for scoped Encoder accounts; College data is not represented in the Basic Education grade/section assignment model.
+- `AcceptanceTests.gs` now includes M5-03 with cross-section, cross-grade and Senior High fixtures, and confirms Full/Manager's existing unscoped helper behavior remains unchanged.
+
+**Commits:** `DashboardSpec.gs` — `e31d73c45fa96dbd0fc17534aaead83815c56695`; `AcceptanceTests.gs` — `346d1eeae3dbce10ca4ce0b02895fe549ef1bbc3`.
+
+**Runtime status:** The user-provided 21/21 execution at 12:33:47 predates this remediation and does not cover M5-03. The acceptance suite now contains 22 checks. Synchronize the latest `DashboardSpec.gs` and `AcceptanceTests.gs` to the disposable Apps Script development copy and rerun `runSecurityAcceptanceTests()`. Do not count M5-03 as runtime-passed until its result appears in the Apps Script output. The authenticated M5 manual matrix must still exercise `dashboardSpec` using real synthetic Encoder accounts and confirm response-level data minimization.
 
 ### Historical execution — previous 20-check suite
 
