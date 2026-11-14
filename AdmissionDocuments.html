@@ -48,7 +48,7 @@
 <script>
 (function(){
   'use strict';
-  const token=decodeURIComponent((location.hash||'').replace(/^#/,''));let role='';
+  const token=decodeURIComponent((location.hash||'').replace(/^#/,''));if(location.hash)history.replaceState(null,'',location.pathname+location.search);let role='';
   const $=id=>document.getElementById(id), busy=v=>$('busy').classList.toggle('hidden',!v);
   function notice(msg,err){const n=$('notice');n.textContent=msg;n.classList.remove('hidden','err');if(err)n.classList.add('err')}
   function call(name,args,done){busy(true);google.script.run.withSuccessHandler(r=>{busy(false);if(!r||!r.success){notice(r&&r.error||'The request failed.',true);return}done(r.data,r)}).withFailureHandler(e=>{busy(false);notice(e&&e.message||'Server error.',true)})[name](...args)}
