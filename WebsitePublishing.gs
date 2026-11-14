@@ -174,3 +174,97 @@ function websitePublishingPreflight(token) {
     return fail(error);
   }
 }
+
+
+const WP_VERSION_HEADERS_ = [
+  'VersionID','ParentVersionID','Status','CreatedBy','CreatedAt','UpdatedBy','UpdatedAt',
+  'ReviewedBy','ReviewedAt','ReviewNotes','PublishedBy','PublishedAt','PayloadHash',
+  'PayloadChars','PayloadBytes','PayloadChunkCount'
+];
+const WP_CHUNK_HEADERS_ = ['VersionID','ChunkIndex','ChunkCount','PayloadChunk','ChunkHash'];
+const WP_CONFIG_HEADERS_ = ['ConfigKey','ConfigValue'];
+const WP_AUDIT_HEADERS_ = ['AuditID','VersionID','Action','Actor','Timestamp','Reason','PayloadHash'];
+
+function wpEnsureSheet_(ss, name, headers) {
+  let sheet = ss.getSheetByName(name);
+  if (!sheet) sheet = ss.insertSheet(name);
+  if (sheet.getMaxColumns() < headers.length) {
+    sheet.insertColumnsAfter(sheet.getMaxColumns(), headers.length - sheet.getMaxColumns());
+  }
+  const first = sheet.getRange(1, 1, 1, headers.length).getDisplayValues()[0];
+  const empty = first.every(value => !wpText_(value).trim());
+  if (empty) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+    sheet.setFrozenRows(1);
+    sheet.getRange(1, 1, sheet.getMaxRows(), headers.length).setNumberFormat('@');
+  } else if (headers.some((header, index) => wpText_(first[index]) !== header)) {
+    throw new Error('The existing "' + name + '" sheet has a different header schema. No rows were changed.');
+  }
+  return sheet;
+}
+
+function wpConfigEnsure_(sheet) {
+  const defaults = [
+    ['schema_version', String(WP_PREFLIGHT_SCHEMA_)],
+    ['migration_state', 'PREPARED'],
+    ['published_version_id', ''],
+    ['baseline_version_id', ''],
+    ['legacy_fallback_enabled', 'true']
+  ];
+  const last = sheet.getLastRow();
+  const rows = last > 1 ? sheet.getRange(2, 1, last - 1, 2).getDisplayValues() : [];
+  const existing = {};
+  rows.forEach(row => { if (row[0]) existing[wpText_(row[0])] = true; });
+  const missing = defaults.filter(row => !existing[row[0]]);
+  if (missing.length) {
+    const start = Math.max(2, sheet.getLastRow() + 1);
+    sheet.getRange(start, 1, missing.length, 2).setNumberFormat('@');
+    sheet.getRange(start, 1, missing.length, 2).setValues(missing);
+  }
+  return defaults.length;
+}
+
+/**
+ * Creates only the additive, empty website-publishing stores.
+ * This does not migrate content, seed a version, or change public reads/writes.
+ */
+function setupWebsitePublishingStores(token) {
+  const lock = LockService.getScriptLock();
+  try {
+    const actor = sysOwner_(token);
+    lock.waitLock(20000);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const versions = wpEnsureSheet_(ss, 'Website Versions', WP_VERSION_HEADERS_);
+    const chunks = wpEnsureSheet_(ss, 'Website Version Chunks', WP_CHUNK_HEADERS_);
+    const config = wpEnsureSheet_(ss, 'Website Publishing Config', WP_CONFIG_HEADERS_);
+    const audit = wpEnsureSheet_(ss, 'Website Publishing Audit', WP_AUDIT_HEADERS_);
+    const configKeys = wpConfigEnsure_(config);
+    const pointer = config.getLastRow() > 1
+      ? config.getRange(2, 1, config.getLastRow() - 1, 2).getDisplayValues().find(row => row[0] === 'published_version_id')
+      : null;
+    audit.appendRow([
+      Utilities.getUuid(),
+      '',
+      'stores.prepare',
+      actor.Username,
+      new Date(),
+      'Created or verified additive versioned publishing store headers; no live website data changed.',
+      ''
+    ]);
+    return ok({
+      sheets:['Website Versions','Website Version Chunks','Website Publishing Config','Website Publishing Audit'],
+      versionHeaderCount:WP_VERSION_HEADERS_.length,
+      chunkHeaderCount:WP_CHUNK_HEADERS_.length,
+      configKeyCount:configKeys,
+      publishedVersionId:pointer ? pointer[1] : '',
+      migrationState:'PREPARED',
+      liveContentChanged:false,
+      publicReaderChanged:false,
+      editorWritesRedirected:false
+    }, 'Website publishing stores are prepared. Existing live website content remains unchanged.');
+  } catch (error) {
+    return fail(error);
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
