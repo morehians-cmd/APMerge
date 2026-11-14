@@ -317,6 +317,12 @@ function studentSearchScope_(u) {
   return { grades:grades, sections:sections };
 }
 
+function studentWithinSearchScope_(scope, student) {
+  return !scope || !!student && scope.grades.includes(student.GradeLevel) &&
+    Array.isArray(scope.sections[student.GradeLevel]) &&
+    scope.sections[student.GradeLevel].includes(String(student.Section || ''));
+}
+
 function searchStudents(token, q, status, limit, grade, sy) {
   try {
     const u = who_(token, 'admin'), scope = studentSearchScope_(u);
@@ -343,8 +349,9 @@ function getStudent(token, id) {
   try {
     const u = who_(token); if (u.Role==='student') id = u.StudentID;
     if (OFFICE_CL.indexOf(u.Clearance) >= 0 || ACAD_ROLES.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');   // office accounts never open full records
+    const scope = u.Role === 'admin' ? studentSearchScope_(u) : null;
     const hit = findRow_('S', 'StudentID', id), s = hit && hit.o;
-    if (!s) throw new Error('Student record not found.');
+    if (!s || !studentWithinSearchScope_(scope, s)) throw new Error('Student record not found or outside your assigned scope.');
     if (u.Role === 'admin') auditView_(u, id);
     if (u.Role === 'admin') { const ax = findRow_('U', 'StudentID', id), acc = ax && ax.o.Role === 'student' ? ax.o : null; s.Photo = acc ? photo_(acc.PhotoID) : ''; s.AcctLocked = acc && acc.Locked === '1' ? '1' : ''; }
     s.Age = age_(s.Birthdate); s.RelAge = age_(s.RelBirthdate);decorate_(s, u);
@@ -359,11 +366,13 @@ function saveStudent(token, rec) {
   try {
     u = who_(token);                                   // before the lock: a bad session fails fast
     if (OFFICE_CL.indexOf(u.Clearance) >= 0 || ACAD_ROLES.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
+    const scope = u.Role === 'admin' ? studentSearchScope_(u) : null;
     const sh = sh_('S'), admin = u.Role==='admin';
     lock.waitLock(20000);
     const id = admin ? rec.StudentID : u.StudentID, hit = id ? findStudent_(id) : null, rowNo = hit ? hit.r : 0;
     old = hit ? hit.o : null;
     if (!old && !admin) throw new Error('Not allowed.');
+    if (old && !studentWithinSearchScope_(scope, old)) throw new Error('Not allowed outside your assigned student scope.');
     row = old ? Object.assign({}, old) : {}; oldStatus = old ? old.EnrollStatus : ''; isNew = !old;
     FIELDS.forEach(f => { if (f[3]==='auto'||(!admin&&!stuCan_(f))) return; row[f[1]] = String(rec[f[1]]==null?'':rec[f[1]]).trim(); if (f[3]==='txt' && !/(Email|Facebook)$/.test(f[1])) row[f[1]] = row[f[1]].toUpperCase(); });
     if (!admin && old && old.EnrollStatus === 'Enrolled') IDLOCK.forEach(k => row[k] = old[k]);   // identity lock (Hardening)
@@ -391,6 +400,7 @@ function saveStudent(token, rec) {
       if (!['Grade 11','Grade 12'].includes(row.PrevGrade)) row.PrevCluster = '';
       if (!CERT_CATS.includes(row.Category)) row.CertNo = '';
       if (!admin && old && (row.GradeLevel!==old.GradeLevel || row.Cluster!==old.Cluster)) row.Section = ''; }
+    if (!studentWithinSearchScope_(scope, row)) throw new Error('The resulting student grade and section are outside your assigned scope.');
     if (row.LivingWith!=='Relatives / Legal Guardian') ['RelName','RelRelation','RelBirthdate','RelAge','RelSex','RelGender','RelGenderOther','RelMobile','RelCivil','RelSameAddr','RelAddress','RelSide'].forEach(k => row[k] = '');
     if (row.RelSameAddr==='Yes') row.RelAddress = addr_(row);
     if (row.RelGender!=='Others, specify') row.RelGenderOther = '';
