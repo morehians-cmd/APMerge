@@ -337,7 +337,7 @@ A new additive server file, `WebsitePublishing.gs`, now provides `websitePublish
 - Reports duplicate Content keys, duplicate gallery IDs within a page, missing/trashed referenced Drive files, media metadata and parent folders, per-source SHA-256 hashes, and a combined candidate-payload hash/size.
 - Reports a conservative 40,000-character chunk plan and whether the current candidate fits the conservative single-cell threshold.
 - Does not create sheets, write rows, change Drive permissions, move/trash files, change gallery references, alter public caches, or switch public readers.
-- If the Events sheet is absent, a source has duplicates, a referenced file is missing/trashed, or the payload exceeds the conservative single-cell threshold, baseline readiness is false and the report lists blockers.
+- If the Events sheet is absent, a source has duplicates, or a referenced file is missing/trashed, baseline readiness is false and the report lists blockers. Payloads larger than the conservative single-cell threshold are flagged for chunked storage; they are not rejected solely for size because the child chunk store is now part of the schema.
 
 This is an additive diagnostic only. It has been committed to the working branch but has **not** been executed in the live Apps Script project. Its runtime result is required before a baseline version can be seeded. The final version-store design must use chunked payload storage when the measured payload exceeds the Sheets cell limit; the preflight does not write any snapshot chunks.
 
@@ -361,3 +361,17 @@ The public `getLogo()` endpoint reads that property and returns a bounded image 
 - Does not seed a baseline version, copy or mutate live content, change Drive sharing, redirect editor writes, or change public readers. The published pointer remains blank until a separately validated baseline is seeded.
 
 This function is source-complete but has not been run in the live bound Apps Script project. Do not run it until the new source file has been synchronized to the bound project and the user is ready to create these four additive tabs. Running it is a spreadsheet-structure change (not a production website cutover); the existing website remains on its legacy content stores.
+
+
+#### Immutable baseline seeding implementation added
+
+`WebsitePublishing.gs` now provides `seedWebsitePublishingBaseline(token)`.
+
+- Requires the Full administrator session, an existing `PREPARED` config, all four additive publishing sheets, and a clean current preflight.
+- Re-reads the live source data and compares the full payload hash to the preflight hash; if the content changed between the two reads, seeding stops.
+- Writes the immutable payload in 40,000-character chunks, stores a SHA-256 hash per chunk, rebuilds the payload from the stored chunks, and verifies the full payload hash before writing version metadata.
+- Records one `Approved` migration-baseline version, its hash/size/chunk count, the `baseline_version_id`, and `migration_state=BASELINE_SEEDED`.
+- Intentionally leaves `published_version_id` blank. Existing public readers continue to use the current Content/Events/Gallery stores; existing editor writes remain live and unchanged.
+- Refuses to overwrite an existing baseline or seed when the migration state is not `PREPARED`.
+
+The preflight, store-setup, and baseline-seed functions have passed a JavaScript syntax parse in repository inspection. They have not been executed in Apps Script, and their sheet/Drive behavior remains unverified until run in the bound non-production script. The baseline-seed function must not be run until the source is synchronized and the Full administrator is ready to create the version stores and immutable baseline records.
