@@ -109,8 +109,8 @@ function saveAbout(token, d) {
     const b = blockRow_(ABOUT_KEY);
     put_(b.sh, b.row || (b.sh.getLastRow() + 1), 1, [[ABOUT_KEY, json]]);
     CacheService.getScriptCache().remove('puba_v1');
-    const keep = clean.leaders.map(l => l.photo);
-    oldIds.filter(id => !keep.includes(id)).forEach(id => { try { DriveApp.getFileById(id).setTrashed(true); } catch (_) {} });
+    // Retain removed leader photos: immutable website versions and rollback snapshots may still reference them.
+    // Unreferenced media cleanup must be a separate, retention-aware maintenance operation.
     audit_(ou, 'content.save', ABOUT_KEY, '');
     return ok(clean, 'Saved');
   } catch (e) { return fail(e); } finally { try { lock.releaseLock(); } catch (_) {} }
