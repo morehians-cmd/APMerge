@@ -67,7 +67,7 @@ function wpReferencedDriveIds_(contentRows, galleries, defaults) {
   Object.keys(galleries).forEach(page => galleries[page].forEach(item => add(item.id)));
   const defaultText = JSON.stringify(defaults || {});
   let defaultMatch;
-  const defaultRe = /drive\\.google\\.com\\/(?:thumbnail\\?[^\"'<> ]*?id=|uc\\?[^\"'<> ]*?id=|file\\/d\\/)([A-Za-z0-9_-]{10,80})/gi;
+    const defaultRe = /drive\.google\.com\/(?:thumbnail\?[^"'<> ]*?id=|uc\?[^"'<> ]*?id=|file\/d\/)([A-Za-z0-9_-]{10,80})/gi;
   while ((defaultMatch = defaultRe.exec(defaultText))) add(defaultMatch[1]);
   return Object.keys(ids).sort();
 }
