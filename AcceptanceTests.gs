@@ -250,6 +250,48 @@ function runSecurityAcceptanceTests() {
     }
   });
 
+  record('M4-06', 'Certificate of Registration enforces the authenticated student scope before reading fee data', () => {
+    const originals = {
+      who:who_, guard:assertAdminConsoleRole_, scope:studentSearchScope_,
+      find:findStudent_, assertScope:assertStudentScope_, feeSheet:feeSheet_
+    };
+    let roleGuardCalled = false, scopeResolverCalled = false, feeSheetRead = false;
+    try {
+      who_ = (token, requiredRole) => {
+        assert(token === 'acceptance-token' && requiredRole === 'admin', 'Unexpected authentication arguments.');
+        return { Role:'admin', Clearance:'Encoder', Username:'acceptance-encoder' };
+      };
+      assertAdminConsoleRole_ = user => {
+        roleGuardCalled = true;
+        assert(user && user.Clearance === 'Encoder', 'Role guard received the wrong account.');
+        return user;
+      };
+      studentSearchScope_ = user => {
+        scopeResolverCalled = true;
+        assert(user && user.Username === 'acceptance-encoder', 'Scope resolver received the wrong account.');
+        return { grades:['Grade 1'], sections:{ 'Grade 1':['A'] } };
+      };
+      findStudent_ = id => ({ r:2, o:{ StudentID:id, GradeLevel:'Grade 2', Section:'B', Category:'TLC', EnrollStatus:'Enrolled', IDNumber:'TLC2026-0001' } });
+      assertStudentScope_ = () => { throw new Error('Student is outside your assigned scope.'); };
+      feeSheet_ = () => { feeSheetRead = true; throw new Error('Fee settings must not be read.'); };
+      const result = corData('acceptance-token', 'OUT-OF-SCOPE');
+      assert(result && result.success === false, 'Out-of-scope COR request was not denied.');
+      assert(roleGuardCalled, 'The admin-console role guard was not invoked.');
+      assert(scopeResolverCalled, 'The Encoder scope resolver was not invoked.');
+      assert(/outside your assigned scope/i.test(String(result.error || '')),
+        'The endpoint did not return the student-scope denial: ' + String(result.error || 'no error returned'));
+      assert(!feeSheetRead, 'COR fee settings were read before enforcing student scope.');
+      return 'An authenticated synthetic Encoder is rejected by the student-scope guard before COR fee settings or photo data are accessed.';
+    } finally {
+      who_ = originals.who;
+      assertAdminConsoleRole_ = originals.guard;
+      studentSearchScope_ = originals.scope;
+      findStudent_ = originals.find;
+      assertStudentScope_ = originals.assertScope;
+      feeSheet_ = originals.feeSheet;
+    }
+  });
+
   record('M4-05', 'ID-card endpoints restrict records to TLC scholar categories', () => {
     assertIdCardEligible_({ Category:'TLC' });
     assertIdCardEligible_({ Category:'TLC-OVAP' });
