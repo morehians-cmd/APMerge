@@ -726,7 +726,7 @@ function createWebsiteDraft(token) {
     const saved = wpWriteVersion_(id, baselineId, 'Draft', actor, baseline.payload, 'New draft copied from the immutable migration baseline.');
     const audit = ss.getSheetByName('Website Publishing Audit');
     audit.appendRow([Utilities.getUuid(), id, 'draft.create', actor.Username, new Date(), 'Draft copied from baseline ' + baselineId, saved.payloadHash]);
-    return ok({ versionId:id, parentVersionId:baselineId, status:'Draft', payload:baseline.payload, payloadHash:saved.payloadHash }, 'Website draft created.');
+    return ok({ versionId:id, parentVersionId:baselineId, status:'Draft', payloadHash:saved.payloadHash, payloadChars:saved.payloadChars, payloadChunkCount:saved.payloadChunkCount }, 'Website draft created.');
   } catch (error) {
     return fail(error);
   } finally {
@@ -837,6 +837,65 @@ function publishWebsiteVersion(token, versionId) {
   try {
     wpRequirePermission_(token, 'website.content.publish');
     return fail(new Error('Publishing is disabled until the public-reader cutover and media publication lifecycle are implemented and verified.'));
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+
+function getMyWebsitePermissions(token) {
+  try {
+    const user = who_(token, 'admin');
+    return ok({ username:user.Username, permissions:wpPermissionMap_(user.Username), available:WP_PERMISSION_KEYS_.slice() });
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+function listWebsiteVersions(token) {
+  try {
+    const user = who_(token, 'admin');
+    const permissions = wpPermissionMap_(user.Username);
+    if (!permissions['website.content.edit'] && !permissions['website.content.review'] &&
+        !permissions['website.content.publish'] && !permissions['website.content.rollback'] &&
+        user.Clearance !== 'Full') throw new Error('You do not have access to website publishing.');
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Versions');
+    if (!sheet || sheet.getLastRow() < 2) return ok([]);
+    const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, WP_VERSION_HEADERS_.length).getValues();
+    const versions = rows.filter(row => row[0]).map(row => ({
+      versionId:wpText_(row[0]), parentVersionId:wpText_(row[1]), status:wpText_(row[2]),
+      createdBy:wpText_(row[3]), createdAt:row[4] instanceof Date ? row[4].toISOString() : wpText_(row[4]),
+      updatedBy:wpText_(row[5]), updatedAt:row[6] instanceof Date ? row[6].toISOString() : wpText_(row[6]),
+      reviewedBy:wpText_(row[7]), reviewedAt:row[8] instanceof Date ? row[8].toISOString() : wpText_(row[8]),
+      reviewNotes:wpText_(row[9]), publishedBy:wpText_(row[10]),
+      publishedAt:row[11] instanceof Date ? row[11].toISOString() : wpText_(row[11]),
+      payloadHash:wpText_(row[12]), payloadChars:Number(row[13]) || 0,
+      payloadBytes:Number(row[14]) || 0, payloadChunkCount:Number(row[15]) || 0
+    }));
+    return ok(versions.sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt))));
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+function getWebsiteVersion(token, versionId) {
+  try {
+    const user = who_(token, 'admin');
+    const permissions = wpPermissionMap_(user.Username);
+    if (!permissions['website.content.edit'] && !permissions['website.content.review'] &&
+        !permissions['website.content.publish'] && !permissions['website.content.rollback'] &&
+        user.Clearance !== 'Full') throw new Error('You do not have access to website publishing.');
+    const version = wpReadVersion_(String(versionId || ''));
+    if (wpText_(version.meta[2]) === 'Draft' && wpText_(version.meta[3]).toLowerCase() !== user.Username.toLowerCase() &&
+        !permissions['website.content.review'] && user.Clearance !== 'Full') {
+      throw new Error('You cannot view another user's draft.');
+    }
+    return ok({
+      versionId:wpText_(version.meta[0]), parentVersionId:wpText_(version.meta[1]),
+      status:wpText_(version.meta[2]), createdBy:wpText_(version.meta[3]),
+      updatedBy:wpText_(version.meta[5]), reviewedBy:wpText_(version.meta[7]),
+      reviewNotes:wpText_(version.meta[9]), payloadHash:version.hash, payload:version.payload
+    });
   } catch (error) {
     return fail(error);
   }
