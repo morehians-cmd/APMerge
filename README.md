@@ -43,5 +43,6 @@ The script must be **bound to the school's spreadsheet**: the code reads and wri
 
 - The College module is `CollegeModule.gs`, not `College.gs`: Apps Script will not hold two project files with the same name, and the dashboard screen is already `College.html`. The file's functions and API are unchanged.
 - New spreadsheet columns must be added at the **end** of `FIELDS` in `Code.gs` — the order matters for existing rows.
-- Admission requirements are submitted physically to the Admissions Office. Applicants use the portal only to view their checklist and recorded status; authorized school staff update receipt and verification in the student record. There is no applicant document-upload feature.\n- Student/staff profile photo uploads are resized in the browser before being stored, so staff never need to resize images themselves.
+- Admission requirements are submitted physically to the Admissions Office. Applicants use the portal only to view their checklist and recorded status; authorized school staff update receipt and verification in the student record. There is no applicant document-upload feature.
+- Student/staff profile photo uploads are resized in the browser before being stored, so staff never need to resize images themselves.
 - Keep secrets (`SALT`, `PEPPER`, the photo folder ID) out of screenshots, chats and public copies of this repository.
