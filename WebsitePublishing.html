@@ -47,7 +47,7 @@ function wpUiRefresh(selectId){
 function wpUiSelected(){return WPUI.versions.find(v=>v.versionId===WPUI.selected)||null}
 function wpUiContentKeys_(){
   const d=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};
-  return Array.from(new Set([...(d.publicBlockKeys||[]),...(d.pageBlockKeys||[]),'pubhome_content','pubhome_hero','pubpage_intro','pubpage_banners']))
+  return Array.from(new Set([...(d.publicBlockKeys||[]),...Object.values(d.pageBlockKeys||{}),'pubhome_content','pubhome_hero','pubpage_intro','pubpage_banners']))
     .filter(key=>key&&key!=='about_data').sort();
 }
 function wpUiDefaultContentValue_(key){
