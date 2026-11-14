@@ -325,6 +325,20 @@ function runSecurityAcceptanceTests() {
     return 'Guidance, Accounting, HeadTeacher and Teacher denied; Full, Manager and scoped Encoder remain eligible; student account denied.';
   });
 
+  record('M5-06', 'Student-care administrative actions exclude office and Academic accounts', () => {
+    ['Guidance','Accounting','Academic','HeadTeacher','Teacher'].forEach(clearance => {
+      let rejected = false;
+      try { assertAdminConsoleRole_({ Role:'admin', Clearance:clearance }); }
+      catch (e) { rejected = /Not allowed/.test(String(e && e.message || e)); }
+      assert(rejected, clearance + ' unexpectedly passed the student-care role guard.');
+    });
+    ['Full','Manager','Encoder'].forEach(clearance => {
+      const actor = assertAdminConsoleRole_({ Role:'admin', Clearance:clearance });
+      assert(actor.Clearance === clearance, clearance + ' lost intended student-care console eligibility.');
+    });
+    return 'Office and Academic accounts denied; Full, Manager and Encoder retain the shared admin-console role policy.';
+  });
+
   record('M6-01', 'Report endpoints reject unauthenticated direct invocation', () => {
     const calls = [
       ['report', () => report('invalid-acceptance-token', 'daily')],
