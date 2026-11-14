@@ -215,7 +215,7 @@ The current live website is not backed by one content record. Its public rendere
 
 Use a dedicated additive store; do not repurpose or overwrite the current Content sheet records.
 
-- **Website Versions**: immutable version metadata rows with `VersionID`, `ParentVersionID`, `Status` (Draft, InReview, ChangesRequested, Approved, Published, Archived), `CreatedBy`, `CreatedAt`, `UpdatedBy`, `UpdatedAt`, `ReviewedBy`, `ReviewedAt`, `ReviewNotes`, `PublishedBy`, `PublishedAt`, `PayloadHash`, `PayloadChars`, `PayloadBytes`, and `PayloadChunkCount`. The payload itself is stored in the child **Website Version Chunks** sheet (`VersionID`, `ChunkIndex`, `ChunkCount`, `PayloadChunk`, `ChunkHash`) so a complete site snapshot never depends on fitting into one 50,000-character Sheets cell.
+- **Website Versions**: immutable version metadata rows with `VersionID`, `ParentVersionID`, `Status` (Baseline, Draft, InReview, ChangesRequested, Approved, Published, Archived), `CreatedBy`, `CreatedAt`, `UpdatedBy`, `UpdatedAt`, `ReviewedBy`, `ReviewedAt`, `ReviewNotes`, `PublishedBy`, `PublishedAt`, `PayloadHash`, `PayloadChars`, `PayloadBytes`, and `PayloadChunkCount`. The payload itself is stored in the child **Website Version Chunks** sheet (`VersionID`, `ChunkIndex`, `ChunkCount`, `PayloadChunk`, `ChunkHash`) so a complete site snapshot never depends on fitting into one 50,000-character Sheets cell.
 - **Website Publishing Config**: one controlled pointer to the currently published version, current schema version, migration baseline ID, and migration state. The published pointer is the only source-selection switch for public reads.
 - **Website Publishing Audit**: append-only action history with actor, action, version, timestamp, and reason. Do not store applicant/student data in these records.
 
@@ -357,7 +357,7 @@ The public `getLogo()` endpoint reads that property and returns a bounded image 
 - Creates or verifies four additive tabs: `Website Versions`, `Website Version Chunks`, `Website Publishing Config`, and `Website Publishing Audit`.
 - Verifies exact header names before writing; it refuses to overwrite a conflicting existing header schema.
 - Initializes missing config keys only: `schema_version`, `migration_state=PREPARED`, blank `published_version_id`, blank `baseline_version_id`, and `legacy_fallback_enabled=true`.
-- Appends a setup audit entry. Re-running is safe and does not overwrite existing version/config values.
+- Appends a setup audit entry. Re-running is safe and does not overwrite existing version/config values. Duplicate config keys are rejected rather than silently selecting one.
 - Does not seed a baseline version, copy or mutate live content, change Drive sharing, redirect editor writes, or change public readers. The published pointer remains blank until a separately validated baseline is seeded.
 
 This function is source-complete but has not been run in the live bound Apps Script project. Do not run it until the new source file has been synchronized to the bound project and the user is ready to create these four additive tabs. Running it is a spreadsheet-structure change (not a production website cutover); the existing website remains on its legacy content stores.
@@ -370,7 +370,7 @@ This function is source-complete but has not been run in the live bound Apps Scr
 - Accepts a Full administrator session token or a no-argument run by the bound script owner, and requires an existing `PREPARED` config, all four additive publishing sheets, and a clean current preflight.
 - Re-reads the live source data and compares the full payload hash to the preflight hash; if the content changed between the two reads, seeding stops.
 - Writes the immutable payload in 40,000-character chunks, stores a SHA-256 hash per chunk, rebuilds the payload from the stored chunks, and verifies the full payload hash before writing version metadata.
-- Records one immutable `Published` migration-baseline version (representing the currently live public site, not a newly reviewed draft), its hash/size/chunk count, the `baseline_version_id`, and `migration_state=BASELINE_SEEDED`.
+- Records one immutable `Baseline` migration version (representing the currently live public site, not a newly reviewed draft), its hash/size/chunk count, the `baseline_version_id`, and `migration_state=BASELINE_SEEDED`.
 - Intentionally leaves `published_version_id` blank. Existing public readers continue to use the current Content/Events/Gallery stores; existing editor writes remain live and unchanged.
 - Refuses to overwrite an existing baseline or seed when the migration state is not `PREPARED`.
 
