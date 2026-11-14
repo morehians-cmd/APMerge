@@ -219,7 +219,7 @@ Use a dedicated additive store; do not repurpose or overwrite the current Conten
 - **Website Publishing Config**: one controlled pointer to the currently published version, current schema version, migration baseline ID, and migration state. The published pointer is the only source-selection switch for public reads.
 - **Website Publishing Audit**: append-only action history with actor, action, version, timestamp, and reason. Do not store applicant/student data in these records.
 
-A version payload must be a complete, schema-validated snapshot of every content domain above, including stable Drive file IDs/URLs and the event/gallery references that the public site currently displays. Events and galleries that remain operational records should be referenced by stable IDs and not copied into editable website prose. Their inclusion/exclusion must be explicit in the payload schema.
+A version payload must be a complete, schema-validated snapshot of website-managed Content values, effective code defaults, page/card configuration, and gallery IDs/captions plus stable Drive file references. The homepage event/announcement feed is operational data: the payload records the live Events source/schema and feed-selection contract, while the actual event rows remain in the Events sheet and continue to update dynamically. The preflight reports the Events row count/hash separately, but event-row changes do not invalidate the website-content baseline. Gallery membership/captions are website-managed content and are snapshotted; image binaries remain in Drive and are referenced by ID.
 
 ### Permission and state transitions
 
@@ -391,3 +391,10 @@ A source-level assertion pass on the current branch checked 12 conditions and al
 - The new website-publishing module passes a JavaScript syntax parse.
 
 The report and analytics module was also inspected: `reportsHome` rejects Encoders, analytics/drill-down use the shared `anCtx_` authorization path, and report preferences/history use `rpUser_`, which rejects Encoders. This remains source inspection only; no user-role execution, Drive permission, spreadsheet mutation, installed-trigger event, browser UI, or Apps Script runtime test was performed.
+
+
+#### Payload boundary refinement
+
+The chunked baseline now captures the effective website defaults as well as the stored Content key/value rows: About defaults, homepage content/hero defaults, page intro/banner defaults, section-card defaults, block/page maps, and gallery page aliases. This prevents a future reader cutover from silently depending on a different set of code defaults.
+
+The Events sheet is validated and separately fingerprinted for audit, but event rows are intentionally excluded from the immutable website payload. The homepage currently queries the Events sheet dynamically for upcoming announcements and events; keeping those rows operational avoids freezing calendar data into a website content version. The version payload stores the event-feed source/schema/selection contract instead.
