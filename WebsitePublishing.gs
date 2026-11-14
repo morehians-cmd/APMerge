@@ -172,7 +172,7 @@ function websitePublishingPreflight(token) {
       schemaVersion:WP_PREFLIGHT_SCHEMA_,
       contentRows:contentRows,
       defaults:defaults,
-      eventFeed:{ source:'Events', columns:EVCOLS.slice(), announcementLimit:5, eventLimit:PUB_EVENTS_MAX },
+      eventFeed:{ source:'Events', columns:EVCOLS.slice(), rows:eventRows, announcementLimit:5, eventLimit:PUB_EVENTS_MAX },
       galleries:galleries
     };
     const payloadJson = JSON.stringify(payload);
@@ -438,7 +438,7 @@ function seedWebsitePublishingBaseline(token) {
       schemaVersion:WP_PREFLIGHT_SCHEMA_,
       contentRows:contentRows,
       defaults:defaults,
-      eventFeed:{ source:'Events', columns:EVCOLS.slice(), announcementLimit:5, eventLimit:PUB_EVENTS_MAX },
+      eventFeed:{ source:'Events', columns:EVCOLS.slice(), rows:events, announcementLimit:5, eventLimit:PUB_EVENTS_MAX },
       galleries:galleries
     });
     const payloadHash = wpHash_(payloadJson);
@@ -551,7 +551,7 @@ function validateWebsitePublishingBaseline(token) {
       parsed = JSON.parse(payloadJson);
       payloadSchemaValid = !!parsed && parsed.schemaVersion === WP_PREFLIGHT_SCHEMA_ &&
         Array.isArray(parsed.contentRows) && parsed.defaults && typeof parsed.defaults === 'object' &&
-        parsed.eventFeed && parsed.eventFeed.source === 'Events' &&
+        parsed.eventFeed && parsed.eventFeed.source === 'Events' && Array.isArray(parsed.eventFeed.rows) &&
         parsed.galleries && typeof parsed.galleries === 'object';
     } catch (_) {}
 
@@ -721,7 +721,7 @@ function wpReadVersion_(versionId) {
   try { payload = JSON.parse(json); } catch (_) { throw new Error('Website version payload is not valid JSON.'); }
   if (!payload || payload.schemaVersion !== WP_PREFLIGHT_SCHEMA_ ||
       !Array.isArray(payload.contentRows) || !payload.defaults ||
-      !payload.eventFeed || payload.eventFeed.source !== 'Events' ||
+      !payload.eventFeed || payload.eventFeed.source !== 'Events' || !Array.isArray(payload.eventFeed.rows) ||
       !payload.galleries || typeof payload.galleries !== 'object') {
     throw new Error('Website version payload schema is invalid.');
   }
@@ -1121,7 +1121,7 @@ function websitePublishingSelfCheck(token) {
     const aboutFixture = {
       schemaVersion:WP_PREFLIGHT_SCHEMA_,
       contentRows:[['about','<p>Legacy About text</p>'],['pubhome','Homepage copy'],['about_data','{}']],
-      defaults:{}, eventFeed:{source:'Events'}, galleries:{}
+      defaults:{}, eventFeed:{source:'Events',rows:[]}, galleries:{}
     };
     const aboutFixtureUpdated = wpAboutPayloadWithData_(aboutFixture, { vision:{title:'Test vision',text:''} });
     check('About draft update preserves legacy and unrelated content',
