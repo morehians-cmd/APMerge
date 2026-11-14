@@ -322,6 +322,11 @@ function studentWithinSearchScope_(scope, student) {
     Array.isArray(scope.sections[student.GradeLevel]) &&
     scope.sections[student.GradeLevel].includes(String(student.Section || ''));
 }
+/** Throws before any read or write when a requested student is outside an account's assigned scope. */
+function assertStudentScope_(scope, student, message) {
+  if (!student || !studentWithinSearchScope_(scope, student)) throw new Error(message || 'Student record not found or outside your assigned scope.');
+  return student;
+}
 
 function searchStudents(token, q, status, limit, grade, sy) {
   try {
