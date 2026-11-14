@@ -914,6 +914,10 @@ function getLogo() {
 
 const APPROVED_BRANDING_FOLDER_PROPERTY_ = 'MA_APPROVED_BRANDING_FOLDER_ID';
 
+function logoMimeAllowed_(mime) {
+  return /^image\\/(png|jpeg|webp|gif)$/.test(String(mime || '').toLowerCase());
+}
+
 /** Returns true only when a Drive file is directly contained in the approved branding folder. */
 function logoIsInApprovedFolder_(file, folderId) {
   folderId = String(folderId || '').trim();
