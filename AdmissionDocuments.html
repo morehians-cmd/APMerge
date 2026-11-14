@@ -26,7 +26,11 @@
         </div>
         <button class="btn" id="adUploadBtn" onclick="adDocsUpload()">Upload document</button>
       </div>
-      <div class="card"><div class="ch"><h3>Document records</h3><span id="adDocCount" class="chip">0 documents</span></div><div id="adDocsList"><div class="aemp">Loading documents…</div></div></div>`;
+      <div class="card"><div class="ch"><h3>Document records</h3><span id="adDocCount" class="chip">0 documents</span></div>
+        <div class="g" style="margin-bottom:12px">
+          <div class="f"><label>Filter by review status</label><select id="adDocStatusFilter" onchange="adDocsRender()"><option value="">All statuses</option><option>Pending</option><option>Approved</option><option>Needs Correction</option><option>Rejected</option></select></div>
+          <div class="f"><label>Filter by document type</label><select id="adDocTypeFilter" onchange="adDocsRender()"><option value="">All document types</option><option>Birth Certificate</option><option>Report Card / SF9</option><option>Form 137</option><option>Good Moral Certificate</option><option>JHS Completion Certificate</option><option>Transferee Certification</option><option>Other Supporting Document</option></select></div>
+        </div><div id="adDocsList"><div class="aemp">Loading documents…</div></div></div>`;
     if(admin)$('adStudentId').value='';
     else window.adDocsLoad();
   };
@@ -35,17 +39,23 @@
     if(admin&&!id){toast('Enter an applicant Student ID.',false);return}
     docCall('listAdmissionDocuments',[T(),id],data=>{
       S.adDocStudent=data.studentId;S.adDocReview=!!data.canReview;
+      S.adDocsData=data.documents;S.adDocsCanReview=!!data.canReview;
       $('adDocCount').textContent=data.documents.length+' document(s)';
       $('adDocsStatus').textContent='Applicant ID: '+data.studentId;
-      $('adDocsList').innerHTML=data.documents.length?data.documents.map(d=>`
-        <div class="lr" style="padding:12px 0;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <div style="flex:1;min-width:180px"><b>${docEsc(d.type)}</b><div style="color:var(--mut);font-size:13px">${docEsc(d.fileName)} · ${(d.fileSize/1048576).toFixed(2)} MB · ${docEsc(d.uploadedAt)}</div>
-          ${d.reviewNote?'<small style="color:var(--danger)">'+docEsc(d.reviewNote)+'</small>':''}</div>
-          <span class="chip ${d.status==='Approved'?'good':d.status==='Rejected'||d.status==='Needs Correction'?'warn':''}">${docEsc(d.status)}</span>
-          <button class="btn alt" onclick="adDocsOpen('${docEsc(d.documentId)}')">View</button>
-          ${data.canReview?'<button class="btn alt" onclick="adDocsReview(\''+docEsc(d.documentId)+'\',\'Approved\')">Approve</button><button class="btn alt" onclick="adDocsReview(\''+docEsc(d.documentId)+'\',\'Needs Correction\')">Request correction</button><button class="btn red" onclick="adDocsReview(\''+docEsc(d.documentId)+'\',\'Rejected\')">Reject</button>':''}
-        </div>`).join(''):'<div class="aemp">No documents have been uploaded.</div>';
+      window.adDocsRender();
     });
+  };
+  window.adDocsRender=function(){
+    const all=S.adDocsData||[],status=$d('adDocStatusFilter')?$d('adDocStatusFilter').value:'',type=$d('adDocTypeFilter')?$d('adDocTypeFilter').value:'';
+    const docs=all.filter(d=>(!status||d.status===status)&&(!type||d.type===type));
+    $('adDocsList').innerHTML=docs.length?docs.map(d=>`
+      <div class="lr" style="padding:12px 0;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:180px"><b>${docEsc(d.type)}</b><div style="color:var(--mut);font-size:13px">${docEsc(d.fileName)} · ${(d.fileSize/1048576).toFixed(2)} MB · ${docEsc(d.uploadedAt)}</div>
+        ${d.reviewNote?'<small style="color:var(--danger)">'+docEsc(d.reviewNote)+'</small>':''}</div>
+        <span class="chip ${d.status==='Approved'?'good':d.status==='Rejected'||d.status==='Needs Correction'?'warn':''}">${docEsc(d.status)}</span>
+        <button class="btn alt" onclick="adDocsOpen('${docEsc(d.documentId)}')">View</button>
+        ${S.adDocsCanReview?'<button class="btn alt" onclick="adDocsReview(\''+docEsc(d.documentId)+'\',\'Approved\')">Approve</button><button class="btn alt" onclick="adDocsReview(\''+docEsc(d.documentId)+'\',\'Needs Correction\')">Request correction</button><button class="btn red" onclick="adDocsReview(\''+docEsc(d.documentId)+'\',\'Rejected\')">Reject</button>':''}
+      </div>`).join(''):'<div class="aemp">No documents match these filters.</div>';
   };
   window.adDocsUpload=function(){
     const f=$d('adDocFile').files[0];if(!f)return toast('Choose a file to upload.',false);
