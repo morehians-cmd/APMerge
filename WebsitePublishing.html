@@ -45,6 +45,16 @@ function wpUiRefresh(selectId){
   });
 }
 function wpUiSelected(){return WPUI.versions.find(v=>v.versionId===WPUI.selected)||null}
+function wpUiContentKeys_(){
+  const d=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};
+  return Array.from(new Set([...(d.contentBlockKeys||[]),...(d.publicBlockKeys||[]),...(d.pageBlockKeys||[]),'pubhome_content','pubhome_hero','pubpage_intro','pubpage_banners']))
+    .filter(key=>key&&key!=='about_data').sort();
+}
+function wpUiDefaultContentValue_(key){
+  const d=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};
+  const values={pubhome_content:d.homepageContent||{},pubhome_hero:d.homepageHero||{},pubpage_intro:d.pageIntros||{},pubpage_banners:d.pageBanners||{}};
+  return Object.prototype.hasOwnProperty.call(values,key)?JSON.stringify(values[key],null,2):'';
+}
 function wpUiRender(){
   const v=wpUiSelected(),p=WPUI.permissions;
   const options=WPUI.versions.map(x=>'<option value="'+esc(x.versionId)+'" '+(x.versionId===WPUI.selected?'selected':'')+'>'+esc(x.status)+' · '+esc(x.versionId)+' · '+esc(x.createdBy)+'</option>').join('');
@@ -91,10 +101,10 @@ function wpUiLoad(id){
       if(WPUI.selected!==id)return;
       WPUI.payload=v.data.payload||null;
       const rows=WPUI.payload&&Array.isArray(WPUI.payload.contentRows)?WPUI.payload.contentRows:[];
-      const available=rows.filter(row=>Array.isArray(row)&&row[0]!=='about_data');
-      if(!available.some(row=>row[0]===WPUI.contentKey))WPUI.contentKey=available.length?available[0][0]:'';
-      const selected=available.find(row=>row[0]===WPUI.contentKey);
-      WPUI.contentValue=selected?String(selected[1]||''):'';WPUI.contentSavedValue=WPUI.contentValue;
+      const available=wpUiContentKeys_();
+      if(!available.includes(WPUI.contentKey))WPUI.contentKey=available[0]||'';
+      const selected=rows.find(row=>Array.isArray(row)&&row[0]===WPUI.contentKey);
+      WPUI.contentValue=selected?String(selected[1]||''):wpUiDefaultContentValue_(WPUI.contentKey);WPUI.contentSavedValue=WPUI.contentValue;
       const pages=WPUI.payload&&WPUI.payload.galleries?Object.keys(WPUI.payload.galleries):[];
       if(!pages.includes(WPUI.galleryPage))WPUI.galleryPage=pages[0]||'';
       WPUI.galleryValue=JSON.stringify(WPUI.payload&&WPUI.payload.galleries?WPUI.payload.galleries[WPUI.galleryPage]||[]:[],null,2);WPUI.gallerySavedValue=WPUI.galleryValue;
@@ -103,9 +113,8 @@ function wpUiLoad(id){
   });
 }
 function wpUiContentEditor(){
-  const defaults=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};const allowed=new Set([...(defaults.contentBlockKeys||[]),...(defaults.publicBlockKeys||[]),...(defaults.pageBlockKeys||[]),'about_data','about_data','pubhome_content','pubhome_hero','pubpage_intro','pubpage_banners']);const rows=WPUI.payload&&Array.isArray(WPUI.payload.contentRows)?WPUI.payload.contentRows.filter(row=>Array.isArray(row)&&row[0]!=='about_data'&&allowed.has(row[0])):[];
-  const options=rows.map(row=>'<option value="'+esc(row[0])+'" '+(row[0]===WPUI.contentKey?'selected':'')+'>'+esc(row[0])+'</option>').join('');
-  return '<div class="card"><h3>Website content blocks and page settings</h3><p class="wp-muted">Edit a captured Content-sheet key in this draft only. JSON-backed settings must remain valid JSON. The original live Content sheet is not changed.</p><div class="wp-field"><label>Content key</label><select id="wpContentKey">'+options+'</select></div><div class="wp-field" style="margin-top:10px"><label>Draft value</label><textarea id="wpContentValue" rows="12" style="font-family:monospace">'+esc(WPUI.contentValue)+'</textarea></div><div class="wp-actions"><button class="btn" data-act="wpcontentsave">Save content revision</button></div></div>';
+  const options=wpUiContentKeys_().map(key=>'<option value="'+esc(key)+'" '+(key===WPUI.contentKey?'selected':'')+'>'+esc(key)+'</option>').join('');
+  return '<div class="card"><h3>Website content blocks and page settings</h3><p class="wp-muted">Edit a captured Content-sheet key in this draft only. JSON-backed settings must remain valid JSON. Keys with no saved override start from the captured defaults. The original live Content sheet is not changed.</p><div class="wp-field"><label>Content key</label><select id="wpContentKey">'+options+'</select></div><div class="wp-field" style="margin-top:10px"><label>Draft value</label><textarea id="wpContentValue" rows="12" style="font-family:monospace">'+esc(WPUI.contentValue)+'</textarea></div><div class="wp-actions"><button class="btn" data-act="wpcontentsave">Save content revision</button></div></div>';
 }
 function wpUiGalleryEditor(){
   const pages=WPUI.payload&&WPUI.payload.galleries?Object.keys(WPUI.payload.galleries):[];
@@ -250,7 +259,7 @@ document.addEventListener('change',e=>{
   }
   if(e.target.id==='wpContentKey'){
     if(!wpUiConfirmDiscard_('content')){e.target.value=WPUI.contentKey;return}
-    WPUI.contentKey=e.target.value;const row=(WPUI.payload.contentRows||[]).find(x=>x[0]===WPUI.contentKey);WPUI.contentValue=row?String(row[1]||''):'';WPUI.contentSavedValue=WPUI.contentValue;const el=$('wpContentValue');if(el)el.value=WPUI.contentValue;return
+    WPUI.contentKey=e.target.value;const row=(WPUI.payload.contentRows||[]).find(x=>x[0]===WPUI.contentKey);WPUI.contentValue=row?String(row[1]||''):wpUiDefaultContentValue_(WPUI.contentKey);WPUI.contentSavedValue=WPUI.contentValue;const el=$('wpContentValue');if(el)el.value=WPUI.contentValue;return
   }
   if(e.target.id==='wpGalleryPage'){
     if(!wpUiConfirmDiscard_('gallery')){e.target.value=WPUI.galleryPage;return}
