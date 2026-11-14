@@ -133,7 +133,7 @@ function websitePublishingPreflight(token) {
     const eventJson = JSON.stringify(eventRows);
     const galleryJson = JSON.stringify(galleries);
     const missingOrTrashed = driveFiles.filter(file => !file.exists || file.trashed);
-    const invalidMediaTypes = driveFiles.filter(file => file.exists && !/^image\\/(png|jpeg|webp|gif)$/i.test(file.mimeType || ''));
+    const invalidMediaTypes = driveFiles.filter(file => file.exists && !/^image\/(png|jpeg|webp|gif)$/i.test(file.mimeType || ''));
     const oversizedContentCells = contentRows
       .map(row => ({ key:row[0], chars:row[1].length }))
       .filter(row => row.chars > 45000)
