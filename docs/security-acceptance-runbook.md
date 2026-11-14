@@ -69,6 +69,28 @@ For an assigned Encoder, configure only synthetic canonical grades/sections in `
 
 Record endpoint, account, requested StudentID(s), response, and before/after state for every mutation.
 
+#### M4 source-audit inventory (reviewed on 2026-11-14)
+
+The following endpoint paths were inspected on branch `website-pages-fixes`. This is source-review evidence only; each path still requires the live Encoder account tests above.
+
+| Endpoint / helper | Scope behavior to verify in the development copy |
+|---|---|
+| `studentSearchScope_`, `studentWithinSearchScope_`, `assertStudentScope_` | Missing/malformed assignments fail closed; matching grade and section are both required. |
+| `searchStudents` | Filters rows and returned bulk IDs to assigned grade/section combinations; an explicitly requested unassigned grade is rejected. |
+| `getStudent` | Direct lookup of an out-of-scope StudentID fails closed. |
+| `saveStudent` | Checks the existing record before editing and the resulting grade/section before writing. |
+| `dashboard`, `dashboardExtra`, `getNotifications`, `getScholarships` | Student-derived counts and attention/notification rows are scoped. Verify the Encoder sees no unrelated student counts or identifiers. |
+| `report` | Applies the student scope to report rows; Encoder is explicitly denied report access. |
+| Holds: `flagSearch`, `flagList`, `holdsOverview` | Encoder lookup/list/overview are scoped; direct out-of-scope flag lookup must fail closed. Office accounts see only their own office's hold details. |
+| Holds: `grantTemporary` | Checks the target learner against the Encoder's assigned scope before changing enrollment status. |
+| ID cards: `idCardData`, `saveIdNumber`, `saveIdPhoto` | Each resolves the target learner and asserts scope before returning photo data or mutating the student record/Drive. |
+| Re-enrollment: `reenrollRun` with explicit `ids` | Requires admin authentication and checks each found requested learner against scope before building the mutation list. Bulk selection must be tested with mixed in-scope and out-of-scope IDs. |
+| Academic: `getClassRoster`, `getAdvisee` | Uses the separate Academic assignment model (teacher/adviser or Head Teacher grade scope), not the Encoder scope. Validate separately with HeadTeacher/Teacher accounts under M5. |
+
+The following functions are intentionally not Encoder write paths: `raiseFlag` and `clearFlag` are restricted to the relevant office or Full owner; `saveIdArt` is owner-only; a full bulk re-enrollment without explicit IDs uses the system-owner authorization path. Do not treat these as proof of Encoder scope until their separate role-denial behavior is exercised.
+
+For every mutation test, capture the exact target StudentID, account username/clearance, assigned grade/section, request payload, returned response, and before/after student row. Include a mixed-ID re-enrollment request and mixed-ID UI bulk selection. An out-of-scope target must not be changed even when an in-scope target is included in the same request.
+
 ### M5 — Dashboard, role and endpoint matrix
 
 The automated suite includes M5-01 for dashboard, dashboardExtra, and dashboardDemo, plus M5-02 for event, notification, system-settings, school-year, and career-result endpoints. Each is invoked directly with an invalid session token. These checks prove only unauthenticated rejection; they do not replace the role-by-role and data-minimization tests below.
