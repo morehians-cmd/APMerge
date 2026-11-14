@@ -234,6 +234,22 @@ function runSecurityAcceptanceTests() {
     }
   });
 
+  record('M4-05', 'ID-card endpoints restrict records to TLC scholar categories', () => {
+    assertIdCardEligible_({ Category:'TLC' });
+    assertIdCardEligible_({ Category:'TLC-OVAP' });
+    ['Regular','ALS','',null].forEach(category => {
+      let rejected = false;
+      try { assertIdCardEligible_({ Category:category }); } catch (e) {
+        rejected = /ID cards are for TLC scholars only/.test(String(e && e.message || e));
+      }
+      assert(rejected, 'Non-TLC category was accepted: ' + category);
+    });
+    let missingRejected = false;
+    try { assertIdCardEligible_(null); } catch (_) { missingRejected = true; }
+    assert(missingRejected, 'Missing learner was accepted.');
+    return 'TLC and TLC-OVAP accepted; all other and missing categories rejected by the shared endpoint guard.';
+  });
+
   record('M5-01', 'Dashboard endpoints reject unauthenticated direct invocation', () => {
     const calls = [
       ['dashboard', () => dashboard('invalid-acceptance-token')],
