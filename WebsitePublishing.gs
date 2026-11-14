@@ -1370,7 +1370,7 @@ function saveWebsiteDraftContent(token, parentVersionId, contentKey, contentValu
     const defaults = parent.payload.defaults || {};
     const allowed = new Set([
       ...(Array.isArray(defaults.publicBlockKeys) ? defaults.publicBlockKeys : []),
-      ...(Array.isArray(defaults.pageBlockKeys) ? defaults.pageBlockKeys : []),
+      ...Object.values(defaults.pageBlockKeys && typeof defaults.pageBlockKeys === 'object' ? defaults.pageBlockKeys : {}),
       'about_data', PUBLIC_CONTENT_KEY_, PUBLIC_HERO_KEY_, PAGE_INTRO_KEY_, PAGE_BANNERS_KEY_
     ]);
     if (!key || !allowed.has(key)) throw new Error('This Content key is not part of the website publishing schema.');
