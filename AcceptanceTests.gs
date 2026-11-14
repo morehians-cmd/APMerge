@@ -195,11 +195,13 @@ function runSecurityAcceptanceTests() {
     const level = GROUPS[0];
     assert(!!grade && !!level, 'Canonical grade and level fixtures are required.');
     assert(rpDetail_(level) === level, 'A recognized report level should remain available.');
-    assert(rpDetail_({ grade:grade, section:'A' }) === grade + ' / A', 'A valid grade/section descriptor was rejected.');
+    const validSection = (SEC[grade] || [])[0] || [].concat.apply([], Object.keys(SEC).filter(key => key.indexOf(grade + '|') === 0).map(key => SEC[key]))[0];
+    assert(!!validSection, 'A canonical section fixture is required.');
+    assert(rpDetail_({ grade:grade, section:validSection }) === grade + ' / ' + validSection, 'A valid grade/section descriptor was rejected.');
     assert(rpDetail_({ grade:grade, section:'*' }) === grade + ' / All sections', 'The all-sections descriptor was rejected.');
     assert(rpDetail_({ grade:grade, section:'(none)' }) === grade + ' / Unassigned', 'The unassigned descriptor was rejected.');
     [ 'STU-2026-0001', 'student@example.com', 'Juan Dela Cruz', { grade:'Juan Dela Cruz', section:'A' },
-      { grade:grade, section:'Student Name 09171234567' }, ['Grade 1','A'] ].forEach(value =>
+      { grade:grade, section:'NOT-A-REAL-SECTION' }, ['Grade 1','A'] ].forEach(value =>
       assert(rpDetail_(value) === '', 'Potentially identifying report detail was retained.'));
     return 'Only canonical grade/level and bounded section labels survive; IDs, emails, names and arbitrary payloads are discarded.';
   });
