@@ -727,28 +727,44 @@ function wpValidateDraftAssets_(payload, actor) {
   const staged = {};
   if (mediaSheet && mediaSheet.getLastRow() > 1) {
     mediaSheet.getRange(2, 1, mediaSheet.getLastRow() - 1, WP_MEDIA_HEADERS_.length).getDisplayValues()
-      .forEach(row => { if (row[0]) staged[row[0]] = staged[row[0]] ? { duplicate:true } : { state:row[6], uploadedBy:row[4] }; });
+      .forEach((row, index) => {
+        if (!row[0]) return;
+        const id = wpText_(row[0]);
+        if (staged[id]) staged[id] = { duplicate:true };
+        else staged[id] = { duplicate:false, state:row[6], uploadedBy:row[4], mimeType:row[2], size:Number(row[3]) || 0, sheetRow:index + 2 };
+      });
   }
   const invalid = [];
   const folderId = PropertiesService.getScriptProperties().getProperty(WP_MEDIA_FOLDER_PROPERTY_);
   ids.forEach(id => {
     try {
       const file = DriveApp.getFileById(id);
-      if (file.isTrashed() || !/^image\/(png|jpeg|webp|gif)$/i.test(file.getMimeType() || '')) {
+      const mime = wpText_(file.getMimeType());
+      if (file.isTrashed() || !/^image\/(png|jpeg|webp|gif)$/i.test(mime)) {
         invalid.push(id);
         return;
       }
-      if (staged[id]) {
-        if (staged[id].duplicate || staged[id].state !== 'Staged' || !folderId || !actor || wpText_(staged[id].uploadedBy).toLowerCase() !== wpText_(actor.Username).toLowerCase()) { invalid.push(id); return; }
-        const parents = file.getParents();
-        let inStagingFolder = false;
-        while (parents.hasNext()) if (parents.next().getId() === folderId) inStagingFolder = true;
-        if (!inStagingFolder || file.getSharingAccess() === DriveApp.Access.ANYONE ||
-            file.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK) invalid.push(id);
+      const record = staged[id];
+      if (record) {
+        if (record.duplicate || record.mimeType.toLowerCase() !== mime.toLowerCase() || record.size !== file.getSize()) {
+          invalid.push(id);
+          return;
+        }
+        if (record.state === 'Staged') {
+          if (!folderId || !actor || wpText_(record.uploadedBy).toLowerCase() !== wpText_(actor.Username).toLowerCase()) {
+            invalid.push(id);
+            return;
+          }
+          const parents = file.getParents();
+          let inStagingFolder = false;
+          while (parents.hasNext()) if (parents.next().getId() === folderId) inStagingFolder = true;
+          if (!inStagingFolder || [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) invalid.push(id);
+        } else if (record.state === 'Published') {
+          if (typeof inPhotoFolder_ !== 'function' || !inPhotoFolder_(id)) invalid.push(id);
+        } else {
+          invalid.push(id);
+        }
       } else if (typeof inPhotoFolder_ !== 'function' || !inPhotoFolder_(id)) {
-        // Existing (non-staged) images are trusted only when they belong to the
-        // established public-photo library. Never allow a draft to reference an
-        // arbitrary Drive image that happens to be readable by the script owner.
         invalid.push(id);
       }
     } catch (_) { invalid.push(id); }
@@ -756,6 +772,59 @@ function wpValidateDraftAssets_(payload, actor) {
   if (invalid.length) throw new Error('Draft references missing, trashed, unsupported, or unavailable image assets: ' + invalid.join(', '));
 }
 
+/**
+ * Promotes staged files into the approved website photo library.
+ * The operation is idempotent so a retry can safely finish after a partial Drive move.
+ */
+function wpPromoteDraftAssets_(payload, creator) {
+  const ids = wpReferencedDriveIds_(payload.contentRows || [], payload.galleries || {}, payload.defaults || {});
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName('Website Draft Media');
+  const folderId = PropertiesService.getScriptProperties().getProperty(WP_MEDIA_FOLDER_PROPERTY_);
+  if (!sheet) throw new Error('Website Draft Media store is missing.');
+  const photoFolder = DriveApp.getFolderById(PHOTO_FOLDER_ID);
+  if (photoFolder.isTrashed()) throw new Error('The approved website photo folder is unavailable.');
+  const rows = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, WP_MEDIA_HEADERS_.length).getDisplayValues()
+    : [];
+  const index = {};
+  rows.forEach((row, i) => {
+    const id = wpText_(row[0]);
+    if (!id) return;
+    if (index[id]) index[id] = { duplicate:true };
+    else index[id] = { row:row, sheetRow:i + 2, duplicate:false };
+  });
+
+  ids.forEach(id => {
+    const entry = index[id];
+    if (!entry) {
+      if (!inPhotoFolder_(id)) throw new Error('An unregistered draft image is not in the approved photo folder: ' + id);
+      return;
+    }
+    if (entry.duplicate) throw new Error('A staged asset has duplicate metadata and cannot be published: ' + id);
+    const row = entry.row, state = wpText_(row[6]), file = DriveApp.getFileById(id);
+    if (file.isTrashed() || wpText_(file.getMimeType()).toLowerCase() !== wpText_(row[2]).toLowerCase() ||
+        file.getSize() !== Number(row[3])) throw new Error('Staged asset metadata no longer matches Drive: ' + id);
+    if (state === 'Published') {
+      if (!inPhotoFolder_(id)) throw new Error('A previously published asset is no longer in the approved photo folder: ' + id);
+      return;
+    }
+    if (state !== 'Staged' || !folderId ||
+        wpText_(row[4]).toLowerCase() !== wpText_(creator).toLowerCase()) {
+      throw new Error('Staged asset ownership or state is invalid: ' + id);
+    }
+    if ([DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) {
+      throw new Error('A staged asset is publicly shared and cannot be promoted: ' + id);
+    }
+    const parents = file.getParents();
+    let inStagingFolder = false;
+    while (parents.hasNext()) if (parents.next().getId() === folderId) inStagingFolder = true;
+    if (!inStagingFolder) throw new Error('A staged asset is outside the private staging folder: ' + id);
+    file.moveTo(photoFolder);
+    if (!inPhotoFolder_(id)) throw new Error('Drive did not place the staged asset in the approved photo folder: ' + id);
+    sheet.getRange(entry.sheetRow, 7).setValue('Published');
+  });
+}
 function wpReadVersion_(versionId) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const versions = ss.getSheetByName('Website Versions');
@@ -843,14 +912,19 @@ function createWebsiteDraft(token) {
     const config = ss.getSheetByName('Website Publishing Config');
     if (!config) throw new Error('Website publishing stores have not been prepared.');
     const cfg = wpConfigMap_(config);
-    const baselineId = cfg.baseline_version_id || '';
-    if (!baselineId) throw new Error('Seed and validate the migration baseline before creating a draft.');
-    const baseline = wpReadVersion_(baselineId);
+    const sourceId = cfg.published_version_id || cfg.baseline_version_id || '';
+    if (!sourceId) throw new Error('Seed and validate the migration baseline before creating a draft.');
+    const source = wpReadVersion_(sourceId);
+    const expectedStatus = cfg.published_version_id ? 'Published' : 'Baseline';
+    if (wpText_(source.meta[2]) !== expectedStatus) {
+      throw new Error('The current website source version is not in the expected ' + expectedStatus + ' state.');
+    }
     const id = 'WV-' + Utilities.getUuid();
-    const saved = wpWriteVersion_(id, baselineId, 'Draft', actor, baseline.payload, 'New draft copied from the immutable migration baseline.');
+    const saved = wpWriteVersion_(id, sourceId, 'Draft', actor, source.payload,
+      cfg.published_version_id ? 'New draft copied from the currently published website version.' : 'New draft copied from the immutable migration baseline.');
     const audit = ss.getSheetByName('Website Publishing Audit');
-    audit.appendRow([Utilities.getUuid(), id, 'draft.create', actor.Username, new Date(), 'Draft copied from baseline ' + baselineId, saved.payloadHash]);
-    return ok({ versionId:id, parentVersionId:baselineId, status:'Draft', payloadHash:saved.payloadHash, payloadChars:saved.payloadChars, payloadChunkCount:saved.payloadChunkCount }, 'Website draft created.');
+    audit.appendRow([Utilities.getUuid(), id, 'draft.create', actor.Username, new Date(), 'Draft copied from source version ' + sourceId, saved.payloadHash]);
+    return ok({ versionId:id, parentVersionId:sourceId, status:'Draft', payloadHash:saved.payloadHash, payloadChars:saved.payloadChars, payloadChunkCount:saved.payloadChunkCount }, 'Website draft created.');
   } catch (error) {
     return fail(error);
   } finally {
@@ -858,7 +932,6 @@ function createWebsiteDraft(token) {
   }
 }
 
-/** Saves a new immutable revision; the prior draft version remains available for audit. */
 function saveWebsiteDraft(token, parentVersionId, payload) {
   const lock = LockService.getScriptLock();
   try {
@@ -959,14 +1032,59 @@ function reviewWebsiteDraft(token, versionId, decision, notes) {
  * to the immutable version store and the staged-media lifecycle has passed acceptance tests.
  */
 function publishWebsiteVersion(token, versionId) {
+  const lock = LockService.getScriptLock();
   try {
-    wpRequirePermission_(token, 'website.content.publish');
-    return fail(new Error('Publishing is disabled until the public-reader cutover and media publication lifecycle are implemented and verified.'));
+    lock.waitLock(20000);
+    const actor = wpRequirePermission_(token, 'website.content.publish');
+    const version = wpReadVersion_(String(versionId || ''));
+    if (wpText_(version.meta[2]) !== 'Approved') throw new Error('Only an independently approved website version can be published.');
+    const creator = wpText_(version.meta[3]);
+    if (!creator) throw new Error('The approved website version has no recorded creator.');
+    wpValidateDraftAssets_(version.payload, { Username:creator });
+    wpPromoteDraftAssets_(version.payload, creator);
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const config = ss.getSheetByName('Website Publishing Config');
+    const audit = ss.getSheetByName('Website Publishing Audit');
+    if (!config || !audit) throw new Error('Website publishing stores have not been prepared.');
+    const cfg = wpConfigMap_(config);
+    const previousId = wpText_(cfg.published_version_id);
+    if (previousId === versionId) throw new Error('This version is already the published website version.');
+    if (previousId) {
+      const previous = wpReadVersion_(previousId);
+      if (wpText_(previous.meta[2]) !== 'Published') throw new Error('The current published pointer is inconsistent; publication stopped.');
+    }
+
+    const now = new Date();
+    wpUpdateVersionStatus_(version, {
+      Status:'Published', PublishedBy:actor.Username, PublishedAt:now,
+      UpdatedBy:actor.Username, UpdatedAt:now
+    });
+    wpSetConfigValue_(config, 'migration_state', 'PUBLISHING');
+    wpSetConfigValue_(config, 'published_version_id', versionId);
+
+    if (previousId) {
+      const previous = wpReadVersion_(previousId);
+      wpUpdateVersionStatus_(previous, { Status:'Archived', UpdatedBy:actor.Username, UpdatedAt:now });
+    }
+    wpSetConfigValue_(config, 'migration_state', 'PUBLISHED');
+    audit.appendRow([
+      Utilities.getUuid(), versionId, 'version.publish', actor.Username, now,
+      previousId ? 'Published; previous version archived: ' + previousId : 'Published first immutable website version.',
+      version.hash
+    ]);
+    if (typeof invalidatePublicContentCache_ === 'function') invalidatePublicContentCache_();
+    return ok({
+      versionId:versionId, previousVersionId:previousId, status:'Published',
+      publishedBy:actor.Username, publishedAt:now.toISOString(),
+      mediaPromoted:true, publishedPointerUpdated:true
+    }, 'Website version published.');
   } catch (error) {
     return fail(error);
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
   }
 }
-
 
 function getMyWebsitePermissions(token) {
   try {
@@ -1061,22 +1179,27 @@ function getWebsiteDraftAboutPhoto(token, versionId, assetId) {
       if (staged.length !== 1) throw new Error('The staged photo has duplicate media records and cannot be previewed.');
       const record = staged[0];
       const folderId = PropertiesService.getScriptProperties().getProperty(WP_MEDIA_FOLDER_PROPERTY_);
-      if (record[6] !== 'Staged' ||
-          wpText_(record[4]).toLowerCase() !== wpText_(version.data.createdBy).toLowerCase() ||
-          wpText_(record[2]).toLowerCase() !== wpText_(file.getMimeType()).toLowerCase() ||
-          Number(record[3]) !== file.getSize() ||
-          !folderId) {
+      if (wpText_(record[2]).toLowerCase() !== wpText_(file.getMimeType()).toLowerCase() ||
+          Number(record[3]) !== file.getSize()) {
         throw new Error('The staged photo metadata does not match the selected draft or Drive file.');
       }
-      const folder = DriveApp.getFolderById(folderId);
-      if (folder.isTrashed() ||
-          [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(folder.getSharingAccess())) {
-        throw new Error('The private draft media folder is unavailable or publicly shared.');
+      if (record[6] === 'Staged') {
+        if (wpText_(record[4]).toLowerCase() !== wpText_(version.data.createdBy).toLowerCase() || !folderId) {
+          throw new Error('The staged photo is not owned by the selected draft creator.');
+        }
+        const folder = DriveApp.getFolderById(folderId);
+        if (folder.isTrashed() ||
+            [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(folder.getSharingAccess())) {
+          throw new Error('The private draft media folder is unavailable or publicly shared.');
+        }
+        const parents = file.getParents();
+        while (parents.hasNext()) if (parents.next().getId() === folderId) allowed = true;
+        if ([DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) allowed = false;
+      } else if (record[6] === 'Published') {
+        allowed = inPhotoFolder_(id);
+      } else {
+        throw new Error('The photo media record is not in an available state.');
       }
-      const parents = file.getParents();
-      while (parents.hasNext()) if (parents.next().getId() === folderId) allowed = true;
-      if (file.getSharingAccess() === DriveApp.Access.ANYONE ||
-          file.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK) allowed = false;
     } else if (typeof inPhotoFolder_ === 'function') {
       allowed = inPhotoFolder_(id);
     }
