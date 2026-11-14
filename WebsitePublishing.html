@@ -11,6 +11,10 @@ function websitePublishingPage(){
   $('view').innerHTML='<div class="card"><div class="aemp">Loading website publishing permissions…</div></div>';
   call('getMyWebsitePermissions',[T()],r=>{
     WPUI.permissions=r.data.permissions||{};
+    if(!Object.keys(WPUI.permissions).some(key=>WPUI.permissions[key]===true)){
+      $('view').innerHTML='<div class="card"><h3>Website publishing access</h3><p class="wp-muted">This account has not been assigned website publishing permissions. Ask the System Manager to assign the required individual website permissions.</p></div>';
+      return;
+    }
     wpUiRefresh();
   });
 }
@@ -28,7 +32,7 @@ function wpUiSelected(){return WPUI.versions.find(v=>v.versionId===WPUI.selected
 function wpUiRender(){
   const v=wpUiSelected(),p=WPUI.permissions;
   const options=WPUI.versions.map(x=>'<option value="'+esc(x.versionId)+'" '+(x.versionId===WPUI.selected?'selected':'')+'>'+esc(x.status)+' · '+esc(x.versionId)+' · '+esc(x.createdBy)+'</option>').join('');
-  const versionCard='<div class="card"><div class="wp-top"><div><h3 style="margin:0">Version workspace</h3><div class="wp-muted">Immutable revisions · independent review · published history</div></div><div class="wp-actions">'+(wpUiCan('website.content.edit')?'<button class="btn" data-act="wpcreate">Create draft</button>':'')+'<button class="btn alt" data-act="wprefresh">Refresh</button></div></div><div class="wp-ver" style="margin-top:14px"><div class="wp-field"><label for="wpVersionSelect">Select version</label><select id="wpVersionSelect" onchange="wpUiSelect(this.value)">'+(options||'<option value="">No versions yet</option>')+'</select></div><div>'+(v?'<span class="wp-status">'+esc(v.status)+'</span>':'')+'</div></div>'+(v?'<p class="wp-muted">Created by '+esc(v.createdBy)+' · Updated by '+esc(v.updatedBy)+' · '+esc(v.updatedAt||'')+'</p>':'<div class="wp-empty">No website versions are available. Prepare the publishing stores and seed the migration baseline before creating the first draft.</div>')+'</div>';
+  const versionCard='<div class="card"><div class="wp-top"><div><h3 style="margin:0">Version workspace</h3><div class="wp-muted">Immutable revisions · independent review · published history</div></div><div class="wp-actions">'+(wpUiCan('website.content.edit')?'<button class="btn" data-act="wpcreate">Create draft</button>':'')+'<button class="btn alt" data-act="wprefresh">Refresh</button></div></div><div class="wp-ver" style="margin-top:14px"><div class="wp-field"><label for="wpVersionSelect">Select version</label><select id="wpVersionSelect">'+(options||'<option value="">No versions yet</option>')+'</select></div><div>'+(v?'<span class="wp-status">'+esc(v.status)+'</span>':'')+'</div></div>'+(v?'<p class="wp-muted">Created by '+esc(v.createdBy)+' · Updated by '+esc(v.updatedBy)+' · '+esc(v.updatedAt||'')+'</p>':'<div class="wp-empty">No website versions are available. Prepare the publishing stores and seed the migration baseline before creating the first draft.</div>')+'</div>';
   let actions='';
   if(v){
     if(['Draft','ChangesRequested'].includes(v.status)&&wpUiCan('website.content.edit'))actions+='<button class="btn" data-act="wpsave">Save About revision</button><button class="btn alt" data-act="wpsubmit">Submit for review</button>';
