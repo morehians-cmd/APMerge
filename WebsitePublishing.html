@@ -52,7 +52,7 @@ function wpUiContentKeys_(){
 }
 function wpUiDefaultContentValue_(key){
   const d=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};
-  const values={pubhome_content:d.homepageContent||{},pubhome_hero:d.homepageHero||{},pubpage_intro:d.pageIntros||{},pubpage_banners:d.pageBanners||{}};
+  const values={pubhome_content:d.homepageContent||{},pubhome_hero:d.homepageHero||{},pubpage_intro:{},pubpage_banners:{}};
   return Object.prototype.hasOwnProperty.call(values,key)?JSON.stringify(values[key],null,2):'';
 }
 function wpUiRender(){
