@@ -53,7 +53,7 @@ function pageBannersPage() {
     pbLoadIntros();
   }).withFailureHandler(function (e) {
     $('view').innerHTML = '<div class="card"><div class="aemp">' + esc(e.message || 'Could not load the page banners.') + '</div></div>';
-  }).getPageBanners();
+  }).getPageBannersForEditor(T());
 }
 
 function pbLoadIntros() {
