@@ -143,8 +143,17 @@ function reqsFor_(r) {
   const tf = ru.opt.includes('ReqTransferee') && REQ_TF_CATS.includes(r.Category);
   return { level:lv, req:ru.req, show:REQ_ALL.filter(k => ru.req.includes(k) || (tf && k==='ReqTransferee') || (r[k] && r[k]!=='None')) };
 }
-const STU_SECS = ['prev','personal','family','living','rel','emergency','guard'];
-const stuCan_ = f => STU_SECS.includes(f[0]) || (f[0]==='academic' && !['Section','ReferredBy','Category','Classification'].includes(f[1]));
+const STU_EDIT_KEYS = new Set([
+  'PrevSchool','PrevSY','PrevGrade','PrevCluster','PrevSection','PrevAdviser','PrevScholarship','PrevSchoolID','PrevAddress',
+  'AddressLine1','AddressLine2','Barangay','City','Birthdate','Mobile','SexualOrient','GenderOrient','Religion','ReligionOther','Email','Facebook','BirthPlace',
+  'FatherName','FatherStatus','FatherOccupation','FatherEducation','FatherMobile','FatherReligion','FatherReligionOther','FatherEmail',
+  'MotherName','MotherStatus','MotherOccupation','MotherEducation','MotherMobile','MotherReligion','MotherReligionOther','MotherEmail',
+  'LivingWith',
+  'RelName','RelRelation','RelBirthdate','RelSex','RelGender','RelGenderOther','RelMobile','RelCivil','RelSameAddr','RelAddress','RelSide',
+  'EmName','EmRelation','EmMobile','EmSameAddr','EmAddress',
+  'GuardName','GuardRelation','GuardEmail','GuardMobile'
+]);
+const stuCan_ = f => !!f && STU_EDIT_KEYS.has(String(f[1] || ''));
 const addr_ = r => [r.AddressLine1,r.AddressLine2,r.Barangay,r.City].filter(Boolean).join(', ');
 const ok = (data, message) => ({ success:true, message:message||'', data:data });
 const fail = e => ({ success:false, error:e.message });
