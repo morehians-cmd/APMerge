@@ -157,7 +157,7 @@ function websitePublishingPreflight(token) {
         oversizedExistingContentCells:oversizedContentCells
       },
       readiness:{
-        readyForBaselineSeed:duplicateKeys.length === 0 && duplicateGalleryIds.length === 0 && missingOrTrashed.length === 0 && oversizedContentCells.length === 0,
+        readyForBaselineSeed:!!eventsSheet && duplicateKeys.length === 0 && duplicateGalleryIds.length === 0 && missingOrTrashed.length === 0 && oversizedContentCells.length === 0 && payloadJson.length <= 45000,
         blockers:[]
       }
     };
