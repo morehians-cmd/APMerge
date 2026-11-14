@@ -571,3 +571,273 @@ function validateWebsitePublishingBaseline(token) {
     try { lock.releaseLock(); } catch (_) {}
   }
 }
+
+
+const WP_PERMISSION_KEYS_ = [
+  'website.content.edit',
+  'website.content.review',
+  'website.content.publish',
+  'website.content.rollback'
+];
+
+function wpPermissionProperty_(username) {
+  return 'WP_PERMS_' + String(username || '').toLowerCase().replace(/[^a-z0-9._-]/g, '_');
+}
+
+function wpPermissionMap_(username) {
+  const raw = PropertiesService.getScriptProperties().getProperty(wpPermissionProperty_(username));
+  if (!raw) return {};
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch (_) { throw new Error('Website permission configuration is malformed for ' + username + '.'); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Website permission configuration is invalid for ' + username + '.');
+  const out = {};
+  WP_PERMISSION_KEYS_.forEach(key => { out[key] = parsed[key] === true; });
+  return out;
+}
+
+function wpRequirePermission_(token, permission) {
+  const user = who_(token, 'admin');
+  if (!WP_PERMISSION_KEYS_.includes(permission)) throw new Error('Unknown website permission.');
+  const map = wpPermissionMap_(user.Username);
+  if (map[permission] !== true) throw new Error('You do not have the website permission: ' + permission);
+  return user;
+}
+
+/**
+ * Full administrator assigns explicit user-level website permissions.
+ * No role template or clearance implicitly grants publish/review access.
+ */
+function setWebsiteUserPermissions(token, username, permissions) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const actor = sysOwner_(token);
+    const target = String(username || '').trim().toLowerCase();
+    if (!/^[a-z0-9._@-]{4,60}$/.test(target)) throw new Error('Enter a valid existing username.');
+    if (!rows_('U').some(user => user.Username === target && user.Role === 'admin')) throw new Error('The target staff account was not found.');
+    if (!permissions || typeof permissions !== 'object' || Array.isArray(permissions)) throw new Error('Invalid permission map.');
+    const next = {};
+    WP_PERMISSION_KEYS_.forEach(key => {
+      if (permissions[key] !== undefined && typeof permissions[key] !== 'boolean') throw new Error('Permission values must be true or false.');
+      next[key] = permissions[key] === true;
+    });
+    PropertiesService.getScriptProperties().setProperty(wpPermissionProperty_(target), JSON.stringify(next));
+    audit_(actor, 'website.permission.set', target, JSON.stringify(next));
+    const result = { username:target, permissions:next };
+    return ok(result, 'Website permissions saved.');
+  } catch (error) {
+    return fail(error);
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
+
+function wpReadVersion_(versionId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const versions = ss.getSheetByName('Website Versions');
+  const chunks = ss.getSheetByName('Website Version Chunks');
+  if (!versions || !chunks) throw new Error('Website publishing stores have not been prepared.');
+  const rows = versions.getLastRow() > 1
+    ? versions.getRange(2, 1, versions.getLastRow() - 1, WP_VERSION_HEADERS_.length).getValues()
+    : [];
+  const matches = [];
+  rows.forEach((row, index) => { if (wpText_(row[0]) === versionId) matches.push({ row:row, sheetRow:index + 2 }); });
+  if (matches.length !== 1) throw new Error('Website version was not found or is duplicated.');
+  const meta = matches[0].row;
+  const stored = chunks.getLastRow() > 1
+    ? chunks.getRange(2, 1, chunks.getLastRow() - 1, WP_CHUNK_HEADERS_.length).getDisplayValues()
+        .filter(row => row[0] === versionId).sort((a, b) => Number(a[1]) - Number(b[1]))
+    : [];
+  const count = Number(meta[15]) || 0;
+  if (!count || stored.length !== count) throw new Error('Website version payload chunks are incomplete.');
+  const parts = [];
+  stored.forEach((row, index) => {
+    if (Number(row[1]) !== index + 1 || Number(row[2]) !== count || wpHash_(row[3]) !== row[4]) {
+      throw new Error('Website version payload chunk integrity check failed.');
+    }
+    parts.push(row[3]);
+  });
+  const json = parts.join('');
+  if (wpHash_(json) !== wpText_(meta[12]) || json.length !== Number(meta[13]) ||
+      Utilities.newBlob(json, 'application/json').getBytes().length !== Number(meta[14])) {
+    throw new Error('Website version payload integrity check failed.');
+  }
+  let payload;
+  try { payload = JSON.parse(json); } catch (_) { throw new Error('Website version payload is not valid JSON.'); }
+  if (!payload || payload.schemaVersion !== WP_PREFLIGHT_SCHEMA_ ||
+      !Array.isArray(payload.contentRows) || !payload.defaults ||
+      !payload.eventFeed || payload.eventFeed.source !== 'Events' ||
+      !payload.galleries || typeof payload.galleries !== 'object') {
+    throw new Error('Website version payload schema is invalid.');
+  }
+  return { meta:meta, sheetRow:matches[0].sheetRow, payload:payload, hash:wpText_(meta[12]) };
+}
+
+function wpWriteVersion_(versionId, parentId, status, actor, payload, notes) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const versions = ss.getSheetByName('Website Versions');
+  const chunks = ss.getSheetByName('Website Version Chunks');
+  if (!versions || !chunks) throw new Error('Website publishing stores have not been prepared.');
+  const json = JSON.stringify(payload);
+  const parts = wpSplitChunks_(json, WP_PREFLIGHT_CHUNK_CHARS_);
+  const rows = parts.map((part, index) => [versionId, index + 1, parts.length, part, wpHash_(part)]);
+  const start = chunks.getLastRow() + 1;
+  chunks.getRange(start, 1, rows.length, WP_CHUNK_HEADERS_.length).setNumberFormat('@');
+  chunks.getRange(start, 1, rows.length, WP_CHUNK_HEADERS_.length).setValues(rows);
+  const verify = chunks.getRange(start, 1, rows.length, WP_CHUNK_HEADERS_.length).getDisplayValues();
+  const rebuilt = verify.map(row => row[3]).join('');
+  if (verify.length !== parts.length || wpHash_(rebuilt) !== wpHash_(json)) {
+    throw new Error('New website version payload failed storage verification.');
+  }
+  const now = new Date();
+  const bytes = Utilities.newBlob(json, 'application/json').getBytes().length;
+  versions.appendRow([
+    versionId, parentId || '', status, actor.Username, now, actor.Username, now,
+    '', '', notes || '', '', '', wpHash_(json), json.length, bytes, parts.length
+  ]);
+  return { versionId:versionId, payloadHash:wpHash_(json), payloadChars:json.length, payloadBytes:bytes, payloadChunkCount:parts.length };
+}
+
+function wpUpdateVersionStatus_(version, values) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Versions');
+  const current = version.meta.slice();
+  Object.keys(values).forEach(key => {
+    const index = WP_VERSION_HEADERS_.indexOf(key);
+    if (index < 0) throw new Error('Invalid website version metadata field.');
+    current[index] = values[key];
+  });
+  sheet.getRange(version.sheetRow, 1, 1, WP_VERSION_HEADERS_.length).setValues([current]);
+}
+
+/** Creates a new editable draft from the immutable live baseline. */
+function createWebsiteDraft(token) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const actor = wpRequirePermission_(token, 'website.content.edit');
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const config = ss.getSheetByName('Website Publishing Config');
+    if (!config) throw new Error('Website publishing stores have not been prepared.');
+    const cfg = wpConfigMap_(config);
+    const baselineId = cfg.baseline_version_id || '';
+    if (!baselineId) throw new Error('Seed and validate the migration baseline before creating a draft.');
+    const baseline = wpReadVersion_(baselineId);
+    const id = 'WV-' + Utilities.getUuid();
+    const saved = wpWriteVersion_(id, baselineId, 'Draft', actor, baseline.payload, 'New draft copied from the immutable migration baseline.');
+    const audit = ss.getSheetByName('Website Publishing Audit');
+    audit.appendRow([Utilities.getUuid(), id, 'draft.create', actor.Username, new Date(), 'Draft copied from baseline ' + baselineId, saved.payloadHash]);
+    return ok({ versionId:id, parentVersionId:baselineId, status:'Draft', payload:baseline.payload, payloadHash:saved.payloadHash }, 'Website draft created.');
+  } catch (error) {
+    return fail(error);
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
+
+/** Saves a new immutable revision; the prior draft version remains available for audit. */
+function saveWebsiteDraft(token, parentVersionId, payload) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const actor = wpRequirePermission_(token, 'website.content.edit');
+    const parent = wpReadVersion_(String(parentVersionId || ''));
+    if (!['Draft','ChangesRequested'].includes(wpText_(parent.meta[2]))) throw new Error('Only a Draft or Changes Requested version can be revised.');
+    if (wpText_(parent.meta[3]).toLowerCase() !== actor.Username.toLowerCase()) throw new Error('Only the draft creator can revise this version.');
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
+        payload.schemaVersion !== WP_PREFLIGHT_SCHEMA_ || !Array.isArray(payload.contentRows) ||
+        !payload.defaults || typeof payload.defaults !== 'object' ||
+        !payload.eventFeed || payload.eventFeed.source !== 'Events' ||
+        !payload.galleries || typeof payload.galleries !== 'object') {
+      throw new Error('The submitted website payload does not match the supported schema.');
+    }
+    const keys = {};
+    payload.contentRows.forEach(row => {
+      if (!Array.isArray(row) || row.length !== 2 || !wpText_(row[0]).trim()) throw new Error('Website content rows must contain a non-empty key and a value.');
+      const key = wpText_(row[0]);
+      if (keys[key]) throw new Error('Duplicate website content key: ' + key);
+      keys[key] = true;
+      if (wpText_(row[1]).length > 45000) throw new Error('A website content value exceeds the Google Sheets cell limit: ' + key);
+    });
+    const allowedPages = typeof GAL_PAGES !== 'undefined' ? GAL_PAGES : [];
+    Object.keys(payload.galleries).forEach(page => {
+      if (!allowedPages.includes(page) || !Array.isArray(payload.galleries[page])) throw new Error('Invalid website gallery page: ' + page);
+      const seen = {};
+      payload.galleries[page].forEach(item => {
+        if (!item || !/^[A-Za-z0-9_-]{10,80}$/.test(wpText_(item.id)) || seen[item.id]) throw new Error('Invalid or duplicate gallery asset reference on ' + page + '.');
+        seen[item.id] = true;
+        if (wpText_(item.cap).length > 120) throw new Error('Gallery captions must be 120 characters or fewer.');
+      });
+    });
+    const id = 'WV-' + Utilities.getUuid();
+    const saved = wpWriteVersion_(id, parentVersionId, 'Draft', actor, payload, 'Revision of draft ' + parentVersionId);
+    const audit = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Publishing Audit');
+    audit.appendRow([Utilities.getUuid(), id, 'draft.revise', actor.Username, new Date(), 'Created from ' + parentVersionId, saved.payloadHash]);
+    return ok({ versionId:id, parentVersionId:parentVersionId, status:'Draft', payloadHash:saved.payloadHash }, 'Website draft revision saved.');
+  } catch (error) {
+    return fail(error);
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
+
+/** Submits a creator-owned draft for independent review. */
+function submitWebsiteDraftForReview(token, versionId) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const actor = wpRequirePermission_(token, 'website.content.edit');
+    const version = wpReadVersion_(String(versionId || ''));
+    if (!['Draft','ChangesRequested'].includes(wpText_(version.meta[2]))) throw new Error('This version is not ready for review submission.');
+    if (wpText_(version.meta[3]).toLowerCase() !== actor.Username.toLowerCase()) throw new Error('Only the draft creator can submit this version.');
+    wpUpdateVersionStatus_(version, { Status:'InReview', UpdatedBy:actor.Username, UpdatedAt:new Date() });
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Publishing Audit')
+      .appendRow([Utilities.getUuid(), versionId, 'draft.submit', actor.Username, new Date(), 'Submitted for independent review.', version.hash]);
+    return ok({ versionId:versionId, status:'InReview' }, 'Website draft submitted for review.');
+  } catch (error) {
+    return fail(error);
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
+
+/** Reviewer cannot approve or request changes on their own draft. */
+function reviewWebsiteDraft(token, versionId, decision, notes) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const actor = wpRequirePermission_(token, 'website.content.review');
+    const version = wpReadVersion_(String(versionId || ''));
+    if (wpText_(version.meta[2]) !== 'InReview') throw new Error('Only a version awaiting review can be reviewed.');
+    if (wpText_(version.meta[3]).toLowerCase() === actor.Username.toLowerCase()) throw new Error('A draft creator cannot review their own draft.');
+    decision = String(decision || '').trim();
+    if (!['Approve','RequestChanges'].includes(decision)) throw new Error('Choose Approve or RequestChanges.');
+    notes = String(notes || '').trim().slice(0, 2000);
+    if (decision === 'RequestChanges' && !notes) throw new Error('Provide review notes when requesting changes.');
+    const now = new Date();
+    const status = decision === 'Approve' ? 'Approved' : 'ChangesRequested';
+    wpUpdateVersionStatus_(version, {
+      Status:status, ReviewedBy:actor.Username, ReviewedAt:now, ReviewNotes:notes,
+      UpdatedBy:actor.Username, UpdatedAt:now
+    });
+    SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Publishing Audit')
+      .appendRow([Utilities.getUuid(), versionId, 'draft.' + decision.toLowerCase(), actor.Username, now, notes, version.hash]);
+    return ok({ versionId:versionId, status:status, reviewedBy:actor.Username, reviewNotes:notes }, status === 'Approved' ? 'Website draft approved.' : 'Changes requested.');
+  } catch (error) {
+    return fail(error);
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
+
+/**
+ * Publication is deliberately blocked until every anonymous public reader is switched
+ * to the immutable version store and the staged-media lifecycle has passed acceptance tests.
+ */
+function publishWebsiteVersion(token, versionId) {
+  try {
+    wpRequirePermission_(token, 'website.content.publish');
+    return fail(new Error('Publishing is disabled until the public-reader cutover and media publication lifecycle are implemented and verified.'));
+  } catch (error) {
+    return fail(error);
+  }
+}
