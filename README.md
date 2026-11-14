@@ -18,8 +18,10 @@ All data lives in the Google Spreadsheet the script is attached to. Website word
 | `Public.gs`, `Gallery.gs`, `Content.gs` | Public site data: homepage content, page banners and intros, page text, photo galleries, uploads. |
 | `WebsitePublishing.gs` | Additive M7 migration preflight, empty version-store preparation, and immutable chunked baseline seeding. Does not switch public readers or redirect editor writes. |
 | `AcceptanceTests.gs` | Non-production, non-destructive security acceptance checks for student self-edit, trigger guards, approved branding-folder membership, Encoder scope, dashboard/report authentication and website-publishing payload boundaries. |
-| `Index.html` | Dashboard shell. |
+| `Index.html` | Existing applicant/staff portal shell and dashboard. |
 | `PublicHome.html`, `PublicPage.html` | The public homepage and interior-page templates. |
+| `AdmissionDocuments.gs` | Private applicant document storage, student-owned uploads, registrar review, scoped access and email notices. |
+| `AdmissionDocuments.html`, `AdmissionDocumentsShortcut.html` | Authenticated document upload/review workspace and its portal navigation shortcut. |
 | `Script.html` | Legacy client bundle kept for reference — not loaded by any page. |
 
 ## Security acceptance
@@ -37,7 +39,7 @@ The script must be **bound to the school's spreadsheet**: the code reads and wri
    - `PHOTO_FOLDER_ID` — the Drive folder that stores uploaded photos. Share it as *Anyone with the link* so public pages can display them.
    - `SCHOOL`, `HEAD_NAME`, `HEAD_TITLE`, `FEE`, `LETTERHEAD_URL` — printed on slips and forms.
 Before changing the school logo, the script owner must identify the approved branding folder and run `setApprovedBrandingFolder('<folder ID>')` from the Apps Script editor. The folder must not be publicly shared; `setLogoFile(id)` rejects files outside that folder. This setting is separate from `PHOTO_FOLDER_ID`.
-4. Run the function **`setup()`** once and allow the permissions prompt. It creates the sheets, the security pepper and the first administrator; the username and one-time password appear in the execution log. **Back up the `PEPPER` script property**, and change the password at first sign-in.
+4. Run the function **`setup()`** once and allow the permissions prompt. It creates the core sheets, the security pepper and the first administrator; the username and one-time password appear in the execution log. **Back up the `PEPPER` script property**, and change the password at first sign-in. Set the `MA_SCRIPT_OWNER_EMAIL` Script Property to the actual script owner's email, then run **`initialSetupAdmissionDocuments()`** once from the Apps Script editor. This creates the `Admission Documents` metadata tab and a private Drive folder; it does not make uploaded files public.
 5. **Deploy → New deployment → Web app.** Execute as **Me**, who has access **Anyone**, then Deploy and copy the `/exec` URL.
    - `/exec` → homepage
    - `/exec?page=portal` → staff dashboard (sign-in required)
@@ -50,7 +52,7 @@ Before changing the school logo, the script owner must identify the approved bra
 
 - The College module is `CollegeModule.gs`, not `College.gs`: Apps Script will not hold two project files with the same name, and the dashboard screen is already `College.html`. The file's functions and API are unchanged.
 - New spreadsheet columns must be added at the **end** of `FIELDS` in `Code.gs` — the order matters for existing rows.
-- Admission requirements are submitted physically to the Admissions Office. Applicants use the portal only to view their checklist and recorded status; authorized school staff update receipt and verification in the student record. There is no applicant document-upload feature.
+- Admission requirements continue to be tracked in the existing student record. The additive Admission Documents workspace also accepts private PDF/JPG/PNG uploads (8 MB maximum per file); applicants sign in through the existing portal, and authorized staff review submissions within their existing student search scope. Drive files are not made public. Physical originals may still be required by the Admissions Office.
 - Student/staff profile photo uploads are resized in the browser before being stored, so staff never need to resize images themselves.
 - Keep secrets (`SALT`, `PEPPER`, the photo folder ID) out of screenshots, chats and public copies of this repository.
 
