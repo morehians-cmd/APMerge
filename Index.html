@@ -2892,7 +2892,7 @@ function abEdit(){const a=S.ab,d=a.d;
 function abCollect(){const a=S.ab;if(!a||!a.edit)return;
  document.querySelectorAll('#view [data-ab]').forEach(e=>{const p=e.dataset.ab.split('.');let o=a.d;for(let i=0;i<p.length-1;i++)o=o[p[i]];o[p[p.length-1]]=e.value})}
 
-act.abedit=()=>{S.ab.edit=true;abRender();window.scrollTo(0,0)};
+act.abedit=()=>openWebsitePublishingEditor('about_data');
 act.webpub=()=>nav('webpub');
 act.abcancel=()=>{if(confirm('Discard your changes?'))aboutPage()};
 act.abti=v=>{S.ab.ti=S.ab.ti===+v?-1:+v;abRender()};
