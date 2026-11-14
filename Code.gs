@@ -445,8 +445,9 @@ const grpOf_ = g => { const i = GRADES.indexOf(g); return i<0 ? '' : i<3 ? GROUP
 function report(token, type, arg, sy) {
   try {
     const _u = who_(token,'admin'); if (_u.Clearance==='Encoder' && type!=='daily') throw new Error('Encoders do not have access to reports.');
+    const scope = studentSearchScope_(_u);
     audit_(_u, 'report.view', type, 'SY ' + reportSY_(sy));
-    const SYX = reportSY_(sy), all = rowsForSY_(SYX), s = all.filter(r=>r.EnrollStatus!=='Cancelled'&&r.EnrollStatus!=='Transferred Out'), to = all.filter(r=>r.EnrollStatus==='Transferred Out'), n = (a,f)=>a.filter(f).length;
+    const SYX = reportSY_(sy), all = rowsForSY_(SYX).filter(r => studentWithinSearchScope_(scope, r)), s = all.filter(r=>r.EnrollStatus!=='Cancelled'&&r.EnrollStatus!=='Transferred Out'), to = all.filter(r=>r.EnrollStatus==='Transferred Out'), n = (a,f)=>a.filter(f).length;
     const asof = 'Data as of '+Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'EEEE, MMMM dd, yyyy  h:mm:ss a');
     const tb = (title,label,rows,fn,num) => { const m={}; rows.forEach(r=>{ const v=fn(r)||'(NONE)'; m[v]=(m[v]||0)+1; });
       let e = Object.entries(m); e = num ? e.sort((a,b)=>String(a[0]).localeCompare(String(b[0]),undefined,{numeric:true})) : e.sort((a,b)=>b[1]-a[1]);
@@ -939,9 +940,9 @@ function dashboardExtra(token) {
   try {
     const u = who_(token, 'admin');
     if (OFFICE_CL.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
-    const tz = Session.getScriptTimeZone(), full = u.Clearance !== 'Encoder';
-    const dayKey = n => Utilities.formatDate(new Date(Date.now() - n * 864e5), tz, 'yyyy-MM-dd');
-    const all = rowsSY_();
+    const scope = studentSearchScope_(u), full = u.Clearance !== 'Encoder';
+    const tz = Session.getScriptTimeZone(), dayKey = n => Utilities.formatDate(new Date(Date.now() - n * 864e5), tz, 'yyyy-MM-dd');
+    const all = rowsSY_().filter(r => studentWithinSearchScope_(scope, r));
     const live = all.filter(r => r.EnrollStatus !== 'Cancelled' && r.EnrollStatus !== 'Transferred Out');
 
     // 14-day registration counts, oldest first (index 13 = today)
