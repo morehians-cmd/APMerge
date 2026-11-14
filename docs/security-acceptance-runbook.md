@@ -142,7 +142,7 @@ Run the full sequence only after M7 implementation is synchronized to the dispos
 3. Seed immutable baseline; verify chunk hashes and reconstructed payload.
 4. Create editor, reviewer, publisher and rollback test accounts with separate explicit grants.
 5. Test draft creation, revision immutability, every content key, About structured data, all six card groups, page intros/banners, every gallery page and HTML sanitization.
-6. Stage JPEGs as two different editors. Verify private folder ACL, owner isolation, file magic/size checks, duplicate metadata rejection and staged-reference validation.
+6. Stage JPEGs as two different editors. Verify private folder ACL, owner isolation, file magic/size checks, duplicate metadata rejection and staged-reference validation. Inject a controlled failure after at least one staged asset moves but before the published pointer commits; verify compensation restores each newly promoted asset to the private staging folder, resets metadata to `Staged`, and removes public sharing. Also inject a failure after pointer commit; verify compensation does not make media private while the public pointer references it, then reconcile version metadata and audit state.
 7. Verify creator cannot review own draft; reviewer can request changes with notes; publisher cannot publish a non-approved version.
 8. Verify publish remains fail-closed while `WP_PUBLISH_CUTOVER_READY_` is false.
 9. After all legacy writers, public readers, media promotion, pointer switching, cache invalidation and rollback safeguards have been implemented and tested, run the full browser workflow.
