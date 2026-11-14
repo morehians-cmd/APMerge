@@ -954,6 +954,77 @@ function getWebsiteVersion(token, versionId) {
 
 
 /**
+ * Reads the About Moreh Academy sections from one immutable website version.
+ * The legacy About HTML is returned for preservation and migration; it is not rewritten.
+ */
+function getWebsiteDraftAbout(token, versionId) {
+  try {
+    const result = getWebsiteVersion(token, versionId);
+    if (!result || result.success !== true) return result || fail(new Error('Unable to read the website version.'));
+    const rows = result.data.payload.contentRows || [];
+    const aboutRows = rows.filter(row => row[0] === 'about_data');
+    const legacyRows = rows.filter(row => row[0] === 'about');
+    if (aboutRows.length > 1 || legacyRows.length > 1) throw new Error('The About content contains duplicate keys; reconcile the baseline before editing.');
+    let about = ABOUT_DEFAULT;
+    if (aboutRows.length && wpText_(aboutRows[0][1]).trim()) {
+      try { about = JSON.parse(aboutRows[0][1]); }
+      catch (_) { throw new Error('The saved About content is not valid JSON.'); }
+    }
+    return ok({
+      versionId:result.data.versionId,
+      parentVersionId:result.data.parentVersionId,
+      status:result.data.status,
+      about:aboutClean_(about),
+      legacyAbout:legacyRows.length ? wpText_(legacyRows[0][1]) : ''
+    }, 'About content loaded from the selected website version.');
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/**
+ * Saves the five About sections as a new immutable revision of the editor's draft.
+ * It updates only about_data and preserves legacy About HTML plus every other site record.
+ * Leader photos may reference existing approved photos or privately staged draft media;
+ * the full-payload validator verifies every referenced Drive asset before storage.
+ */
+function saveWebsiteDraftAbout(token, parentVersionId, aboutData) {
+  try {
+    const actor = wpRequirePermission_(token, 'website.content.edit');
+    const parent = wpReadVersion_(String(parentVersionId || ''));
+    if (!['Draft','ChangesRequested'].includes(wpText_(parent.meta[2]))) {
+      throw new Error('Only a Draft or Changes Requested version can be edited.');
+    }
+    if (wpText_(parent.meta[3]).toLowerCase() !== actor.Username.toLowerCase()) {
+      throw new Error('Only the draft creator can edit this About content.');
+    }
+    if (typeof aboutClean_ !== 'function') throw new Error('The About content validator is unavailable.');
+    const clean = aboutClean_(aboutData);
+    clean.leaders.forEach(leader => {
+      if (leader.email && !EMAIL_RE.test(leader.email)) throw new Error('Enter a valid email address for ' + leader.name + '.');
+    });
+    const payload = JSON.parse(JSON.stringify(parent.payload));
+    const rows = payload.contentRows;
+    const matches = [];
+    rows.forEach((row, index) => { if (row[0] === 'about_data') matches.push(index); });
+    if (matches.length > 1) throw new Error('The website version contains duplicate about_data keys.');
+    if (matches.length === 1) rows[matches[0]][1] = JSON.stringify(clean);
+    else rows.push(['about_data', JSON.stringify(clean)]);
+    const saved = saveWebsiteDraft(token, parentVersionId, payload);
+    if (!saved || saved.success !== true) return saved || fail(new Error('The About draft revision could not be saved.'));
+    return ok({
+      versionId:saved.data.versionId,
+      parentVersionId:parentVersionId,
+      status:saved.data.status,
+      about:clean
+    }, 'About Moreh Academy saved as a new website draft revision.');
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+
+/**
  * Read-only diagnostic for the website publishing foundation.
  * It does not create sheets, alter permissions, edit versions, or change the public site.
  */
