@@ -126,6 +126,29 @@ function runSecurityAcceptanceTests() {
     return calls.length + ' dashboard endpoints rejected an invalid session token.';
   });
 
+
+  record('M5-02', 'Additional administrative endpoints reject unauthenticated direct invocation', () => {
+    const calls = [
+      ['getEvents', () => getEvents('invalid-acceptance-token')],
+      ['getNotifications', () => getNotifications('invalid-acceptance-token')],
+      ['getSettings', () => getSettings('invalid-acceptance-token')],
+      ['saveSettings', () => saveSettings('invalid-acceptance-token', {})],
+      ['startNextSY', () => startNextSY('invalid-acceptance-token')],
+      ['saveEvent', () => saveEvent('invalid-acceptance-token', {})],
+      ['clusterAccess', () => clusterAccess('invalid-acceptance-token')],
+      ['getCareerResult', () => getCareerResult('invalid-acceptance-token')],
+      ['saveCareerResult', () => saveCareerResult('invalid-acceptance-token', {})]
+    ];
+    calls.forEach(([name, call]) => {
+      let denied = false;
+      try { const result = call(); denied = !!result && result.success === false; }
+      catch (_) { denied = true; }
+      assert(denied, name + ' did not reject an unauthenticated direct call.');
+    });
+    return calls.length + ' administrative, event, and student-career endpoints rejected an invalid session token.';
+  });
+
+
   record('M6-01', 'Report endpoints reject unauthenticated direct invocation', () => {
     const calls = [
       ['report', () => report('invalid-acceptance-token', 'daily')],
