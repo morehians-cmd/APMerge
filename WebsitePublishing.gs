@@ -672,11 +672,14 @@ function validateWebsitePublishingBaseline(token) {
 
 const WP_PUBLISH_CUTOVER_READY_ = false;
 const WP_PUBLISH_CUTOVER_BLOCKERS_ = [
-  'The legacy About editor still writes directly to the live Content sheet.',
-  'The legacy public block editor still writes directly to the live Content sheet.',
-  'Homepage hero, homepage sections, page introductions, page banners and section-card editors still write to live Content rows.',
-  'Gallery uploads, captions and removals still write directly to the live Gallery stores.',
-  'Legacy photo upload endpoints still write directly to the approved Drive photo folder.'
+  'Content.gs saveAbout() still writes about_data directly to the live Content sheet.',
+  'Content.gs saveBlock() still writes public text blocks directly to the live Content sheet.',
+  'Content.gs setAboutPhoto() still uploads directly to the approved photo folder instead of staging against a draft.',
+  'Public.gs saveHomepageContent() and saveHomepageHero() still write live Content rows.',
+  'Public.gs savePageIntro() and savePageBanner() still write live Content rows.',
+  'Public.gs saveSectionCards() / saveAboutCards() still write live Content rows.',
+  'Gallery.gs addGalleryPhoto(), setGalleryCaption() and removeGalleryPhoto() still mutate live gallery lists.',
+  'Public.gs uploadHomepagePhoto() still writes and shares a photo before it is attached to an immutable draft.'
 ];
 
 function wpPublishingCutoverStatus_() {
