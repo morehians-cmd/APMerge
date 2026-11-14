@@ -3,7 +3,7 @@
 @media(max-width:760px){.wp-grid,.wp-ver{grid-template-columns:1fr}.wp-field.wide{grid-column:auto}}
 </style>
 <script>
-const WPUI={permissions:{},versions:[],selected:'',username:'',publishingReady:false,publishingBlockers:[],canPrepare:false,diagnostics:null,about:null,photoCache:{},photoLoading:{},photoIndex:-1,payload:null,contentKey:'',contentValue:'',galleryPage:'',galleryValue:''};
+const WPUI={permissions:{},versions:[],selected:'',username:'',publishingReady:false,publishingBlockers:[],canPrepare:false,diagnostics:null,about:null,photoCache:{},photoLoading:{},photoIndex:-1,payload:null,contentKey:'',contentValue:'',galleryPage:'',galleryValue:'',aboutSavedJSON:''};
 const WP_ICONS=['heart','award','users','bulb','shield','book','star','eye','target'];
 function websitePublishingPage(){
   head('Website Publishing','Prepare, review, publish and restore approved public website content');
@@ -83,8 +83,13 @@ function wpUiTextHasUnsaved_(kind){
   return false;
 }
 function wpUiConfirmDiscard_(kind){
-  if(!wpUiTextHasUnsaved_(kind))return true;
-  return confirm('You have unsaved draft editor text. Discard those unsaved changes and continue?');
+  let unsaved=wpUiTextHasUnsaved_(kind);
+  if(kind==='all'&&WPUI.about&&document.querySelector('#view [data-wp]')){
+    wpUiCollect();
+    if(JSON.stringify(WPUI.about)!==WPUI.aboutSavedJSON)unsaved=true;
+  }
+  if(!unsaved)return true;
+  return confirm('You have unsaved draft editor changes. Discard those unsaved changes and continue?');
 }
 function wpUiSelect(id){
   if(id!==WPUI.selected&&!wpUiConfirmDiscard_('all')){
@@ -97,6 +102,7 @@ function wpUiLoad(id){
   call('getWebsiteDraftAbout',[T(),id],r=>{
     if(WPUI.selected!==id)return;
     WPUI.about=r.data.about||{vision:{title:'',text:''},mission:{title:'',text:''},values:[],leaders:[],timeline:[]};
+    WPUI.aboutSavedJSON=JSON.stringify(WPUI.about);
     call('getWebsiteVersion',[T(),id],v=>{
       if(WPUI.selected!==id)return;
       WPUI.payload=v.data.payload||null;
