@@ -750,15 +750,20 @@ function wpValidateDraftAssets_(payload, actor) {
           invalid.push(id);
           return;
         }
-        if (record.state === 'Staged') {
-          if (!folderId || !actor || wpText_(record.uploadedBy).toLowerCase() !== wpText_(actor.Username).toLowerCase()) {
+        if (record.state === 'Staged' || record.state === 'Promoting') {
+          if (!actor || wpText_(record.uploadedBy).toLowerCase() !== wpText_(actor.Username).toLowerCase()) {
             invalid.push(id);
             return;
           }
           const parents = file.getParents();
           let inStagingFolder = false;
-          while (parents.hasNext()) if (parents.next().getId() === folderId) inStagingFolder = true;
-          if (!inStagingFolder || [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) invalid.push(id);
+          while (parents.hasNext()) if (folderId && parents.next().getId() === folderId) inStagingFolder = true;
+          const inApprovedFolder = typeof inPhotoFolder_ === 'function' && inPhotoFolder_(id);
+          if (record.state === 'Staged' && (!folderId || !inStagingFolder ||
+              [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess()))) invalid.push(id);
+          if (record.state === 'Promoting' && !inStagingFolder && !inApprovedFolder) invalid.push(id);
+          if (record.state === 'Promoting' && inStagingFolder &&
+              [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) invalid.push(id);
         } else if (record.state === 'Published') {
           if (typeof inPhotoFolder_ !== 'function' || !inPhotoFolder_(id)) invalid.push(id);
         } else {
@@ -812,18 +817,20 @@ function wpPromoteDraftAssets_(payload, creator) {
       }
       return;
     }
-    if (state !== 'Staged' || !folderId ||
+    if (!['Staged','Promoting'].includes(state) || !folderId ||
         wpText_(row[4]).toLowerCase() !== wpText_(creator).toLowerCase()) {
       throw new Error('Staged asset ownership or state is invalid: ' + id);
-    }
-    if ([DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) {
-      throw new Error('A staged asset is publicly shared and cannot be promoted: ' + id);
     }
     const parents = file.getParents();
     let inStagingFolder = false;
     while (parents.hasNext()) if (parents.next().getId() === folderId) inStagingFolder = true;
-    if (!inStagingFolder) throw new Error('A staged asset is outside the private staging folder: ' + id);
-    file.moveTo(photoFolder);
+    const inApprovedFolder = inPhotoFolder_(id);
+    if (!inStagingFolder && !inApprovedFolder) throw new Error('A staged asset is outside both approved media folders: ' + id);
+    if (inStagingFolder && [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) {
+      throw new Error('A staged asset is publicly shared and cannot be promoted: ' + id);
+    }
+    if (state === 'Staged') sheet.getRange(entry.sheetRow, 7).setValue('Promoting');
+    if (!inApprovedFolder) file.moveTo(photoFolder);
     if (!inPhotoFolder_(id)) throw new Error('Drive did not place the staged asset in the approved photo folder: ' + id);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     if (file.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK) {
@@ -1249,18 +1256,21 @@ function getWebsiteDraftAboutPhoto(token, versionId, assetId) {
           Number(record[3]) !== file.getSize()) {
         throw new Error('The staged photo metadata does not match the selected draft or Drive file.');
       }
-      if (record[6] === 'Staged') {
-        if (wpText_(record[4]).toLowerCase() !== wpText_(version.data.createdBy).toLowerCase() || !folderId) {
+      if (['Staged','Promoting'].includes(record[6])) {
+        if (wpText_(record[4]).toLowerCase() !== wpText_(version.data.createdBy).toLowerCase()) {
           throw new Error('The staged photo is not owned by the selected draft creator.');
         }
-        const folder = DriveApp.getFolderById(folderId);
-        if (folder.isTrashed() ||
-            [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(folder.getSharingAccess())) {
-          throw new Error('The private draft media folder is unavailable or publicly shared.');
-        }
         const parents = file.getParents();
-        while (parents.hasNext()) if (parents.next().getId() === folderId) allowed = true;
-        if ([DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) allowed = false;
+        while (parents.hasNext()) if (folderId && parents.next().getId() === folderId) allowed = true;
+        if (record[6] === 'Staged') {
+          if (!folderId) throw new Error('The private draft media folder is unavailable.');
+          const folder = DriveApp.getFolderById(folderId);
+          if (folder.isTrashed() ||
+              [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(folder.getSharingAccess()) ||
+              [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) allowed = false;
+        } else {
+          allowed = allowed || inPhotoFolder_(id);
+        }
       } else if (record[6] === 'Published') {
         allowed = inPhotoFolder_(id);
       } else {
