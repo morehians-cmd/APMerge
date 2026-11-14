@@ -72,8 +72,9 @@ function purgeDeletedArchive_() {
   return k;
 }
 
-/** Trigger target (monthly). */
-function monthlyRetention() {
+/** Trigger target (monthly). Direct calls are rejected; only the installed owner trigger may invoke it. */
+function monthlyRetention(e) {
+  triggerAuthorized_('monthlyRetention', e);
   try {
     const a = disposeApplications_({ Username: 'system:retention', Role: '' }), d = purgeDeletedArchive_();
     if (a || d) alert_('retention', 'Retention run finished', a + ' unenrolled application(s) archived and removed. ' + d + ' old archive row(s) purged.');
@@ -91,6 +92,7 @@ function retentionRunNow() {
 function installRetentionTrigger() {
   ownerOnly_();
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'monthlyRetention').forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('monthlyRetention').timeBased().onMonthDay(1).atHour(3).create();
+  const trigger = ScriptApp.newTrigger('monthlyRetention').timeBased().onMonthDay(1).atHour(3).create();
+  PropertiesService.getScriptProperties().setProperty('TRIGGER_UID_monthlyRetention', String(trigger.getUniqueId()));
   Logger.log('Monthly retention job installed.');
 }
