@@ -171,6 +171,64 @@ function runSecurityAcceptanceTests() {
     return calls.length + ' report endpoints rejected an invalid session token; mutations were denied before data writes.';
   });
 
+
+  record('M7-02', 'Website payload chunking preserves Unicode and reconstructs the exact source', () => {
+    const source = 'ab😀cd🚀ef';
+    const chunks = wpSplitChunks_(source, 3);
+    assert(chunks.join('') === source, 'Chunk reconstruction changed the original payload.');
+    chunks.forEach((chunk, index) => {
+      assert(chunk.length <= 3, 'A payload chunk exceeded its configured character limit.');
+      for (let i = 0; i < chunk.length; i++) {
+        const code = chunk.charCodeAt(i);
+        if (code >= 0xD800 && code <= 0xDBFF) {
+          assert(i + 1 < chunk.length, 'A high surrogate was split at the end of a chunk.');
+          const next = chunk.charCodeAt(i + 1);
+          assert(next >= 0xDC00 && next <= 0xDFFF, 'A high surrogate was not followed by its low surrogate.');
+          i++;
+        } else {
+          assert(!(code >= 0xDC00 && code <= 0xDFFF), 'A low surrogate was separated from its high surrogate.');
+        }
+      }
+    });
+    return chunks.length + ' chunks preserve emoji pairs and exact payload reconstruction.';
+  });
+
+  record('M7-03', 'Published content lookup rejects duplicate keys instead of choosing an ambiguous value', () => {
+    const payload = { contentRows:[['pubhome', '<p>First</p>'], ['pubabout', '<p>About</p>']] };
+    assert(wpPublicContentValue_(payload, 'pubhome') === '<p>First</p>', 'Unique published content key was not returned.');
+    assert(wpPublicContentValue_(payload, 'missing') === '', 'Missing published content key should resolve to an empty string.');
+    let duplicateRejected = false;
+    try {
+      wpPublicContentValue_({ contentRows:[['pubhome', 'one'], ['pubhome', 'two']] }, 'pubhome');
+    } catch (e) {
+      duplicateRejected = /duplicate key/.test(String(e && e.message || e));
+    }
+    assert(duplicateRejected, 'Duplicate published content keys were not rejected.');
+    return 'Unique and missing keys resolve deterministically; duplicate keys fail closed.';
+  });
+
+  record('M7-04', 'Published gallery adapter rejects malformed and duplicate asset references', () => {
+    const valid = wpPublicGallery_({ galleries:{ history:[{ id:'Abcdefghijk_123456', cap:'Historic building' }] } }, 'history');
+    assert(valid.length === 1 && valid[0].cap === 'Historic building', 'Valid gallery item was not normalized.');
+    const absent = wpPublicGallery_({ galleries:{} }, 'history');
+    assert(Array.isArray(absent) && absent.length === 0, 'Missing published gallery should resolve to an empty list.');
+    let malformedRejected = false;
+    try {
+      wpPublicGallery_({ galleries:{ history:[{ id:'invalid id', cap:'' }] } }, 'history');
+    } catch (e) {
+      malformedRejected = /invalid or duplicate asset reference/.test(String(e && e.message || e));
+    }
+    assert(malformedRejected, 'Malformed gallery asset ID was not rejected.');
+    let duplicateRejected = false;
+    try {
+      wpPublicGallery_({ galleries:{ history:[{ id:'Abcdefghijk_123456', cap:'A' }, { id:'Abcdefghijk_123456', cap:'B' }] } }, 'history');
+    } catch (e) {
+      duplicateRejected = /invalid or duplicate asset reference/.test(String(e && e.message || e));
+    }
+    assert(duplicateRejected, 'Duplicate gallery asset ID was not rejected.');
+    return 'Valid references are normalized; malformed and duplicate references fail closed.';
+  });
+
   const passed = results.filter(x => x.passed).length;
   const failed = results.length - passed;
   const report = {
