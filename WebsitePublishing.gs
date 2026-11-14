@@ -430,3 +430,95 @@ function seedWebsitePublishingBaseline(token) {
     try { lock.releaseLock(); } catch (_) {}
   }
 }
+
+
+/**
+ * Read-only integrity check for a seeded baseline.
+ * Also detects any legacy editor changes made after the baseline was captured.
+ */
+function validateWebsitePublishingBaseline(token) {
+  const lock = LockService.getScriptLock();
+  try {
+    const actor = wpActor_(token);
+    lock.waitLock(20000);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const versions = ss.getSheetByName('Website Versions');
+    const chunks = ss.getSheetByName('Website Version Chunks');
+    const config = ss.getSheetByName('Website Publishing Config');
+    if (!versions || !chunks || !config) throw new Error('Website publishing stores have not been prepared.');
+
+    const cfg = wpConfigMap_(config);
+    const versionId = cfg.baseline_version_id || '';
+    if (!versionId) throw new Error('No baseline version has been seeded.');
+    const vh = versions.getRange(1, 1, 1, WP_VERSION_HEADERS_.length).getDisplayValues()[0];
+    if (WP_VERSION_HEADERS_.some((header, i) => vh[i] !== header)) throw new Error('Website Versions header schema mismatch.');
+    const ch = chunks.getRange(1, 1, 1, WP_CHUNK_HEADERS_.length).getDisplayValues()[0];
+    if (WP_CHUNK_HEADERS_.some((header, i) => ch[i] !== header)) throw new Error('Website Version Chunks header schema mismatch.');
+
+    const versionRows = versions.getLastRow() > 1
+      ? versions.getRange(2, 1, versions.getLastRow() - 1, WP_VERSION_HEADERS_.length).getValues()
+      : [];
+    const versionMatches = versionRows.filter(row => wpText_(row[0]) === versionId);
+    if (versionMatches.length !== 1) throw new Error('The baseline version metadata is missing or duplicated.');
+    const meta = versionMatches[0];
+    if (wpText_(meta[2]) !== 'Baseline') throw new Error('The baseline version is not in the immutable Baseline state.');
+
+    const chunkRows = chunks.getLastRow() > 1
+      ? chunks.getRange(2, 1, chunks.getLastRow() - 1, WP_CHUNK_HEADERS_.length).getDisplayValues()
+          .filter(row => row[0] === versionId)
+          .sort((a, b) => Number(a[1]) - Number(b[1]))
+      : [];
+    const expectedCount = Number(meta[15]) || 0;
+    let chunkIntegrity = chunkRows.length === expectedCount && expectedCount > 0;
+    const parts = [];
+    chunkRows.forEach((row, index) => {
+      const part = wpText_(row[3]);
+      if (Number(row[1]) !== index + 1 || Number(row[2]) !== expectedCount || wpHash_(part) !== row[4]) chunkIntegrity = false;
+      parts.push(part);
+    });
+    const payloadJson = parts.join('');
+    const payloadHash = wpHash_(payloadJson);
+    const payloadIntegrity = chunkIntegrity &&
+      payloadHash === wpText_(meta[12]) &&
+      payloadJson.length === Number(meta[13]) &&
+      Utilities.newBlob(payloadJson, 'application/json').getBytes().length === Number(meta[14]);
+
+    let parsed = null, payloadSchemaValid = false;
+    try {
+      parsed = JSON.parse(payloadJson);
+      payloadSchemaValid = !!parsed && parsed.schemaVersion === WP_PREFLIGHT_SCHEMA_ &&
+        Array.isArray(parsed.contentRows) && Array.isArray(parsed.events) &&
+        parsed.galleries && typeof parsed.galleries === 'object';
+    } catch (_) {}
+
+    const live = websitePublishingPreflight(token);
+    if (!live.success) throw new Error(live.error || 'The current live-source preflight failed.');
+    const liveHash = live.data.candidatePayload.sha256;
+    const sourceUnchanged = liveHash === wpText_(meta[12]);
+    const report = {
+      generatedAt:new Date().toISOString(),
+      generatedBy:actor.Username,
+      baselineVersionId:versionId,
+      versionStatus:wpText_(meta[2]),
+      chunkCountStored:chunkRows.length,
+      chunkCountExpected:expectedCount,
+      chunkIntegrity:chunkIntegrity,
+      payloadIntegrity:payloadIntegrity,
+      payloadSchemaValid:payloadSchemaValid,
+      baselinePayloadHash:wpText_(meta[12]),
+      currentLivePayloadHash:liveHash,
+      sourceUnchangedSinceSeed:sourceUnchanged,
+      publishedVersionId:cfg.published_version_id || '',
+      migrationState:cfg.migration_state || '',
+      baselineValidationPassed:payloadIntegrity && payloadSchemaValid,
+      sourceDriftDetected:!sourceUnchanged
+    };
+    return ok(report, report.baselineValidationPassed
+      ? (sourceUnchanged ? 'Baseline integrity verified; live sources are unchanged.' : 'Baseline integrity verified, but live website content changed after seeding.')
+      : 'Baseline integrity verification failed.');
+  } catch (error) {
+    return fail(error);
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
