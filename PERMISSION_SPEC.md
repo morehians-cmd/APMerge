@@ -485,3 +485,8 @@ The non-destructive runSecurityAcceptanceTests() suite now includes:
 - M6-01: invalid-session direct-call rejection for legacy report data, report home, analytics, drill, logging, preferences, favorites, saved-report create/delete, and history endpoints.
 
 The updated AcceptanceTests.gs passed a JavaScript syntax parse after this change. The checks have **not** been executed in Apps Script; no runtime pass is claimed. They test unauthenticated rejection only and do not close M5 or M6. The authenticated role matrix, endpoint coverage, exports, field minimization, and data-scope checks remain mandatory. Production deployment and website publishing cutover remain unauthorized; WP_PUBLISH_CUTOVER_READY_ must remain false.
+
+
+### Extended endpoint authentication harness — 2026-11-14
+
+The automated acceptance suite now also includes M5-02: invalid-session direct-call rejection for event reads/writes, notifications, system settings reads/writes, school-year transition, and student career-result reads/writes. The test suite uses invalid tokens and expects the server endpoints to reject them before privileged work. JavaScript syntax parsing passed after the update; execution in the Apps Script development runtime is still outstanding. These unauthenticated tests are supplementary and do not close M5 or M6.
