@@ -303,10 +303,18 @@ function accountPropertyKeySuffix_(username) {
 
 /** Returns distinct account names that collapse to the same legacy Script Property suffix. */
 function accountPropertyKeyCollisions_(username, usernames) {
-  const current = String(username || '').toLowerCase();
+  const current = String(username || '').trim().toLowerCase();
   const suffix = accountPropertyKeySuffix_(current);
-  return (usernames || []).map(v => String(v || '').toLowerCase())
-    .filter(v => v && v !== current && accountPropertyKeySuffix_(v) === suffix);
+  let matchedCurrent = false;
+  return (usernames || []).map(v => String(v || '').trim().toLowerCase())
+    .filter(v => {
+      if (!v) return false;
+      if (v === current && !matchedCurrent) {
+        matchedCurrent = true;
+        return false;
+      }
+      return accountPropertyKeySuffix_(v) === suffix;
+    });
 }
 
 function studentScopeKeySuffix_(username) { return accountPropertyKeySuffix_(username); }
