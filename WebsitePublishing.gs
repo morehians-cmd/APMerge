@@ -712,6 +712,8 @@ function wpPermissionProperty_(username) {
 }
 
 function wpPermissionMap_(username) {
+  const collisions = accountPropertyKeyCollisions_(username, rows_('U').map(user => user.Username));
+  if (collisions.length) throw new Error('This account shares a website-permission property key with another staff username. Ask the system administrator to resolve the username collision before using website publishing.');
   const raw = PropertiesService.getScriptProperties().getProperty(wpPermissionProperty_(username));
   if (!raw) return {};
   let parsed;
@@ -743,6 +745,8 @@ function setWebsiteUserPermissions(token, username, permissions) {
     if (!/^[a-z0-9._@-]{4,60}$/.test(target)) throw new Error('Enter a valid existing username.');
     const matches = rows_('U').filter(user => wpText_(user.Username).trim().toLowerCase() === target && wpText_(user.Role).trim().toLowerCase() === 'admin');
     if (matches.length !== 1) throw new Error(matches.length ? 'The target username is ambiguous in the staff account table.' : 'The target staff account was not found.');
+    const keyCollisions = accountPropertyKeyCollisions_(target, rows_('U').map(user => user.Username));
+    if (keyCollisions.length) throw new Error('The target username shares a website-permission property key with another staff username. Resolve the username collision before assigning website permissions.');
     if (!permissions || typeof permissions !== 'object' || Array.isArray(permissions)) throw new Error('Invalid permission map.');
     const next = {};
     WP_PERMISSION_KEYS_.forEach(key => {
