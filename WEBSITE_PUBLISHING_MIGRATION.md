@@ -78,9 +78,11 @@ The admin editors for homepage content, homepage hero, page introductions and pa
 3. Homepage hero and homepage sections: `saveHomepageHero`, `saveHomepageContent`, and homepage photo upload.
 4. Page introductions and banners: `savePageIntro`, `savePageBanner`.
 5. Section cards: `saveSectionCards` / `saveAboutCards`.
-6. Gallery management: `addGalleryPhoto`, `setGalleryCaption`, and `removeGalleryPhoto`.
+6. Gallery management: `addGalleryPhoto`, `setGalleryCaption`, and `removeGalleryPhoto`. Gallery removal now removes only the live list reference and retains the Drive file for immutable version history; the gallery list writer still needs migration.
 
 The next migration step is to move these editors to draft payload adapters, preserve their existing permissions and validation, and test that a draft revision changes only the intended records. Once all legacy writers are migrated, run the preflight and self-check, test review/publish/rollback in a non-production copy, then enable the gate in a separate reviewed commit.
+
+Gallery file retention safeguard: `removeGalleryPhoto` no longer trashes removed images. Historical immutable versions and rollback snapshots may still reference those Drive IDs. Any future media cleanup must be retention-aware and must verify that no retained version references an asset before deleting it.
 
 ## Required runtime acceptance tests
 
