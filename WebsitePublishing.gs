@@ -1369,7 +1369,6 @@ function saveWebsiteDraftContent(token, parentVersionId, contentKey, contentValu
     const key = wpText_(contentKey).trim();
     const defaults = parent.payload.defaults || {};
     const allowed = new Set([
-      ...(Array.isArray(defaults.contentBlockKeys) ? defaults.contentBlockKeys : []),
       ...(Array.isArray(defaults.publicBlockKeys) ? defaults.publicBlockKeys : []),
       ...(Array.isArray(defaults.pageBlockKeys) ? defaults.pageBlockKeys : []),
       'about_data', PUBLIC_CONTENT_KEY_, PUBLIC_HERO_KEY_, PAGE_INTRO_KEY_, PAGE_BANNERS_KEY_
