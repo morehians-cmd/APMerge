@@ -16,9 +16,9 @@ All data lives in the Google Spreadsheet the script is attached to. Website word
 | `Security.gs`, `Protection.gs`, `Hardening.gs`, `SignInGuard.gs`, `MailSwitch.gs`, `MailQueue.gs`, `StaffControl.gs` | Sign-in, sessions, hashing, audit, backups, mail, staff control. |
 | `Academic.gs`, `CollegeModule.gs`, `Report.gs`, `ReEnroll.gs`, `Retention.gs`, `IdCard.gs`, `Cor.gs`, `Speed.gs`, `Housekeeping.gs`, `Contact.gs`, `Flags.gs`, `DashboardSpec.gs`, `DashboardAudit.gs` | Feature modules (academics, College roster, reports, ID cards, scheduled jobs). |
 | `Public.gs`, `Gallery.gs`, `Content.gs` | Public site data: homepage content, page banners and intros, page text, photo galleries, uploads. |
-| `AdmissionDocuments.gs`, `AdmissionDocuments.html` | Private applicant document uploads, Drive storage, registrar review, and applicant notifications. |
+| `AdmissionDocumentsBackend.gs`, `AdmissionDocumentsUI.html` | Private applicant document uploads, Drive storage, registrar review, and applicant notifications. |
 | `Index.html` | Dashboard shell. |
-| `College.html`, `ActivityLog.html`, `HomepageHero.html`, `HomepageSections.html`, `PageBanners.html`, `WebsitePages.html`, `AdmissionDocuments.html` | Dashboard screens, pulled in by `include()` at the end of `Index.html`. |
+| `College.html`, `ActivityLog.html`, `HomepageHero.html`, `HomepageSections.html`, `PageBanners.html`, `WebsitePages.html`, `AdmissionDocumentsUI.html` | Dashboard screens, pulled in by `include()` at the end of `Index.html`. |
 | `PublicHome.html`, `PublicPage.html` | The public homepage and interior-page templates. |
 | `Script.html` | Legacy client bundle kept for reference — not loaded by any page. |
 
