@@ -57,7 +57,9 @@ function wpUiRender(){
     if(['Archived','Published'].includes(v.status)&&wpUiCan('website.content.rollback')&&WPUI.publishingReady&&v.status!=='Published')actions+='<button class="btn alt" data-act="wprollback">Restore this version</button>';
   }
   const actionCard=actions?'<div class="wp-actions">'+actions+'</div>':'';
-  const editable=!!(v&&['Draft','ChangesRequested'].includes(v.status)&&wpUiCan('website.content.edit')&&String(v.createdBy||'').toLowerCase()===WPUI.username);\n  const editor=WPUI.about?wpUiAboutEditor(v):'';\n  const contentEditor=editable?wpUiContentEditor():'';\n  const galleryEditor=editable?wpUiGalleryEditor():'';
+  const editable=!!(v&&['Draft','ChangesRequested'].includes(v.status)&&wpUiCan('website.content.edit')&&String(v.createdBy||'').toLowerCase()===WPUI.username);\n  const editor=WPUI.about?wpUiAboutEditor(v):'';
+  const contentEditor=editable?wpUiContentEditor():'';
+  const galleryEditor=editable?wpUiGalleryEditor():'';
   const publishGate=!WPUI.publishingReady?'<div class="card"><h3 style="margin-top:0">Publication is safely locked</h3><p class="wp-muted">The draft, review and approval workflow is available, but publishing and rollback remain disabled until all legacy website content and media editors write to immutable drafts.</p><ul>'+WPUI.publishingBlockers.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'';
   const setupPanel=WPUI.canPrepare?wpUiSetupPanel():'';
   $('view').innerHTML='<div class="wp-wrap">'+setupPanel+publishGate+versionCard+actionCard+editor+contentEditor+galleryEditor+'</div>';
@@ -206,7 +208,8 @@ function wpUiPhoto(index){
   wpUiCollect();WPUI.photoIndex=Number(index);
   const el=$('wpPhotoFile');if(el)el.click();
 }
-document.addEventListener('change',e=>{\n  if(e.target.id==='wpContentKey'){WPUI.contentKey=e.target.value;const row=(WPUI.payload.contentRows||[]).find(x=>x[0]===WPUI.contentKey);WPUI.contentValue=row?String(row[1]||''):'';const el=$('wpContentValue');if(el)el.value=WPUI.contentValue;return}
+document.addEventListener('change',e=>{
+  if(e.target.id==='wpContentKey'){WPUI.contentKey=e.target.value;const row=(WPUI.payload.contentRows||[]).find(x=>x[0]===WPUI.contentKey);WPUI.contentValue=row?String(row[1]||''):'';const el=$('wpContentValue');if(el)el.value=WPUI.contentValue;return}
   if(e.target.id==='wpGalleryPage'){WPUI.galleryPage=e.target.value;const items=WPUI.payload.galleries[WPUI.galleryPage]||[];WPUI.galleryValue=JSON.stringify(items,null,2);const el=$('wpGalleryValue');if(el)el.value=WPUI.galleryValue;return}
   if(e.target.id==='wpVersionSelect'){wpUiSelect(e.target.value);return}
   if(e.target.id!=='wpPhotoFile')return;
@@ -239,7 +242,8 @@ act.wpseed=()=>{if(confirm('Seed or refresh the immutable baseline from the curr
 act.wpvalidate=()=>wpUiDiagnostic('validateWebsitePublishingBaseline');
 act.wpselfcheck=()=>wpUiDiagnostic('websitePublishingSelfCheck');
 act.wprefresh=()=>wpUiRefresh(WPUI.selected);
-act.wpsave=()=>wpUiSave();\nact.wpcontentsave=()=>wpUiSaveContent();\nact.wpgallerysave=()=>wpUiSaveGallery();
+act.wpsave=()=>wpUiSave();
+act.wpcontentsave=()=>wpUiSaveContent();\nact.wpgallerysave=()=>wpUiSaveGallery();
 act.wpsubmit=()=>wpUiSubmit();
 act.wpapprove=()=>wpUiReview('Approve');
 act.wprequest=()=>wpUiReview('RequestChanges');
