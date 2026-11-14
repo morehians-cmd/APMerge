@@ -322,3 +322,20 @@ M1–M7 are closed only when the test evidence above is attached to the release 
 **Static verification:** V8 syntax parsing passed for `Code.gs`, `DashboardSpec.gs`, `Report.gs`, `AcceptanceTests.gs` and `CollegeModule.gs`. Source inspection confirms the shared guard is wired to the listed dashboard/report paths, College read endpoints call `collegeAdmin_()`, report access remains denied to Encoder, and `saveCollegeProgram()` remains Full-only. The automated M5-04/M5-05 tests exercise shared helper behavior with mocked authentication; they do not replace direct calls using real role accounts.
 
 **Manual evidence remains open:** Test each dashboard and report endpoint directly with Full, Manager, Encoder, Guidance, Accounting, HeadTeacher and Teacher accounts. Confirm denied office/Academic calls return no student aggregates, identifiers, drill-down rows, report exports, preferences/history or College records, and verify that Full/Manager legacy access and Encoder's limited dashboard remain intact. Check browser navigation as well as direct `google.script.run` calls.
+
+## 6. Current automated acceptance execution — 24/24
+
+**Environment:** non-production development copy.
+**Execution timestamp:** `2026-11-14T13:37:55.267Z`.
+**Result:** 24 passed, 0 failed, 24 total.
+
+The supplied Apps Script runtime JSON confirms M1-01/M1-02, M2-01/M2-02, M3-01 through M3-04, M4-01 through M4-03, M5-01 through M5-05, M6-01 and M7-01 through M7-07 all passed. In particular, M5-04 confirms the College shared guard role decisions and M5-05 confirms the admissions dashboard/report shared role guard decisions.
+
+This execution supersedes the prior 22/22 and closes the automated-runtime pending status for the 24-check suite. It does **not** close the five manual evidence gates. Helper-level regression tests do not establish real-account direct endpoint behavior, real Drive ACL/cache behavior, full report/export role isolation, or browser end-to-end publishing/recovery. Keep `WP_PUBLISH_CUTOVER_READY_ = false` until those gates are evidenced and separately approved.
+
+**Remaining manual evidence:**
+- M3: approved branding folder membership, valid image content and cache invalidation against actual development Drive objects.
+- M4: every scoped endpoint with real synthetic Encoder accounts and mixed in/out-of-scope IDs.
+- M5: role-by-role dashboard, direct-call, helper-endpoint and field-minimization matrix, including the new College and office/Academic boundaries.
+- M6: every report, drill-down, export, history and saved-configuration endpoint for each applicable role.
+- M7: editor/public-reader/media browser acceptance, draft/review/publish/rollback and Drive failure/recovery scenarios.
