@@ -449,7 +449,8 @@ const CATS = ['PUB-QVR','TLC','REGULAR','ESC','TLC-OVAP','QVA PASSER','IS'];
 const grpOf_ = g => { const i = GRADES.indexOf(g); return i<0 ? '' : i<3 ? GROUPS[0] : i<9 ? GROUPS[1] : i<13 ? GROUPS[2] : GROUPS[i===13?3:4]; };
 function report(token, type, arg, sy) {
   try {
-    const _u = who_(token,'admin'); if (_u.Clearance==='Encoder' && type!=='daily') throw new Error('Encoders do not have access to reports.');
+    const _u = who_(token,'admin');
+    if (_u.Clearance === 'Encoder') throw new Error('Encoders do not have access to reports.');
     const scope = studentSearchScope_(_u);
     audit_(_u, 'report.view', type, 'SY ' + reportSY_(sy));
     const SYX = reportSY_(sy), all = rowsForSY_(SYX).filter(r => studentWithinSearchScope_(scope, r)), s = all.filter(r=>r.EnrollStatus!=='Cancelled'&&r.EnrollStatus!=='Transferred Out'), to = all.filter(r=>r.EnrollStatus==='Transferred Out'), n = (a,f)=>a.filter(f).length;
