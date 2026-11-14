@@ -60,6 +60,7 @@ function getGalleryPhoto(token, page, id) {
 function addGalleryPhoto(token, page, dataUrl, caption) {
   const lock = LockService.getScriptLock(); let fid = '', saved = false;
   try {
+    wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const ou = owner_(token), g = galRead_(page);
     const pageMax = ["about-values","about-history","about-leadership","admissions-enrollment","admissions-requirements","admissions-scholarships","admissions-faq","academics-kindergarten","academics-elementary","academics-junior-high","academics-senior-high","academics-college","campus-organizations","campus-events","campus-sports","campus-clubs","campus-facilities","forms-tlc-application","forms-consent","news-announcements","news-latest","news-events","news-enrollment","news-achievements"].includes(page) ? 1 : GAL_MAX;
@@ -85,6 +86,7 @@ function addGalleryPhoto(token, page, dataUrl, caption) {
 function setGalleryCaption(token, page, id, caption) {
   const lock = LockService.getScriptLock();
   try {
+    wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const ou = owner_(token), g = galRead_(page), p = g.list.find(x => x.id === String(id));
     if (!p) throw new Error('Photo not found.');
@@ -98,6 +100,7 @@ function setGalleryCaption(token, page, id, caption) {
 function removeGalleryPhoto(token, page, id) {
   const lock = LockService.getScriptLock();
   try {
+    wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const ou = owner_(token), g = galRead_(page), i = g.list.findIndex(x => x.id === String(id));
     if (i < 0) throw new Error('Photo not found.');
