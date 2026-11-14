@@ -136,7 +136,7 @@ The website-permission property store uses the same legacy username-suffix norma
 
 
 The source now includes M7-07 for pure candidate-selection behavior: `Staged` rows are ignored, `Promoting` and `RecoveryRequired` rows are selected, duplicate metadata is blocked, and assets referenced by the current published version are excluded from recovery. This helper test must be rerun in Apps Script after synchronizing the latest source; it does not exercise Drive operations or prove recovery success.
-The automated suite currently contains M7-01 (cutover remains disabled), M7-02 (Unicode-safe chunk reconstruction), M7-03 (duplicate content-key rejection), M7-04 (gallery asset validation), M7-05 (public content allowlist boundaries), and M7-06 (section-card link and text validation). These are helper-level checks; they do not substitute for spreadsheet, Drive, browser or end-to-end publishing tests.
+The automated suite currently contains M7-01 (cutover remains disabled), M7-02 (Unicode-safe chunk reconstruction), M7-03 (duplicate content-key rejection), M7-04 (gallery asset validation), M7-05 (public content allowlist boundaries), M7-06 (section-card link and text validation), and M7-07 (retryable media-recovery candidate selection). These are helper-level checks; they do not substitute for spreadsheet, Drive, browser or end-to-end publishing tests.
 
 Run the full sequence only after M7 implementation is synchronized to the disposable copy:
 
