@@ -649,3 +649,16 @@ Run the automated suite, then manually verify a Manager and each office role can
 ## 14. Branch-wide V8 syntax verification
 
 After the M4-06 COR scope remediation and its acceptance-test addition, a fresh source-only V8 parse check was performed against all 26 `.gs` files in the current branch. All 26 parsed successfully, including the updated `Cor.gs` and `AcceptanceTests.gs`. The check used JavaScript parsing only; it did not execute Apps Script services, HTML templates, or spreadsheet/Drive side effects. The branch contains 30 unique automated acceptance cases (M1–M7), but the current 30-case suite has a supplied 30/30 passing runtime result in the disposable Apps Script copy; the five manual evidence gates remain open.
+
+## 15. Public homepage browser smoke evidence — 2026-11-15
+
+A user-supplied browser screenshot from the development Apps Script `/exec` deployment shows the public Moreh Academy homepage loading with the institutional header logos, navigation, hero carousel, values strip, About section, Latest Updates panel and footer visible. The browser Console in that screenshot reports zero errors, one warning and three informational messages.
+
+The warning is emitted at `about:blank:1` and describes an iframe sandbox containing both `allow-scripts` and `allow-same-origin`. The inspected application files do not set a custom iframe sandbox attribute. The homepage source uses Apps Script HTML Service and `google.script.run`; the warning alone is not evidence of an application defect and must not be suppressed by weakening iframe isolation.
+
+Source cross-check on branch `website-pages-fixes`:
+- `Code.gs` routes the root request to `PublicHome.html`.
+- `PublicHome.html` invokes `getPublicBlock('pubhome')`, `getPublishedHomepageHero()` and, when needed, `getPublicContent()`.
+- `Public.gs` contains the corresponding public readers; `getPublishedHomepageHero()` delegates to `getHomepageHero()`, and `getPublicBlock()` enforces its public-key allowlist and sanitizes the returned HTML.
+
+**Evidence classification:** This is a successful public-homepage load/smoke check only. It does not establish that the versioned publishing editor loads, that draft edits remain isolated from public readers, that review/approval and publish/rollback work, or that Drive media promotion/recovery is reliable. It therefore contributes limited browser evidence to M7 but does not close M7. The publishing cutover remains disabled, and no deployment or production content change is authorized by this screenshot.
