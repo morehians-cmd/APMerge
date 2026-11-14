@@ -47,12 +47,15 @@ function wpUiRefresh(selectId){
 function wpUiSelected(){return WPUI.versions.find(v=>v.versionId===WPUI.selected)||null}
 function wpUiContentKeys_(){
   const d=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};
-  return Array.from(new Set([...(d.publicBlockKeys||[]),...Object.values(d.pageBlockKeys||{}),'pubhome_content','pubhome_hero','pubpage_intro','pubpage_banners']))
+  const cards=Object.values(d.sectionCards||{}).map(group=>group&&group.key).filter(Boolean);
+  return Array.from(new Set([...(d.publicBlockKeys||[]),...Object.values(d.pageBlockKeys||{}),...cards,'pubhome_content','pubhome_hero','pubpage_intro','pubpage_banners']))
     .filter(key=>key&&key!=='about_data').sort();
 }
 function wpUiDefaultContentValue_(key){
   const d=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};
-  const values={pubhome_content:d.homepageContent||{},pubhome_hero:d.homepageHero||{},pubpage_intro:{},pubpage_banners:{}};
+  const values={pubhome_content:d.homepageContent||{},pubhome_hero:d.homepageHero||{},pubpage_intro:d.pageIntros||{},pubpage_banners:d.pageBanners||{}};
+  const group=Object.values(d.sectionCards||{}).find(item=>item&&item.key===key);
+  if(group)return JSON.stringify(group.defaults||[],null,2);
   return Object.prototype.hasOwnProperty.call(values,key)?JSON.stringify(values[key],null,2):'';
 }
 function wpUiRender(){
