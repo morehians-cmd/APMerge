@@ -1257,11 +1257,47 @@ function stageWebsiteMedia(token, dataUrl, fileName) {
 function listWebsiteStagedMedia(token) {
   try {
     const actor = wpRequirePermission_(token, 'website.content.edit');
-    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Draft Media');
-    if (!sheet || sheet.getLastRow() < 2) return ok([]);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName('Website Draft Media');
+    const folderId = PropertiesService.getScriptProperties().getProperty(WP_MEDIA_FOLDER_PROPERTY_);
+    if (!sheet || sheet.getLastRow() < 2 || !folderId) return ok([]);
+
+    const folder = DriveApp.getFolderById(folderId);
+    if (folder.isTrashed() ||
+        [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(folder.getSharingAccess())) {
+      throw new Error('The private draft media folder is unavailable or publicly shared.');
+    }
+
     const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, WP_MEDIA_HEADERS_.length).getDisplayValues();
-    return ok(rows.filter(row => row[0] && row[4].toLowerCase() === actor.Username.toLowerCase() && row[6] === 'Staged')
-      .map(row => ({ assetId:row[0], fileName:row[1], mimeType:row[2], sizeBytes:Number(row[3]) || 0, uploadedAt:row[5] })));
+    const counts = {};
+    rows.forEach(row => { if (row[0]) counts[row[0]] = (counts[row[0]] || 0) + 1; });
+    const username = wpText_(actor.Username).trim().toLowerCase();
+    const available = [];
+
+    rows.forEach(row => {
+      const id = wpText_(row[0]).trim();
+      if (!id || counts[id] !== 1 || wpText_(row[4]).trim().toLowerCase() !== username ||
+          row[6] !== 'Staged' || !/^[A-Za-z0-9_-]{10,80}$/.test(id)) return;
+      try {
+        const file = DriveApp.getFileById(id);
+        if (file.isTrashed() ||
+            !/^image\/(png|jpeg|webp|gif)$/i.test(file.getMimeType() || '') ||
+            wpText_(row[2]).toLowerCase() !== wpText_(file.getMimeType()).toLowerCase() ||
+            Number(row[3]) !== file.getSize() ||
+            [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) return;
+        const parents = file.getParents();
+        let inPrivateFolder = false;
+        while (parents.hasNext()) if (parents.next().getId() === folderId) inPrivateFolder = true;
+        if (!inPrivateFolder) return;
+        available.push({
+          assetId:id, fileName:row[1], mimeType:row[2],
+          sizeBytes:Number(row[3]) || 0, uploadedAt:row[5]
+        });
+      } catch (_) {
+        // Invalid or inaccessible Drive records are omitted from the selectable asset list.
+      }
+    });
+    return ok(available);
   } catch (error) {
     return fail(error);
   }
