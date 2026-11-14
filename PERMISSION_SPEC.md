@@ -468,3 +468,11 @@ The public renderer must read Vision, Mission, Core Values, History, and Key Lea
 
 Draft media security is enforced at both save and preview boundaries. `wpValidateDraftAssets_(payload, actor)` accepts staged assets only when their Drive file remains inside the private staging folder, is not publicly shared, has `Staged` metadata state, and was uploaded by the same editor who owns the draft. Existing, non-staged media references are accepted only from the established approved photo folder. `getWebsiteDraftAboutPhoto(token, versionId, assetId)` serves a photo only if that exact ID is referenced by the selected version and its file passes the staged/approved-folder checks. It does not alter sharing or publish media.
 Duplicate staged-media metadata for the same Drive ID is treated as invalid during draft validation; the editor cannot rely on whichever duplicate row happens to be read last.
+
+### Security acceptance harness and execution record — 2026-11-14
+
+A non-destructive Apps Script acceptance harness has been added as `AcceptanceTests.gs`. Run `runSecurityAcceptanceTests()` in a disposable development copy as the script owner. It covers representative M1 allow-list acceptance/rejection, M2 direct-call rejection for backup/retention, M3 malformed logo ID rejection, and M4 grade/section scope filtering plus missing/malformed/empty Encoder scope behavior. It temporarily sets and restores one synthetic Script Property and does not read or write student rows or invoke maintenance jobs.
+
+The detailed manual endpoint and role matrix is in `docs/security-acceptance-runbook.md`. It defines required execution evidence for M1–M7, including all role types, direct endpoint invocation, mixed-scope mutations, report/drill/export paths, logo folder trust, trigger identity and failure alerts, and the complete versioned website workflow.
+
+The harness and runbook are **test assets, not proof that tests have passed**. They have not been executed in the bound Apps Script development copy. M1–M7 remain open until runtime evidence is recorded. In particular, M3 approved-folder validation, full M4 endpoint coverage, M5 role/dashboard tests, M6 report execution tests, and M7 public-reader/media cutover acceptance are not certified. `WP_PUBLISH_CUTOVER_READY_` remains false; no production deployment is authorized.
