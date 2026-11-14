@@ -398,3 +398,6 @@ The report and analytics module was also inspected: `reportsHome` rejects Encode
 The chunked baseline now captures the effective website defaults as well as the stored Content key/value rows: About defaults, homepage content/hero defaults, page intro/banner defaults, section-card defaults, block/page maps, and gallery page aliases. This prevents a future reader cutover from silently depending on a different set of code defaults.
 
 The Events sheet is validated and separately fingerprinted for audit, but event rows are intentionally excluded from the immutable website payload. The homepage currently queries the Events sheet dynamically for upcoming announcements and events; keeping those rows operational avoids freezing calendar data into a website content version. The version payload stores the event-feed source/schema/selection contract instead.
+
+
+The chunk writer also preserves UTF-16 surrogate pairs at chunk boundaries. A synthetic Unicode boundary test (emoji placed exactly across the nominal 40,000-character boundary) passed: concatenating the generated chunks reproduced the original string exactly and no surrogate pair was split.
