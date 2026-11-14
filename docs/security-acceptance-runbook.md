@@ -128,7 +128,34 @@ Run the full sequence only after M7 implementation is synchronized to the dispos
 
 **Current status:** publishing cutover is intentionally disabled. Steps requiring cutover cannot pass until the remaining implementation is completed.
 
-## 3. Source-level verification evidence
+## 3. Apps Script runtime acceptance evidence
+
+**Execution:** 2026-11-14T10:57:45.037Z  
+**Environment:** Non-production development copy  
+**Suite:** Moreh Academy security acceptance checks  
+**Result:** 18 passed, 0 failed, 18 total
+
+The user-provided Apps Script execution result confirms all 18 automated checks passed in the Apps Script runtime:
+
+- M1-01–M1-02: student self-edit allow-list acceptance and rejection.
+- M2-01–M2-02: direct invocation rejection for daily backup and monthly retention without installed trigger identity.
+- M3-01–M3-03: malformed logo ID rejection, approved-folder membership enforcement, and consistent logo MIME allowlist.
+- M4-01–M4-02: grade/section scope filtering and fail-closed handling of missing, malformed and empty scope properties.
+- M5-01–M5-02: invalid-session rejection for 3 dashboard endpoints and 9 additional administrative/event/student-career endpoints.
+- M6-01: invalid-session rejection for 10 report endpoints, with mutations denied before data writes.
+- M7-01–M7-06: cutover gate, Unicode-safe chunking, duplicate content-key rejection, gallery asset validation, public-schema allowlist boundaries, and all six section-card groups' link/text validation.
+
+The execution output also explicitly retains these manual evidence items as open:
+
+1. **M3:** Confirm real approved branding folder membership and test valid logo content and cache invalidation.
+2. **M4:** Exercise every scoped endpoint with real Encoder accounts and mixed in/out-of-scope IDs.
+3. **M5:** Run the role-by-role dashboard, direct-call, helper-endpoint and field-minimization matrix.
+4. **M6:** Run every report, drill-down, export and history endpoint for every role.
+5. **M7:** Complete editor/public-reader/media cutover and draft/review/publish/rollback browser acceptance.
+
+The 18/18 result closes the automated checks listed above only. It does not close the remaining manual evidence, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
+
+## 4. Source-level verification evidence
 
 On 2026-11-14, the branch source was re-fetched and checked independently of Apps Script:
 
@@ -140,6 +167,6 @@ On 2026-11-14, the branch source was re-fetched and checked independently of App
 
 These local harnesses evaluate extracted pure helper functions; they do not execute runSecurityAcceptanceTests() inside Apps Script and do not verify Apps Script services, Drive ACLs, spreadsheet writes, authentication sessions, triggers, browser behavior, or deployment. The full runtime evidence in Sections 1–2 is still mandatory.
 
-## 4. Release gate
+## 5. Release gate
 
 M1–M7 are closed only when the test evidence above is attached to the release record. Any failed, skipped, or unexecuted test remains open. Source syntax checks and self-check functions are supporting evidence, not substitutes for Apps Script runtime tests. Keep `WP_PUBLISH_CUTOVER_READY_` false and do not deploy to production until every applicable test passes and the owner explicitly approves release.
