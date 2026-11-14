@@ -101,7 +101,7 @@ function wpFind(id) { return WP_PAGES.filter(function (p) { return p.id === id; 
 
 function websitePagesPage() {
   if (typeof SYS === 'function' && !SYS()) return toast('The website pages are for the main administrator.', 'warn');
-  head('Website Pages', 'Edit public page text and gallery photos without touching the spreadsheet');
+  return openWebsitePublishingEditor('pubabout');
   WP.blocks = {}; WP.galleries = {};
   $('view').innerHTML =
     '<div class="sbar">' +
