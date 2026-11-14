@@ -1152,11 +1152,14 @@ function publishWebsiteVersion(token, versionId) {
   const lock = LockService.getScriptLock();
   const promotionJournal = [];
   let publishedPointerCommitted = false;
+  let publishVersionId = '';
+  let priorMigrationState = '';
   try {
     lock.waitLock(20000);
     const actor = wpRequirePermission_(token, 'website.content.publish');
     if (!WP_PUBLISH_CUTOVER_READY_) throw new Error('Publishing is locked until every legacy website editor and media writer is redirected to immutable draft versions. ' + WP_PUBLISH_CUTOVER_BLOCKERS_.join(' '));
-    const version = wpReadVersion_(String(versionId || ''));
+    publishVersionId = String(versionId || '');
+    const version = wpReadVersion_(publishVersionId);
     if (wpText_(version.meta[2]) !== 'Approved') throw new Error('Only an independently approved website version can be published.');
     const creator = wpText_(version.meta[3]);
     if (!creator) throw new Error('The approved website version has no recorded creator.');
@@ -1168,6 +1171,7 @@ function publishWebsiteVersion(token, versionId) {
     const audit = ss.getSheetByName('Website Publishing Audit');
     if (!config || !audit) throw new Error('Website publishing stores have not been prepared.');
     const cfg = wpConfigMap_(config);
+    priorMigrationState = wpText_(cfg.migration_state) || (cfg.published_version_id ? 'PUBLISHED' : 'BASELINE_SEEDED');
     const previousId = wpText_(cfg.published_version_id);
     if (previousId === versionId) throw new Error('This version is already the published website version.');
     if (previousId) {
@@ -1202,12 +1206,38 @@ function publishWebsiteVersion(token, versionId) {
     }, 'Website version published.');
   } catch (error) {
     let message = String(error && error.message || error);
-    if (promotionJournal.length && !publishedPointerCommitted) {
-      try {
-        wpRestoreUncommittedPromotions_(promotionJournal);
-      } catch (recoveryError) {
-        message += ' Media recovery also failed and requires owner attention: ' +
-          String(recoveryError && recoveryError.message || recoveryError);
+    if (!publishedPointerCommitted) {
+      if (promotionJournal.length) {
+        try {
+          wpRestoreUncommittedPromotions_(promotionJournal);
+        } catch (recoveryError) {
+          message += ' Media recovery also failed and requires owner attention: ' +
+            String(recoveryError && recoveryError.message || recoveryError);
+        }
+      }
+      if (publishVersionId) {
+        try {
+          const failedVersion = wpReadVersion_(publishVersionId);
+          if (wpText_(failedVersion.meta[2]) === 'Published') {
+            wpUpdateVersionStatus_(failedVersion, {
+              Status:'Approved', PublishedBy:'', PublishedAt:'',
+              UpdatedBy:'publish-recovery', UpdatedAt:new Date()
+            });
+          }
+          const ss = SpreadsheetApp.getActiveSpreadsheet();
+          const config = ss.getSheetByName('Website Publishing Config');
+          if (config && priorMigrationState) wpSetConfigValue_(config, 'migration_state', priorMigrationState);
+          const audit = ss.getSheetByName('Website Publishing Audit');
+          if (audit) audit.appendRow([
+            Utilities.getUuid(), publishVersionId, 'version.publish.compensate',
+            'system-recovery', new Date(),
+            'Publication did not commit its published-version pointer. Failed publication metadata was restored; inspect this execution before retrying.',
+            failedVersion.hash
+          ]);
+        } catch (recoveryError) {
+          message += ' Version metadata recovery also failed and requires owner attention: ' +
+            String(recoveryError && recoveryError.message || recoveryError);
+        }
       }
     }
     return fail(new Error(message));
