@@ -102,10 +102,11 @@ function removeGalleryPhoto(token, page, id) {
     const ou = owner_(token), g = galRead_(page), i = g.list.findIndex(x => x.id === String(id));
     if (i < 0) throw new Error('Photo not found.');
     const gone = g.list.splice(i, 1)[0];
-    galWrite_(page, g.b, g.list);                                              // update the list first
-    try { DriveApp.getFileById(gone.id).setTrashed(true); } catch (_) {}      // then trash the file
+    galWrite_(page, g.b, g.list);
+    // Keep the Drive file: immutable website versions and rollback snapshots may still reference it.
+    // Media cleanup must be handled by a separate retention-aware process after all versions expire.
     audit_(ou, 'gallery.remove', page, gone.id);
-    return ok(g.list, 'Photo removed');
+    return ok(g.list, 'Photo removed from this page. The image file was retained for version history.');
   } catch (e) { return fail(e); } finally { try { lock.releaseLock(); } catch (_) {} }
 }
 function galBust_() {
