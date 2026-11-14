@@ -428,3 +428,130 @@ This 26/26 execution supersedes the earlier 25/26 execution at 2026-11-14T13:52:
 5. **M7:** Complete browser editor/public-reader/media acceptance, including draft/review/publish/rollback and controlled Drive failure/recovery tests.
 
 Do not mark M1–M7 fully closed solely on the strength of the 26/26 automated suite. Keep `WP_PUBLISH_CUTOVER_READY_ = false`. Do not change production triggers, deploy, publish, roll back production content, or enable the cutover without the remaining evidence and explicit owner approval.
+
+
+## 11. Manual acceptance execution protocol — evidence packet
+
+This section converts the five remaining manual gates into repeatable test cases. Execute only in a disposable Apps Script development copy with synthetic records and non-production Drive folders. Do not use real student personal data, production Drive assets, production triggers, or production deployment URLs. Record the Apps Script project ID, spreadsheet ID, Drive folder IDs, test-account usernames, test timestamp and operator in the evidence packet; redact tokens and credentials.
+
+For every case, record: **PASS/FAIL/BLOCKED**, exact endpoint or UI path, test identity/clearance, synthetic record IDs, expected result, observed result, before/after row counts or hashes where applicable, Apps Script execution log reference, screenshot or exported evidence reference, and cleanup result. A test is PASS only when the observed result and side-effect checks both match the expected result. An unrun test is BLOCKED, not PASS.
+
+### M3 — approved branding Drive boundary and logo cache
+
+**Development fixtures**
+- One private, non-trashed approved branding folder configured in the development Script Properties key `MA_APPROVED_BRANDING_FOLDER_ID`.
+- One private, non-trashed image directly inside that folder (PNG or JPEG; use a small synthetic test image).
+- One private image in a different folder.
+- One public/Anyone-with-link image in the approved folder.
+- One unsupported SVG or non-image file in the approved folder.
+- A development-only administrator account authorized to change the logo.
+
+**Execution**
+1. Confirm the configured folder ID resolves to the intended development folder; record its ID and sharing access. Confirm it is not the production branding folder.
+2. As the authorized administrator, call the existing logo-selection flow with the valid direct-child image. Verify success and that the stored logo file ID equals the fixture ID.
+3. Call the public logo retrieval path twice. Verify it returns a valid image data URI both times; retain the response metadata without copying the full data URI into the evidence document.
+4. Replace the selected logo with a different valid synthetic image. Call retrieval again and verify the returned image corresponds to the newly selected file, proving the prior cached value was invalidated.
+5. Attempt selection of the outside-folder image, publicly shared image, unsupported file and malformed ID. Each must be rejected. After each denial, verify the configured logo Script Property remains unchanged.
+6. Remove the approved-folder configuration in the disposable copy and verify selection fails closed. Restore the correct development-only value afterward.
+7. Restore the original development test logo or clear the test property and remove test fixtures after evidence is captured.
+
+**Expected:** only a valid, private, direct child of the configured approved branding folder is selectable; invalid attempts do not mutate the property; logo changes invalidate cached retrieval. No public-sharing change is made to a file as part of testing.
+
+**Evidence:** folder configuration screenshot, folder/file sharing dialogs, fixture MIME and parent listing, before/after Script Property value (redact unrelated properties), retrieval result metadata, cache invalidation result, and execution logs.
+
+### M4 — real Encoder mixed-record scope
+
+**Development fixtures**
+- One synthetic Encoder administrator with a unique username and a valid assignment containing at least two grade/section pairs.
+- Synthetic students: one in each assigned pair, one in an unassigned section of an assigned grade, one in an unassigned grade, one with a blank section, and one with a malformed/missing grade.
+- A separate synthetic student portal account linked to the out-of-scope student for the reset test.
+- A Full or Manager test account for comparison. Never reuse a real staff account.
+
+**Execution**
+1. Log in as the Encoder using the normal authentication flow. Confirm the displayed identity and assignment.
+2. Exercise student search with no filters, each assigned grade/section pair, and explicit unassigned grade/section filters. Verify only assigned records are returned; direct filters must not widen scope.
+3. Call `getStudent` directly for each fixture ID. Assigned records may return only fields allowed by the student-detail contract; every out-of-scope, blank-scope and malformed-scope record must be denied or indistinguishably absent.
+4. Call `saveStudent` for one assigned synthetic student using an allowed field; verify only that row/field changes. Attempt the same operation for each out-of-scope student and verify denial plus unchanged before/after row hashes.
+5. Exercise every other endpoint that accepts a student ID or returns student collections, including dashboard drill-downs, temporary grants, ID-card learner data/updates, status email dispatch and account reset. For each, test one assigned and one unassigned ID. For list endpoints, verify every returned ID is assigned.
+6. Specifically call `resetStudentAccount` for the out-of-scope student's portal account. Verify a denial and confirm the Users sheet row, password/reset state, sessions and audit rows remain unchanged. Then use an assigned synthetic account only if a reset is needed to verify the allowed path; restore or delete that disposable account afterward.
+7. Remove the Encoder assignment, then test malformed and empty assignments. Each must fail closed. Restore the intended development assignment after testing.
+8. Repeat selected list/detail operations as Full and Manager and verify their existing unscoped access remains unchanged.
+
+**Expected:** every student-bearing endpoint enforces the same grade/section boundary before sensitive reads or writes; an explicit ID cannot bypass the assignment; Full/Manager behavior is preserved.
+
+**Evidence:** test-account clearance/assignment, fixture roster, endpoint-by-endpoint input/output ID matrix, before/after row hashes for denied writes, Users/session state before/after reset denial, and execution logs.
+
+### M5 — authenticated role and data-minimization matrix
+
+Create synthetic accounts for **Full, Manager, Encoder, Guidance, Accounting, Academic, HeadTeacher, Teacher and Student**. Use a fresh private browser profile per role. Keep the account credentials in the secure test vault, not in this runbook.
+
+For each role, test all relevant dashboard and direct-call surfaces, not merely navigation visibility:
+- Admissions dashboard: `dashboard`, `dashboardExtra`, `dashboardDemo`, `dashboardSpec`, student search/detail/update and any dashboard drill-down.
+- College: `collegeDashboard`, `collegeRoster`, `getCollegePrograms`, and `saveCollegeProgram`.
+- Student care: temporary grant, ID-card retrieval/read/update, enrollment status email, student account reset and related helper calls.
+- Notifications and scholarships: verify office/Academic responses do not contain admin learner counts or school-wide registration/consent totals.
+- Website publishing: separately verify the website content permissions and editor routes; a dashboard role must not imply publishing rights.
+
+**Expected role outcomes**
+- Full: existing full administrator access.
+- Manager: preserve existing Manager read access and existing allowed operations exactly; do not grant College program mutation if the endpoint is Full-only.
+- Encoder: only assigned grade/section student records and the limited admissions dashboard; no College data and no report module.
+- Guidance, Accounting, Academic, HeadTeacher and Teacher: no admissions admin dashboard/report/student-care or College roster data through direct calls; their independently assigned module access must continue to work.
+- Student: only the explicitly permitted student self-service routes and allow-listed self-edit fields.
+
+For every denied direct call, verify both the response and that protected Sheets/Drive/mail queues were not read or mutated where that boundary is required. Inspect returned JSON for hidden fields even if the UI does not render them. Compare response keys and representative values against the least-privilege field contract. Attempt direct navigation to hidden pages and invoke the server function from the browser console; client-side hiding is not authorization.
+
+**Evidence:** role/account matrix with each endpoint marked PASS/FAIL, sanitized response-key snapshots, representative denied-call execution logs, before/after protected-row hashes, and confirmation that each role's unrelated permitted module still works.
+
+### M6 — reports, drill-down, export and history matrix
+
+Use synthetic records only. Run the following as Full, Manager, Encoder, Guidance, Accounting, Academic, HeadTeacher and Teacher:
+- Report landing/home and report catalogue.
+- Every report type and filter combination available in the UI.
+- Analytics summaries and each drill-down path.
+- Preview and report-log/history retrieval.
+- Export/download paths and any alternate direct server endpoint used by the UI.
+- Saved favorites, report configuration create/update/delete, and report history.
+- Invalid, expired and missing session-token direct calls.
+
+**Expected:** Full and Manager retain their established report permissions; Encoder and roles outside the report authorization policy are denied before report data is returned; denied mutations do not write preferences, configurations, logs or history. Export responses must be checked independently from preview responses. Verify that filenames, metadata, formulas and hidden export columns do not leak fields absent from the role's report contract.
+
+**Evidence:** report-type × role matrix, sanitized preview and export key/column lists, download artifact checksums, configuration/history before/after snapshots, and Apps Script execution logs. A successful page render alone is not sufficient evidence for export authorization.
+
+### M7 — browser publishing, public-reader and Drive recovery acceptance
+
+Run the full workflow on a disposable deployment connected only to the development spreadsheet and development Drive folders. Do not enable the production cutover constant.
+
+**Editor and authorization**
+1. Sign in with a user holding website content edit permission and open every migrated entry point: About, public blocks, section cards, homepage settings, page intros/banners and all gallery pages.
+2. Verify the shared versioned workspace opens, loads the expected draft, and does not expose legacy live-write controls.
+3. Attempt edit, review, approve, publish and rollback actions using accounts with and without the corresponding permissions. Verify each action is authorized server-side.
+4. Make a draft change, navigate away and trigger unsaved-change protection. Verify the draft is not silently discarded.
+5. Verify content allowlists, text limits, link safety, duplicate gallery references and portal-only key rejection through the UI and direct server calls.
+
+**Media lifecycle**
+6. Upload synthetic JPEG, PNG and WebP images. Verify client resize limits, private staging location, owner metadata and draft reference validation.
+7. Attempt unsupported MIME, malformed ID, duplicate reference, another user's staged asset and unreferenced asset. Verify rejection and no publication.
+8. Approve a draft using the required independent reviewer identity. Verify the creator cannot self-approve where separation of duties is required.
+9. In the development copy only, exercise a successful publish after the cutover gate has been deliberately enabled in an isolated disposable clone with all prerequisites met. Verify media promotion, published pointer, immutable version payload, audit entry and public cache invalidation.
+10. In a separate disposable clone, inject failures at each supported media promotion/publication boundary: before move, after move but before metadata update, during sharing/permission update, before pointer commit and after pointer commit. Verify retry/recovery behavior, no currently published asset is privatized, no duplicate metadata is silently selected, and post-pointer failures produce an explicit reconciliation warning.
+11. Verify public readers (homepage, About, galleries and public images) resolve only the published snapshot in the cutover-enabled clone. Confirm drafts and staged media are never visible to anonymous readers.
+12. Exercise rollback to a previously published/archived version in the isolated clone and verify pointer, status, audit and public cache behavior.
+
+**Cutover isolation rule:** The checked-in branch constant remains `WP_PUBLISH_CUTOVER_READY_ = false`. If a cutover-enabled test is necessary, make a separate disposable clone and change the constant only in that clone. Never commit that temporary change or deploy it to production. The branch under review must remain fail-closed.
+
+**Evidence:** browser screenshots/video, role and permission used for each action, version IDs and status transitions, before/after public-reader output, Drive file IDs/parent/sharing state, audit rows, cache verification, injected failure point and recovery result, and cleanup log.
+
+### Manual gate closure record
+
+Do not mark a gate closed until every applicable case above has an evidence reference and a reviewer has checked the artifacts. Record the closure here only after the user supplies or independently confirms the evidence:
+
+| Gate | Required evidence | Status |
+|---|---|---|
+| M3 | Real development Drive folder/file membership, ACL, valid image retrieval and cache invalidation | OPEN |
+| M4 | Real Encoder account mixed-ID endpoint matrix and before/after side-effect evidence | OPEN |
+| M5 | Authenticated role × endpoint matrix and response data-minimization evidence | OPEN |
+| M6 | Authenticated report × role matrix including exports, history and saved configurations | OPEN |
+| M7 | Browser end-to-end publishing/media workflow and injected Drive recovery evidence | OPEN |
+
+The current 26/26 automated execution does not change these statuses. `WP_PUBLISH_CUTOVER_READY_ = false` remains mandatory until the five manual gates are closed and the owner explicitly approves release.
