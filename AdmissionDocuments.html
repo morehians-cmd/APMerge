@@ -30,7 +30,7 @@
 </head>
 <body>
 <div class="wrap">
-  <header><div><h1>Admission Documents</h1><p>Moreh Academy · Secure applicant submissions and registrar review</p></div><a class="btn" href="<?= appUrl ?>?page=portal" style="text-decoration:none">Back to Portal</a></header>
+  <header><div><h1>Admission Documents</h1><p>Moreh Academy · Secure applicant submissions and registrar review</p></div><a id="back" class="btn" href="<?= appUrl ?>?page=portal" style="text-decoration:none">Back to Portal</a></header>
   <div id="notice" class="alert hidden" role="status"></div>
   <section id="noToken" class="card hidden"><h2>Portal sign-in required</h2><p>Open this workspace from the signed-in Moreh Academy portal. Your secure session is not included in this link.</p><a class="btn" href="<?= appUrl ?>?page=portal">Open Portal</a></section>
   <section id="student" class="hidden">
@@ -48,7 +48,7 @@
 <script>
 (function(){
   'use strict';
-  const token=decodeURIComponent((location.hash||'').replace(/^#/,''));if(location.hash)history.replaceState(null,'',location.pathname+location.search);let role='';
+  const token=decodeURIComponent((location.hash||'').replace(/^#/,''));if(token)$('back').href='<?= appUrl ?>?page=portal#'+encodeURIComponent(token);if(location.hash)history.replaceState(null,'',location.pathname+location.search);let role='';
   const $=id=>document.getElementById(id), busy=v=>$('busy').classList.toggle('hidden',!v);
   function notice(msg,err){const n=$('notice');n.textContent=msg;n.classList.remove('hidden','err');if(err)n.classList.add('err')}
   function call(name,args,done){busy(true);google.script.run.withSuccessHandler(r=>{busy(false);if(!r||!r.success){notice(r&&r.error||'The request failed.',true);return}done(r.data,r)}).withFailureHandler(e=>{busy(false);notice(e&&e.message||'Server error.',true)})[name](...args)}
