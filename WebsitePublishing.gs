@@ -1164,6 +1164,28 @@ function wpRestoreUncommittedPromotions_(assetIds) {
   return { restored:restored, failed:failed };
 }
 
+function wpPendingMediaRecovery_(rows, publishedIds) {
+  const pending = [];
+  const conflicts = [];
+  const seen = {};
+  (rows || []).forEach(row => {
+    const id = wpText_(row && row[0]).trim();
+    const state = wpText_(row && row[6]);
+    if (!id || !['Promoting','RecoveryRequired'].includes(state)) return;
+    if (seen[id]) {
+      conflicts.push({ assetId:id, reason:'Duplicate media metadata rows.' });
+      return;
+    }
+    seen[id] = true;
+    if (publishedIds && publishedIds[id]) {
+      conflicts.push({ assetId:id, reason:'Asset is referenced by the current published version.' });
+      return;
+    }
+    pending.push(id);
+  });
+  return { pending:pending, conflicts:conflicts };
+}
+
 /**
  * Owner recovery for interrupted media promotions. It is safe to retry: assets still
  * referenced by the current published payload are never made private or moved.
@@ -1192,16 +1214,12 @@ function recoverWebsiteMediaPromotions(token) {
     const rows = media.getLastRow() > 1
       ? media.getRange(2, 1, media.getLastRow() - 1, WP_MEDIA_HEADERS_.length).getDisplayValues()
       : [];
-    const pending = [];
-    rows.forEach(row => {
-      const id = wpText_(row[0]);
-      const state = wpText_(row[6]);
-      if (id && ['Promoting','RecoveryRequired'].includes(state)) {
-        if (publishedIds[id]) throw new Error('A pending-recovery asset is referenced by the published version; reconcile its metadata without privatizing it: ' + id);
-        pending.push(id);
-      }
-    });
-    const result = wpRestoreUncommittedPromotions_(pending);
+    const candidates = wpPendingMediaRecovery_(rows, publishedIds);
+    if (candidates.conflicts.length) {
+      throw new Error('Media recovery is blocked by metadata conflicts: ' +
+        candidates.conflicts.map(item => item.assetId + ' (' + item.reason + ')').join('; '));
+    }
+    const result = wpRestoreUncommittedPromotions_(candidates.pending);
     audit.appendRow([
       Utilities.getUuid(), publishedId, 'media.recovery', actor.Username, new Date(),
       'Interrupted promotion recovery attempted. Restored: ' + result.restored.length +
