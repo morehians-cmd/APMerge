@@ -68,6 +68,8 @@ function admissionDocsFolder_() {
   if (!id) throw new Error('Admission document folder is not configured.');
   const folder = DriveApp.getFolderById(id);
   if (folder.isTrashed()) throw new Error('Admission document folder is unavailable.');
+  const access = folder.getSharingAccess();
+  if (access === DriveApp.Access.ANYONE || access === DriveApp.Access.ANYONE_WITH_LINK) throw new Error('Admission document folder is publicly shared. Remove link sharing before continuing.');
   return folder;
 }
 function admissionDocFile_(id) {
