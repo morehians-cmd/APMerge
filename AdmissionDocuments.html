@@ -48,8 +48,8 @@
 <script>
 (function(){
   'use strict';
-  const token=decodeURIComponent((location.hash||'').replace(/^#/,''));if(token)$('back').href='<?= appUrl ?>?page=portal#'+encodeURIComponent(token);if(location.hash)history.replaceState(null,'',location.pathname+location.search);let role='';
   const $=id=>document.getElementById(id), busy=v=>$('busy').classList.toggle('hidden',!v);
+  const token=decodeURIComponent((location.hash||'').replace(/^#/,''));if(token)$('back').href='<?= appUrl ?>?page=portal#'+encodeURIComponent(token);if(location.hash)history.replaceState(null,'',location.pathname+location.search);let role='';
   function notice(msg,err){const n=$('notice');n.textContent=msg;n.classList.remove('hidden','err');if(err)n.classList.add('err')}
   function call(name,args,done){busy(true);google.script.run.withSuccessHandler(r=>{busy(false);if(!r||!r.success){notice(r&&r.error||'The request failed.',true);return}done(r.data,r)}).withFailureHandler(e=>{busy(false);notice(e&&e.message||'Server error.',true)})[name](...args)}
   function el(tag,cls,txt){const n=document.createElement(tag);if(cls)n.className=cls;if(txt!==undefined)n.textContent=txt;return n}
