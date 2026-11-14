@@ -81,8 +81,17 @@ function digest_() {
     body:'Actions by type:\n' + Object.keys(cnt).map(k => '  ' + k + ': ' + cnt[k]).join('\n') + '\n\nSensitive actions:\n' + (sens.join('\n') || '  none') });
 }
 
-/** Trigger target. Public but harmless: it refuses to run more than once per 12 hours. */
-function dailyBackup() {
+/** A time-driven handler is accepted only when its event UID matches the trigger installed by this project owner. */
+function triggerAuthorized_(handler, e) {
+  const expected = PropertiesService.getScriptProperties().getProperty('TRIGGER_UID_' + handler);
+  const supplied = e && e.triggerUid != null ? String(e.triggerUid) : '';
+  if (!expected || !supplied || supplied !== expected) throw new Error('This maintenance task can only be run by its installed time trigger.');
+  return true;
+}
+
+/** Trigger target. Direct calls from google.script.run or the editor are rejected. */
+function dailyBackup(e) {
+  triggerAuthorized_('dailyBackup', e);
   const pr = PropertiesService.getScriptProperties();
   if (Date.now() - parseInt(pr.getProperty('LAST_BACKUP') || '0', 10) < 12 * 3600 * 1000) return;
   try { doBackup_(); } catch (e) { alert_('backupfail', 'Backup FAILED', String(e.message)); }
@@ -93,7 +102,8 @@ function backupNow() { ownerOnly_(); doBackup_(); Logger.log('Backup saved in th
 function installBackupTrigger() {
   ownerOnly_();
   ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'dailyBackup').forEach(t => ScriptApp.deleteTrigger(t));
-  ScriptApp.newTrigger('dailyBackup').timeBased().everyDays(1).atHour(2).create();
+  const trigger = ScriptApp.newTrigger('dailyBackup').timeBased().everyDays(1).atHour(2).create();
+  PropertiesService.getScriptProperties().setProperty('TRIGGER_UID_dailyBackup', String(trigger.getUniqueId()));
   doBackup_(); Logger.log('Daily backup installed (about 2 AM) and a first backup was made. Folder: ' + backupFolder_().getUrl());
 }
 
