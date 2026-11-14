@@ -375,9 +375,9 @@ function seedWebsitePublishingBaseline(token) {
     const now = new Date();
     const payloadBytes = Utilities.newBlob(payloadJson, 'application/json').getBytes().length;
     versions.appendRow([
-      versionId, '', 'Approved', actor.Username, now, actor.Username, now,
-      actor.Username, now, 'Immutable migration baseline captured from the current live website.',
-      '', '', payloadHash, payloadJson.length, payloadBytes, chunkCount
+      versionId, '', 'Published', actor.Username, now, actor.Username, now,
+      '', '', 'Migration baseline representing the live public website at capture time; no draft self-review was performed.',
+      actor.Username, now, payloadHash, payloadJson.length, payloadBytes, chunkCount
     ]);
     wpSetConfigValue_(config, 'baseline_version_id', versionId);
     wpSetConfigValue_(config, 'migration_state', 'BASELINE_SEEDED');
@@ -389,7 +389,7 @@ function seedWebsitePublishingBaseline(token) {
 
     return ok({
       versionId:versionId,
-      status:'Approved',
+      status:'Published',
       payloadHash:payloadHash,
       payloadChars:payloadJson.length,
       payloadBytes:payloadBytes,
