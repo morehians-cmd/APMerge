@@ -155,19 +155,19 @@ Run the full sequence only after M7 implementation is synchronized to the dispos
 
 ## 3. Apps Script runtime acceptance evidence
 
-### Latest execution — updated 19-check suite
+### Latest execution — updated 20-check suite
 
-**Execution:** 2026-11-14T11:09:32.497Z  
+**Execution:** 2026-11-14T11:25:43.316Z  
 **Environment:** Non-production development copy  
 **Suite:** Moreh Academy security acceptance checks  
-**Result:** 19 passed, 0 failed, 19 total
+**Result:** 20 passed, 0 failed, 20 total
 
-The user-provided Apps Script execution result confirms all 19 automated checks passed in the Apps Script runtime. This run includes M3-04, added after the earlier 18-check execution.
+The user-provided Apps Script execution result confirms all 20 automated checks passed in the Apps Script runtime. This run includes M4-03, added after the 19-check execution.
 
 - M1-01–M1-02: student self-edit allow-list acceptance and rejection.
 - M2-01–M2-02: direct invocation rejection for daily backup and monthly retention without installed trigger identity.
 - M3-01–M3-04: malformed logo ID rejection, approved-folder membership enforcement, consistent logo MIME allowlist, and rejection of publicly shared logo files. M3-04 reports private and domain-restricted files accepted and Anyone/Anyone-with-link files rejected.
-- M4-01–M4-02: grade/section scope filtering and fail-closed handling of missing, malformed and empty scope properties.
+- M4-01–M4-03: grade/section scope filtering, fail-closed handling of missing/malformed/empty scope properties, and detection of distinct usernames that collide after legacy property-key normalization. The collision check confirms Encoder scope and website-permission readers fail closed.
 - M5-01–M5-02: invalid-session rejection for 3 dashboard endpoints and 9 additional administrative/event/student-career endpoints.
 - M6-01: invalid-session rejection for 10 report endpoints, with mutations denied before data writes.
 - M7-01–M7-06: cutover gate, Unicode-safe chunking, duplicate content-key rejection, gallery asset validation, public-schema allowlist boundaries, and all six section-card groups' link/text validation.
@@ -180,7 +180,15 @@ The execution output explicitly retains these manual evidence items as open:
 4. **M6:** Run every report, drill-down, export and history endpoint for every role.
 5. **M7:** Complete editor/public-reader/media cutover and draft/review/publish/rollback browser acceptance.
 
-This 19/19 result closes the automated execution gap for M3-04. It predates the subsequent M4-03 scope-key collision hardening and test addition, so it is not evidence that the current 20-check suite passes. Rerun runSecurityAcceptanceTests() after synchronizing the latest Code.gs and AcceptanceTests.gs. It does not close the five manual evidence gates, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
+This 20/20 result closes the automated execution gap for M4-03 and confirms the current 20-check suite passed in the non-production Apps Script runtime. It does not close the five manual evidence gates, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
+
+### Historical execution — 19-check suite
+
+**Execution:** 2026-11-14T11:09:32.497Z  
+**Environment:** Non-production development copy  
+**Result:** 19 passed, 0 failed, 19 total
+
+This user-provided execution includes M3-04 but predates M4-03. It remains historical evidence for the then-current suite and is superseded for current automated-suite status by the 20/20 execution above.
 
 ### Historical execution — original 18-check suite
 
@@ -188,7 +196,7 @@ This 19/19 result closes the automated execution gap for M3-04. It predates the 
 **Environment:** Non-production development copy  
 **Result:** 18 passed, 0 failed, 18 total
 
-This earlier user-provided result remains historical evidence for the then-current suite. It predates M3-04 and is superseded for current automated-suite status by the 19/19 execution above. Do not count the two executions as 37 distinct checks.
+This earlier user-provided result remains historical evidence for the then-current suite. It predates M3-04 and is superseded by the later 19/19 and 20/20 executions. Do not add results across runs as if they were distinct checks.
 
 ## 4. Source-level verification evidence
 
