@@ -63,7 +63,7 @@ function pbLoadIntros() {
       PB.introDefaults = r.data.defaults || {};
     }
     pbLoadBlocked();
-  }).withFailureHandler(function () { pbLoadBlocked(); }).getPageIntros();
+  }).withFailureHandler(function () { pbLoadBlocked(); }).getPageIntrosForEditor(T());
 }
 
 function pbLoadBlocked() {
