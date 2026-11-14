@@ -198,14 +198,20 @@ function collegeStats_(opts) {
 
 /* ---------- web API ---------- */
 
+/** College administration is limited to the existing Full and legacy Manager roles. */
+function collegeAdmin_(token) {
+  const u = who_(token, 'admin');
+  if (u.Clearance !== 'Full' && u.Clearance !== 'Manager') throw new Error('Not allowed.');
+  return u;
+}
+
 function collegeUnconfigured_(e) {
   return { success: true, data: { configured: false, message: (e && e.message) || 'The College workbook is not available.' } };
 }
 
 function collegeDashboard(token) {
   try {
-    const u = who_(token, 'admin');
-    if (u.Clearance === 'Encoder' || OFFICE_CL.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
+    const u = collegeAdmin_(token);
     let students;
     try { students = collegeStudents_(); } catch (e) { return collegeUnconfigured_(e); }
     const stats = collegeStats_({});
@@ -223,8 +229,7 @@ function collegeDashboard(token) {
 /** Roster with filters. Kept read-only: the college write paths arrive with enrollment. */
 function collegeRoster(token, opts) {
   try {
-    const u = who_(token, 'admin');
-    if (u.Clearance === 'Encoder') throw new Error('Not allowed.');
+    const u = collegeAdmin_(token);
     opts = opts || {};
     let rows;
     try { rows = collegeStudents_(); } catch (e) { return collegeUnconfigured_(e); }
@@ -249,8 +254,7 @@ function collegeRoster(token, opts) {
 
 function getCollegePrograms(token) {
   try {
-    const u = who_(token, 'admin');
-    if (u.Clearance === 'Encoder' || OFFICE_CL.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
+    const u = collegeAdmin_(token);
     let programs;
     try { programs = collegePrograms_(true); } catch (e) { return collegeUnconfigured_(e); }
     return ok({ programs: programs, canEdit: u.Clearance === 'Full', editable: !!cTab_(collegeSS_(), COLLEGE_TABS.programs) });
