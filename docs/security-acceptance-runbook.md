@@ -386,3 +386,14 @@ The supplied execution confirms all checks except M4-04. The failure detail was:
 **Next runtime action:** Synchronize the latest `MailSwitch.gs` and `AcceptanceTests.gs` from `website-pages-fixes` into the disposable Apps Script copy, then run `runSecurityAcceptanceTests()` again. If M4-04 still fails, retain the exact returned `error` text and Apps Script execution log; do not weaken the expected denial or infer a pass. Do not claim 26/26 until the new runtime JSON confirms it.
 
 All five manual evidence gates remain open. Keep `WP_PUBLISH_CUTOVER_READY_ = false`; no production deployment or publishing cutover is authorized.
+
+
+### M4-04 harness diagnosis and correction — authentication was not stubbed
+
+The 2026-11-14T14:02:29.427Z execution again failed M4-04. Inspection of the harness identified the concrete cause: it replaced `assertAdminConsoleRole_()` but did not replace `who_()`. The endpoint calls `who_(token, 'admin')` before the role guard, so the real authentication lookup rejected the synthetic token before the test could reach the Encoder scope resolver. The observed failure was therefore a harness setup defect, not evidence that the production endpoint skipped `assertStudentScope_()`.
+
+**Correction committed:** M4-04 now stubs `who_()` to return a synthetic administrator with Encoder clearance, checks the expected token/role arguments, and then observes the role guard and scope resolver. It leaves the real `assertStudentScope_()` in place, returns an out-of-scope synthetic student, checks the actual scope-denial message, and asserts the Users sheet reader was not called. All replaced globals are restored in `finally`.
+
+**Commit:** `AcceptanceTests.gs` — `6b2d75eff27d94ab18a765e7b1d579f6b9366bd4`.
+
+**Runtime status:** This is a test-harness correction after the 25/26 execution. It has not yet been run in Apps Script. Synchronize the latest `AcceptanceTests.gs` and run the full suite again. The prior 25/26 result remains the latest runtime evidence until a new JSON execution is supplied.
