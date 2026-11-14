@@ -409,6 +409,14 @@ function runSecurityAcceptanceTests() {
     return 'Office and Academic accounts denied; Full, Manager and Encoder retain the shared admin-console role policy.';
   });
 
+  record('M5-07', 'Encoder sign-in hours do not restrict Manager or office staff', () => {
+    assert(staffHoursGateApplies_({ Role:'admin', Clearance:'Encoder' }), 'Encoder hours policy must apply to Encoders.');
+    ['Full','Manager','Guidance','Accounting','Academic','HeadTeacher','Teacher'].forEach(clearance =>
+      assert(!staffHoursGateApplies_({ Role:'admin', Clearance:clearance }), 'Encoder hours policy unexpectedly applies to ' + clearance + '.'));
+    assert(!staffHoursGateApplies_({ Role:'student', Clearance:'Encoder' }), 'Encoder hours policy must not apply to student accounts.');
+    return 'Only authenticated admin accounts with Encoder clearance are subject to the 7 AM–6 PM window; Manager and office staff are not time-restricted by this gate.';
+  });
+
   record('M6-01', 'Report endpoints reject unauthenticated direct invocation', () => {
     const calls = [
       ['report', () => report('invalid-acceptance-token', 'daily')],
