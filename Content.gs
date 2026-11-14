@@ -19,6 +19,7 @@ function getBlock(token, key) {
 function saveBlock(token, key, html) {
   const lock = LockService.getScriptLock();
   try {
+    wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const ou = owner_(token);
     if (!BLOCKS.includes(key)) throw new Error('Unknown block.');
@@ -86,6 +87,7 @@ function getAboutPhoto(token, id) {
 /** OWNER ONLY. Uploads a leader photo (JPEG, max 2 MB) and returns its Drive file ID. */
 function setAboutPhoto(token, dataUrl) {
   try {
+    wpAssertLegacyWriterOpen_();
     owner_(token);
     const blob = Utilities.newBlob(Utilities.base64Decode(String(dataUrl).split(',')[1]), 'image/jpeg', 'about_leader.jpg'), pb = blob.getBytes();
     if (pb.length > 2 * 1024 * 1024) throw new Error('Photo exceeds 2 MB.');
@@ -98,6 +100,7 @@ function setAboutPhoto(token, dataUrl) {
 function saveAbout(token, d) {
   const lock = LockService.getScriptLock();
   try {
+    wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const ou = owner_(token), old = aboutRead_(), oldIds = old.leaders.map(l => l.photo).filter(Boolean), clean = aboutClean_(d);
     clean.leaders.forEach(l => {
