@@ -163,10 +163,11 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   const page = String(p.page || '');
   const wantsAccount = page === 'create-account' || page === 'register';   // homepage "Enroll Now" button
+  const docsPage = page === 'admission-documents';
   const portal = page === 'portal' || wantsAccount;
   const publicPages = ["about","admissions","academics","campus-life","resources","news","contact","about-values","about-history","about-leadership","admissions-enrollment","admissions-requirements","admissions-scholarships","admissions-faq","academics-kindergarten","academics-elementary","academics-junior-high","academics-senior-high","academics-college","campus-organizations","campus-events","campus-sports","campus-clubs","campus-facilities","forms-tlc-application","forms-consent","news-announcements","news-latest","news-events","news-enrollment","news-achievements"];
   const isPublicPage = publicPages.indexOf(page) >= 0;
-  const t = HtmlService.createTemplateFromFile(portal ? 'Index' : (isPublicPage ? 'PublicPage' : 'PublicHome'));
+  const t = HtmlService.createTemplateFromFile(docsPage ? 'AdmissionDocuments' : (portal ? 'Index' : (isPublicPage ? 'PublicPage' : 'PublicHome')));
   t.appUrl = ScriptApp.getService().getUrl();
   t.reg = portal && (String(p.reg || '') === '1' || wantsAccount);
   t.prog = ['TLC','ESC','QVR','QVA'].includes(String(p.prog || '')) ? String(p.prog) : '';
@@ -192,7 +193,7 @@ function doGet(e) {
     t.introBlocked = savedPublicPages_().indexOf(page) >= 0;
   }
   return t.evaluate()
-    .setTitle(portal ? 'Moreh Academy Portal' : (isPublicPage ? 'Moreh Academy | ' + t.pageTitle : 'Moreh Academy'))
+    .setTitle(docsPage ? 'Admission Documents | Moreh Academy' : (portal ? 'Moreh Academy Portal' : (isPublicPage ? 'Moreh Academy | ' + t.pageTitle : 'Moreh Academy')))
     .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
 }
 function include(f) { return HtmlService.createHtmlOutputFromFile(f).getContent(); }
