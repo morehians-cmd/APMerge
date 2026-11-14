@@ -961,6 +961,50 @@ function getWebsiteVersion(token, versionId) {
 
 
 /**
+ * Returns one leader photo only when the selected authorized version explicitly references it.
+ * Private staged assets remain private in Drive; the image bytes are streamed to the authenticated editor.
+ */
+function getWebsiteDraftAboutPhoto(token, versionId, assetId) {
+  try {
+    const version = getWebsiteVersion(token, versionId);
+    if (!version || version.success !== true) return version || fail(new Error('Unable to read the selected website version.'));
+    const id = String(assetId || '');
+    if (!/^[A-Za-z0-9_-]{10,80}$/.test(id)) throw new Error('Invalid About photo reference.');
+    const rows = version.data.payload.contentRows || [];
+    const records = rows.filter(row => row[0] === 'about_data');
+    if (records.length !== 1) throw new Error('The selected version does not contain one valid About record.');
+    let about;
+    try { about = JSON.parse(records[0][1]); }
+    catch (_) { throw new Error('The selected version contains invalid About data.'); }
+    const referenced = Array.isArray(about.leaders) && about.leaders.some(person => String(person && person.photo || '') === id);
+    if (!referenced) throw new Error('This photo is not referenced by the selected About version.');
+    const mediaSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Draft Media');
+    const mediaRows = mediaSheet && mediaSheet.getLastRow() > 1
+      ? mediaSheet.getRange(2, 1, mediaSheet.getLastRow() - 1, WP_MEDIA_HEADERS_.length).getDisplayValues()
+      : [];
+    const staged = mediaRows.filter(row => row[0] === id);
+    let allowed = false;
+    if (staged.length === 1 && staged[0][6] === 'Staged') {
+      const folderId = PropertiesService.getScriptProperties().getProperty(WP_MEDIA_FOLDER_PROPERTY_);
+      const file = DriveApp.getFileById(id);
+      const parents = file.getParents();
+      while (parents.hasNext()) if (parents.next().getId() === folderId) allowed = true;
+      if (file.isTrashed() || !folderId || !allowed ||
+          file.getSharingAccess() === DriveApp.Access.ANYONE ||
+          file.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK) allowed = false;
+    } else if (!staged.length && typeof inPhotoFolder_ === 'function') {
+      allowed = inPhotoFolder_(id);
+    }
+    if (!allowed) throw new Error('The referenced About photo is unavailable or is not approved website media.');
+    const uri = photo_(id);
+    if (!uri) throw new Error('The referenced About photo could not be read.');
+    return ok(uri, 'About photo loaded from the selected website version.');
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/**
  * Produces a full website payload revision with only the structured About record changed.
  * All legacy About HTML and unrelated page content are copied without modification.
  */
