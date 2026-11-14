@@ -638,3 +638,8 @@ The automated suite now includes M6-02 for canonical level/grade-section descrip
 A source audit found that `staffGate_()` applied the 7:00 AM–6:00 PM sign-in window to every non-Full admin clearance, even though the feature is documented as an Encoder-specific policy. This unintentionally constrained the Manager and Guidance/Accounting/Academic office accounts. The gate now retains the deactivation check for non-Full staff accounts but applies the scheduled-hours/after-hours approval rule only when `Role === 'admin'` and `Clearance === 'Encoder'`. Full remains exempt as before. The helper `staffHoursGateApplies_()` makes the policy boundary explicit, and M5-07 covers Encoder, Full, Manager, office clearances and non-admin accounts.
 
 Run the automated suite, then manually verify a Manager and each office role can sign in outside the Encoder window in the disposable environment, while an Encoder is still denied outside hours unless an owner approval is active. This test does not authorize changing any production account or schedule.
+
+
+## 14. Branch-wide V8 syntax verification
+
+A source-only V8 parse check was performed against every `.gs` file in the current branch using the JavaScript parser without executing Apps Script services or mutating any project data. All 26 Apps Script source files parsed successfully, including the changed `IdCard.gs`, `MailQueue.gs`, `Report.gs`, `StaffControl.gs` and `AcceptanceTests.gs`. This verifies JavaScript syntax only; it does not prove Apps Script service availability, template correctness, role behavior, spreadsheet/Drive side effects, or runtime acceptance. Re-run the 29-case `runSecurityAcceptanceTests()` suite in the disposable Apps Script copy.
