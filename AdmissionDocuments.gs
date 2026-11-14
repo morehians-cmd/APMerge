@@ -107,8 +107,16 @@ function uploadAdmissionDocument(token, documentType, fileName, mimeType, dataUr
     if (!ADMISSION_DOC_MIME.includes(mime)) throw new Error('Upload a PDF, JPEG or PNG file.');
     const raw = String(dataUrl || ''), match = raw.match(/^data:([^;,]+);base64,([A-Za-z0-9+/=]+)$/);
     if (!match || match[1].toLowerCase() !== mime) throw new Error('The uploaded file could not be read.');
+    if (match[2].length > Math.ceil(ADMISSION_DOC_MAX_BYTES * 4 / 3) + 8) throw new Error('Each document must be 10 MB or smaller.');
     const bytes = Utilities.base64Decode(match[2]);
     if (!bytes.length || bytes.length > ADMISSION_DOC_MAX_BYTES) throw new Error('Each document must be 10 MB or smaller.');
+    const sig = bytes.slice(0,8).map(b => b & 255);
+    const valid = mime === 'application/pdf'
+      ? String.fromCharCode.apply(null, sig.slice(0,4)) === '%PDF'
+      : mime === 'image/jpeg'
+        ? sig[0] === 0xFF && sig[1] === 0xD8 && sig[2] === 0xFF
+        : sig[0] === 0x89 && sig[1] === 0x50 && sig[2] === 0x4E && sig[3] === 0x47 && sig[4] === 0x0D && sig[5] === 0x0A && sig[6] === 0x1A && sig[7] === 0x0A;
+    if (!valid) throw new Error('The file contents do not match the selected file type.');
     const ext = mime === 'application/pdf' ? 'pdf' : mime === 'image/png' ? 'png' : 'jpg';
     const safeName = String(fileName || ('document.' + ext)).replace(/[\\/:*?"<>|\r\n]/g,'_').slice(0,120) || ('document.' + ext);
     const blob = Utilities.newBlob(bytes, mime, safeName);
@@ -125,6 +133,7 @@ function uploadAdmissionDocument(token, documentType, fileName, mimeType, dataUr
 
 function reviewAdmissionDocument(token, documentId, decision, note) {
   const lock = LockService.getScriptLock();
+  let notifyRec = null, notifyText = '';
   try {
     lock.waitLock(20000);
     const u = owner_(token), status = String(decision || '');
@@ -140,10 +149,20 @@ function reviewAdmissionDocument(token, documentId, decision, note) {
     put_(sh, d._row, 10, [[msg]]);
     put_(sh, d._row, 13, [[now, u.Username]]);
     audit_(u, 'admission.document.review', d.StudentID, d.DocumentType + ' => ' + status);
-    return ok(null, 'Document marked ' + status + '.');
-  } catch(e) { return fail(e); } finally { try { lock.releaseLock(); } catch(_) {} }
+    const hit = findStudent_(d.StudentID);
+    notifyRec = hit && hit.o;
+    notifyText = d.DocumentType + ': ' + status + (msg ? '. ' + msg : '.');
+  } catch(e) {
+    return fail(e);
+  } finally {
+    try { lock.releaseLock(); } catch(_) {}
+  }
+  if (notifyRec) {
+    try { notify_(notifyRec, 'Applicant document review update', notifyText); }
+    catch(e) { Logger.log('Applicant document notification failed: ' + e.message); }
+  }
+  return ok(null, 'Document marked ' + String(decision) + '.');
 }
-
 function getAdmissionDocument(token, documentId) {
   try {
     const d = admissionDocRows_().find(x => x.DocumentID === String(documentId));
