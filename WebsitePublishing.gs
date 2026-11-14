@@ -890,10 +890,10 @@ function wpPromoteDraftAssets_(payload, creator, promotionJournal) {
       throw new Error('A staged asset is publicly shared and cannot be promoted: ' + id);
     }
     if (state === 'Staged') sheet.getRange(entry.sheetRow, 7).setValue('Promoting');
-    if (!inApprovedFolder) {
-      promotionJournal.push(id);
-      file.moveTo(photoFolder);
-    }
+    // Journal every unpublished staged asset before changing sharing or location,
+    // including files already moved into the approved folder by an interrupted run.
+    promotionJournal.push(id);
+    if (!inApprovedFolder) file.moveTo(photoFolder);
     if (!inPhotoFolder_(id)) throw new Error('Drive did not place the staged asset in the approved photo folder: ' + id);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     if (file.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK) {
