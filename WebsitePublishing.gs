@@ -263,9 +263,10 @@ function setupWebsitePublishingStores(token) {
     const config = wpEnsureSheet_(ss, 'Website Publishing Config', WP_CONFIG_HEADERS_);
     const audit = wpEnsureSheet_(ss, 'Website Publishing Audit', WP_AUDIT_HEADERS_);
     const configKeys = wpConfigEnsure_(config);
-    const pointer = config.getLastRow() > 1
-      ? config.getRange(2, 1, config.getLastRow() - 1, 2).getDisplayValues().find(row => row[0] === 'published_version_id')
-      : null;
+    const configValues = wpConfigMap_(config);
+    const pointer = configValues.published_version_id || '';
+    const baselineVersionId = configValues.baseline_version_id || '';
+    const migrationState = configValues.migration_state || 'PREPARED';
     audit.appendRow([
       Utilities.getUuid(),
       '',
@@ -280,8 +281,9 @@ function setupWebsitePublishingStores(token) {
       versionHeaderCount:WP_VERSION_HEADERS_.length,
       chunkHeaderCount:WP_CHUNK_HEADERS_.length,
       configKeyCount:configKeys,
-      publishedVersionId:pointer ? pointer[1] : '',
-      migrationState:'PREPARED',
+      publishedVersionId:pointer,
+      baselineVersionId:baselineVersionId,
+      migrationState:migrationState,
       liveContentChanged:false,
       publicReaderChanged:false,
       editorWritesRedirected:false
