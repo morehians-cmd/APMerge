@@ -234,6 +234,25 @@ function runSecurityAcceptanceTests() {
   });
 
 
+  record('M5-03', 'Admissions dashboard specification applies Encoder grade and section scope before aggregation', () => {
+    const rows = [
+      { StudentID:'IN-001', GradeLevel:'Grade 1', Section:'A', SchoolYear:'2026-2027', EnrollStatus:'Enrolled', Classification:'New' },
+      { StudentID:'OUT-SECTION', GradeLevel:'Grade 1', Section:'B', SchoolYear:'2026-2027', EnrollStatus:'Enrolled', Classification:'New' },
+      { StudentID:'OUT-GRADE', GradeLevel:'Grade 2', Section:'A', SchoolYear:'2026-2027', EnrollStatus:'Enrolled', Classification:'New' },
+      { StudentID:'OUT-SHS', GradeLevel:'Grade 11', Section:'STEM-A', SchoolYear:'2026-2027', EnrollStatus:'Enrolled', Classification:'Old' }
+    ];
+    const scope = { grades:['Grade 1'], sections:{ 'Grade 1':['A'] } };
+    const scoped = dsScopeRows_(rows, scope);
+    assert(scoped.length === 1 && scoped[0].StudentID === 'IN-001',
+      'Dashboard scope helper retained a cross-section or cross-grade student.');
+    const filtered = dsApply_(scoped, { level:'Elementary', status:'Enrolled' });
+    assert(filtered.length === 1 && filtered[0].StudentID === 'IN-001',
+      'Dashboard filters changed or widened the server-authoritative scope.');
+    assert(dsScopeRows_(rows, null).length === rows.length,
+      'Full/Manager unscoped dashboard behavior changed.');
+    return 'Encoder dashboard aggregation is restricted to assigned grade/section rows before filters; Full/Manager retains existing unscoped behavior.';
+  });
+
   record('M6-01', 'Report endpoints reject unauthenticated direct invocation', () => {
     const calls = [
       ['report', () => report('invalid-acceptance-token', 'daily')],
