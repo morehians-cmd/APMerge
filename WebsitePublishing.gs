@@ -1167,17 +1167,24 @@ function wpRestoreUncommittedPromotions_(assetIds) {
 function wpPendingMediaRecovery_(rows, publishedIds) {
   const pending = [];
   const conflicts = [];
-  const seen = {};
+  const counts = Object.create(null);
+  const reported = Object.create(null);
+  (rows || []).forEach(row => {
+    const id = wpText_(row && row[0]).trim();
+    if (id) counts[id] = (counts[id] || 0) + 1;
+  });
   (rows || []).forEach(row => {
     const id = wpText_(row && row[0]).trim();
     const state = wpText_(row && row[6]);
     if (!id || !['Promoting','RecoveryRequired'].includes(state)) return;
-    if (seen[id]) {
-      conflicts.push({ assetId:id, reason:'Duplicate media metadata rows.' });
+    if (counts[id] !== 1) {
+      if (!reported[id]) {
+        conflicts.push({ assetId:id, reason:'Duplicate media metadata rows.' });
+        reported[id] = true;
+      }
       return;
     }
-    seen[id] = true;
-    if (publishedIds && publishedIds[id]) {
+    if (publishedIds && Object.prototype.hasOwnProperty.call(publishedIds, id) && publishedIds[id]) {
       conflicts.push({ assetId:id, reason:'Asset is referenced by the current published version.' });
       return;
     }
