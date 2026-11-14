@@ -1346,6 +1346,101 @@ function getWebsiteDraftAboutPhoto(token, versionId, assetId) {
  * Produces a full website payload revision with only the structured About record changed.
  * All legacy About HTML and unrelated page content are copied without modification.
  */
+/**
+ * Creates a draft revision for one supported Content-sheet key.
+ * This adapter writes only to immutable draft payloads, never to the live Content sheet.
+ */
+function saveWebsiteDraftContent(token, parentVersionId, contentKey, contentValue) {
+  try {
+    const actor = wpRequirePermission_(token, 'website.content.edit');
+    const parent = wpReadVersion_(String(parentVersionId || ''));
+    if (!['Draft','ChangesRequested'].includes(wpText_(parent.meta[2]))) throw new Error('Only a Draft or Changes Requested version can be edited.');
+    if (wpText_(parent.meta[3]).toLowerCase() !== actor.Username.toLowerCase()) throw new Error('Only the draft creator can edit this version.');
+    const key = wpText_(contentKey).trim();
+    const defaults = parent.payload.defaults || {};
+    const allowed = new Set([
+      ...(Array.isArray(defaults.contentBlockKeys) ? defaults.contentBlockKeys : []),
+      ...(Array.isArray(defaults.publicBlockKeys) ? defaults.publicBlockKeys : []),
+      ...(Array.isArray(defaults.pageBlockKeys) ? defaults.pageBlockKeys : []),
+      'about_data', PUBLIC_CONTENT_KEY_, PUBLIC_HERO_KEY_, PAGE_INTRO_KEY_, PAGE_BANNERS_KEY_
+    ]);
+    const existing = parent.payload.contentRows.some(row => Array.isArray(row) && row[0] === key);
+    if (!key || (!existing && !allowed.has(key))) throw new Error('This Content key is not part of the website publishing schema.');
+    let value = contentValue == null ? '' : String(contentValue);
+    if (value.length > 45000) throw new Error('Website content exceeds the Google Sheets cell limit.');
+    if (key === 'about_data') {
+      let parsed;
+      try { parsed = JSON.parse(value); } catch (_) { throw new Error('About data must be valid JSON.'); }
+      const clean = aboutClean_(parsed);
+      clean.timeline.sort((a, b) => String(a.year).localeCompare(String(b.year), undefined, { numeric:true }));
+      clean.leaders.forEach(leader => { if (leader.email && !EMAIL_RE.test(leader.email)) throw new Error('Enter a valid email address for ' + leader.name + '.'); });
+      value = JSON.stringify(clean);
+    } else if (key === PUBLIC_CONTENT_KEY_) {
+      let parsed;
+      try { parsed = JSON.parse(value || '{}'); } catch (_) { throw new Error('Homepage content must be valid JSON.'); }
+      value = JSON.stringify(publicContentClean_(parsed));
+    } else if (key === PUBLIC_HERO_KEY_) {
+      let parsed;
+      try { parsed = JSON.parse(value || '{}'); } catch (_) { throw new Error('Homepage hero data must be valid JSON.'); }
+      value = JSON.stringify(publicHeroClean_(parsed));
+    } else if (key === PAGE_INTRO_KEY_) {
+      let parsed;
+      try { parsed = JSON.parse(value || '{}'); } catch (_) { throw new Error('Page introductions must be valid JSON.'); }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Page introductions must be an object.');
+      const clean = {};
+      Object.keys(parsed).forEach(slug => { if (PAGE_INTRO_SLUGS_.includes(slug)) clean[slug] = pageIntroClean_(parsed[slug], slug); });
+      value = JSON.stringify(clean);
+    } else if (key === PAGE_BANNERS_KEY_) {
+      let parsed;
+      try { parsed = JSON.parse(value || '{}'); } catch (_) { throw new Error('Page banners must be valid JSON.'); }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Page banners must be an object.');
+      const clean = {};
+      Object.keys(parsed).forEach(slug => { if (PAGE_BANNER_SLUGS_.includes(slug)) clean[slug] = pageBannerClean_(parsed[slug], slug); });
+      value = JSON.stringify(clean);
+    } else if (BLOCKS.includes(key)) {
+      value = cleanPolicy_(value);
+    }
+    const payload = JSON.parse(JSON.stringify(parent.payload));
+    const rows = payload.contentRows, matches = [];
+    rows.forEach((row, index) => { if (row[0] === key) matches.push(index); });
+    if (matches.length > 1) throw new Error('The source website version contains duplicate content keys.');
+    if (matches.length) rows[matches[0]][1] = value;
+    else rows.push([key, value]);
+    return saveWebsiteDraft(token, parentVersionId, payload);
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+/**
+ * Creates a draft revision with a changed gallery list. Removing an item changes only
+ * the versioned list; its Drive file is retained for historical versions and rollback.
+ */
+function saveWebsiteDraftGallery(token, parentVersionId, page, items) {
+  try {
+    const actor = wpRequirePermission_(token, 'website.content.edit');
+    const parent = wpReadVersion_(String(parentVersionId || ''));
+    if (!['Draft','ChangesRequested'].includes(wpText_(parent.meta[2]))) throw new Error('Only a Draft or Changes Requested version can be edited.');
+    if (wpText_(parent.meta[3]).toLowerCase() !== actor.Username.toLowerCase()) throw new Error('Only the draft creator can edit this version.');
+    const galleryPage = wpText_(page);
+    const allowedPages = typeof GAL_PAGES !== 'undefined' ? GAL_PAGES : [];
+    if (!allowedPages.includes(galleryPage) || !Array.isArray(items)) throw new Error('Invalid gallery page or item list.');
+    const seen = {};
+    const clean = items.map(item => {
+      const id = wpText_(item && item.id), cap = wpText_(item && item.cap);
+      if (!/^[A-Za-z0-9_-]{10,80}$/.test(id) || seen[id]) throw new Error('Gallery asset IDs must be valid and unique.');
+      if (cap.length > 120) throw new Error('Gallery captions must be 120 characters or fewer.');
+      seen[id] = true;
+      return { id:id, cap:cap };
+    });
+    const payload = JSON.parse(JSON.stringify(parent.payload));
+    payload.galleries[galleryPage] = clean;
+    return saveWebsiteDraft(token, parentVersionId, payload);
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 function wpAboutPayloadWithData_(sourcePayload, aboutData) {
   if (!sourcePayload || typeof sourcePayload !== 'object' || !Array.isArray(sourcePayload.contentRows)) {
     throw new Error('The source website version has no valid content row collection.');
