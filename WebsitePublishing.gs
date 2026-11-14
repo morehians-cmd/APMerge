@@ -1212,7 +1212,7 @@ function rollbackWebsiteVersion(token, targetVersionId, reason) {
 function getMyWebsitePermissions(token) {
   try {
     const user = who_(token, 'admin');
-    return ok({ username:user.Username, permissions:wpPermissionMap_(user.Username), available:WP_PERMISSION_KEYS_.slice(), publishing:wpPublishingCutoverStatus_() });
+    return ok({ username:user.Username, clearance:user.Clearance, canPrepare:user.Clearance === 'Full', permissions:wpPermissionMap_(user.Username), available:WP_PERMISSION_KEYS_.slice(), publishing:wpPublishingCutoverStatus_() });
   } catch (error) {
     return fail(error);
   }
