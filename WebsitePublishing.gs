@@ -766,6 +766,14 @@ function wpValidateDraftAssets_(payload, actor) {
   }
   const invalid = [];
   const folderId = PropertiesService.getScriptProperties().getProperty(WP_MEDIA_FOLDER_PROPERTY_);
+  let stagingFolderPrivate = false;
+  if (folderId) {
+    try {
+      const stagingFolder = DriveApp.getFolderById(folderId);
+      stagingFolderPrivate = !stagingFolder.isTrashed() &&
+        ![DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(stagingFolder.getSharingAccess());
+    } catch (_) {}
+  }
   ids.forEach(id => {
     try {
       const file = DriveApp.getFileById(id);
@@ -789,9 +797,10 @@ function wpValidateDraftAssets_(payload, actor) {
           let inStagingFolder = false;
           while (parents.hasNext()) { const parentId = parents.next().getId(); if (folderId && parentId === folderId) inStagingFolder = true; }
           const inApprovedFolder = typeof inPhotoFolder_ === 'function' && inPhotoFolder_(id);
-          if (record.state === 'Staged' && (!folderId || !inStagingFolder ||
+          if (record.state === 'Staged' && (!folderId || !stagingFolderPrivate || !inStagingFolder ||
               [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess()))) invalid.push(id);
           if (record.state === 'Promoting' && !inStagingFolder && !inApprovedFolder) invalid.push(id);
+          if (record.state === 'Promoting' && inStagingFolder && !stagingFolderPrivate) invalid.push(id);
           if (record.state === 'Promoting' && inStagingFolder &&
               [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) invalid.push(id);
         } else if (record.state === 'Published') {
@@ -819,6 +828,11 @@ function wpPromoteDraftAssets_(payload, creator) {
   if (!sheet) throw new Error('Website Draft Media store is missing.');
   const photoFolder = DriveApp.getFolderById(PHOTO_FOLDER_ID);
   if (photoFolder.isTrashed()) throw new Error('The approved website photo folder is unavailable.');
+  const stagingFolder = folderId ? DriveApp.getFolderById(folderId) : null;
+  if (stagingFolder && (stagingFolder.isTrashed() ||
+      [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(stagingFolder.getSharingAccess()))) {
+    throw new Error('The private draft media folder is unavailable or publicly shared.');
+  }
   const rows = sheet.getLastRow() > 1
     ? sheet.getRange(2, 1, sheet.getLastRow() - 1, WP_MEDIA_HEADERS_.length).getDisplayValues()
     : [];
