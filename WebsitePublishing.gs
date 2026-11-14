@@ -835,7 +835,8 @@ function wpValidateDraftAssets_(payload, actor) {
  * Promotes staged files into the approved website photo library.
  * The operation is idempotent so a retry can safely finish after a partial Drive move.
  */
-function wpPromoteDraftAssets_(payload, creator) {
+function wpPromoteDraftAssets_(payload, creator, promotionJournal) {
+  promotionJournal = promotionJournal || [];
   const ids = wpReferencedDriveIds_(payload.contentRows || [], payload.galleries || {}, payload.defaults || {});
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName('Website Draft Media');
@@ -889,7 +890,10 @@ function wpPromoteDraftAssets_(payload, creator) {
       throw new Error('A staged asset is publicly shared and cannot be promoted: ' + id);
     }
     if (state === 'Staged') sheet.getRange(entry.sheetRow, 7).setValue('Promoting');
-    if (!inApprovedFolder) file.moveTo(photoFolder);
+    if (!inApprovedFolder) {
+      promotionJournal.push(id);
+      file.moveTo(photoFolder);
+    }
     if (!inPhotoFolder_(id)) throw new Error('Drive did not place the staged asset in the approved photo folder: ' + id);
     file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     if (file.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK) {
@@ -1105,11 +1109,48 @@ function reviewWebsiteDraft(token, versionId, decision, notes) {
 }
 
 /**
+ * Compensates only assets newly moved from private staging during an uncommitted publish.
+ * Previously published assets are never made private or moved by this recovery path.
+ */
+function wpRestoreUncommittedPromotions_(assetIds) {
+  if (!assetIds || !assetIds.length) return;
+  const folderId = PropertiesService.getScriptProperties().getProperty(WP_MEDIA_FOLDER_PROPERTY_);
+  if (!folderId) throw new Error('Draft-media staging folder is not configured; promoted media requires manual recovery.');
+  const stagingFolder = DriveApp.getFolderById(folderId);
+  if (stagingFolder.isTrashed() ||
+      [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(stagingFolder.getSharingAccess())) {
+    throw new Error('Draft-media staging folder is unavailable or publicly shared; promoted media requires manual recovery.');
+  }
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Draft Media');
+  if (!sheet) throw new Error('Website Draft Media store is missing; promoted media requires manual recovery.');
+  const rows = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, WP_MEDIA_HEADERS_.length).getDisplayValues()
+    : [];
+  assetIds.slice().reverse().forEach(id => {
+    const matches = rows.map((row, index) => ({ row:row, sheetRow:index + 2 }))
+      .filter(entry => wpText_(entry.row[0]) === id);
+    if (matches.length !== 1) throw new Error('Draft-media metadata is missing or duplicated for recovery: ' + id);
+    const file = DriveApp.getFileById(id);
+    if (file.isTrashed()) throw new Error('Promoted media was trashed before recovery: ' + id);
+    file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.VIEW);
+    file.moveTo(stagingFolder);
+    const parents = file.getParents();
+    let restored = false;
+    while (parents.hasNext()) if (parents.next().getId() === folderId) restored = true;
+    if (!restored || [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) {
+      throw new Error('Promoted media could not be restored to private staging: ' + id);
+    }
+    sheet.getRange(matches[0].sheetRow, 7).setValue('Staged');
+  });
+}
+
+/**
  * Publication is deliberately blocked until every anonymous public reader is switched
  * to the immutable version store and the staged-media lifecycle has passed acceptance tests.
  */
 function publishWebsiteVersion(token, versionId) {
   const lock = LockService.getScriptLock();
+  const promotionJournal = [];
   try {
     lock.waitLock(20000);
     const actor = wpRequirePermission_(token, 'website.content.publish');
@@ -1119,7 +1160,7 @@ function publishWebsiteVersion(token, versionId) {
     const creator = wpText_(version.meta[3]);
     if (!creator) throw new Error('The approved website version has no recorded creator.');
     wpValidateDraftAssets_(version.payload, { Username:creator });
-    wpPromoteDraftAssets_(version.payload, creator);
+    wpPromoteDraftAssets_(version.payload, creator, promotionJournal);
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const config = ss.getSheetByName('Website Publishing Config');
@@ -1158,7 +1199,16 @@ function publishWebsiteVersion(token, versionId) {
       mediaPromoted:true, publishedPointerUpdated:true
     }, 'Website version published.');
   } catch (error) {
-    return fail(error);
+    let message = String(error && error.message || error);
+    if (promotionJournal.length) {
+      try {
+        wpRestoreUncommittedPromotions_(promotionJournal);
+      } catch (recoveryError) {
+        message += ' Media recovery also failed and requires owner attention: ' +
+          String(recoveryError && recoveryError.message || recoveryError);
+      }
+    }
+    return fail(new Error(message));
   } finally {
     try { lock.releaseLock(); } catch (_) {}
   }
