@@ -215,7 +215,7 @@ The current live website is not backed by one content record. Its public rendere
 
 Use a dedicated additive store; do not repurpose or overwrite the current Content sheet records.
 
-- **Website Versions**: immutable version rows with `VersionID`, `ParentVersionID`, `Status` (Draft, InReview, ChangesRequested, Approved, Published, Archived), `CreatedBy`, `CreatedAt`, `UpdatedBy`, `UpdatedAt`, `ReviewedBy`, `ReviewedAt`, `ReviewNotes`, `PublishedBy`, `PublishedAt`, `PayloadJSON`, and `PayloadHash`.
+- **Website Versions**: immutable version metadata rows with `VersionID`, `ParentVersionID`, `Status` (Draft, InReview, ChangesRequested, Approved, Published, Archived), `CreatedBy`, `CreatedAt`, `UpdatedBy`, `UpdatedAt`, `ReviewedBy`, `ReviewedAt`, `ReviewNotes`, `PublishedBy`, `PublishedAt`, `PayloadHash`, `PayloadChars`, `PayloadBytes`, and `PayloadChunkCount`. The payload itself is stored in the child **Website Version Chunks** sheet (`VersionID`, `ChunkIndex`, `ChunkCount`, `PayloadChunk`, `ChunkHash`) so a complete site snapshot never depends on fitting into one 50,000-character Sheets cell.
 - **Website Publishing Config**: one controlled pointer to the currently published version, current schema version, migration baseline ID, and migration state. The published pointer is the only source-selection switch for public reads.
 - **Website Publishing Audit**: append-only action history with actor, action, version, timestamp, and reason. Do not store applicant/student data in these records.
 
@@ -347,3 +347,17 @@ This is an additive diagnostic only. It has been committed to the working branch
 The current `setLogoFile(id)` implementation is in `Code.gs`. Repository inspection found no browser-side call to this function in `Index.html`; it is documented as a manual Apps Script editor operation. Its guard is `ownerOnly_()`, which compares the active user's email with the effective user, then validates Drive ID syntax, trash state, image MIME type, and a 68,000-byte maximum before writing the `LOGO_FILE_ID` Script Property and clearing `logo_v1`.
 
 The public `getLogo()` endpoint reads that property and returns a bounded image data URI. The current implementation does not establish that the selected file belongs to an approved branding folder. The only known `PHOTO_FOLDER_ID` is explicitly used for student/staff and website photos, so it must not be assumed to be the approved logo folder. M3 therefore remains open: identify or create an approved branding folder under the school's control, inventory the currently configured logo ID and its parent folders, then add folder-membership validation and test the editor-only mutation path. No folder restriction was added because doing so before confirming the current logo location could break the live login page.
+
+
+#### Additive publishing-store preparation implementation
+
+`WebsitePublishing.gs` now also provides `setupWebsitePublishingStores(token)`.
+
+- Requires the Full administrator session and uses `LockService`.
+- Creates or verifies four additive tabs: `Website Versions`, `Website Version Chunks`, `Website Publishing Config`, and `Website Publishing Audit`.
+- Verifies exact header names before writing; it refuses to overwrite a conflicting existing header schema.
+- Initializes missing config keys only: `schema_version`, `migration_state=PREPARED`, blank `published_version_id`, blank `baseline_version_id`, and `legacy_fallback_enabled=true`.
+- Appends a setup audit entry. Re-running is safe and does not overwrite existing version/config values.
+- Does not seed a baseline version, copy or mutate live content, change Drive sharing, redirect editor writes, or change public readers. The published pointer remains blank until a separately validated baseline is seeded.
+
+This function is source-complete but has not been run in the live bound Apps Script project. Do not run it until the new source file has been synchronized to the bound project and the user is ready to create these four additive tabs. Running it is a spreadsheet-structure change (not a production website cutover); the existing website remains on its legacy content stores.
