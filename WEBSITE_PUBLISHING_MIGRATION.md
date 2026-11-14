@@ -108,3 +108,8 @@ Repository syntax parsing is not a substitute for Apps Script execution. Before 
 13. With the cutover gate enabled only in a disposable test copy, every guarded legacy writer rejects the old live-write path and the versioned editor continues to save drafts.
 
 Production deployment remains a separate, explicitly approved operation.
+
+
+## Apps Script file-name collision prevention
+
+The publishing editor partial is stored as `WebsitePublishingUI.html` and included with `include('WebsitePublishingUI')`. It intentionally does not share the `WebsitePublishing` basename with the server-side `WebsitePublishing.gs` file. Before adding any new Apps Script source or HTML partial, compare its Apps Script editor filename (basename without the file-type suffix) against every existing project file; update an existing file rather than creating a second file with the same editor-visible name.
