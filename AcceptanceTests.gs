@@ -198,21 +198,35 @@ function runSecurityAcceptanceTests() {
 
   record('M4-04', 'Student account reset enforces Encoder scope before reading user accounts', () => {
     const originals = {
-      guard:assertAdminConsoleRole_, scope:studentSearchScope_, find:findStudent_, rows:rows_
+      who:who_, guard:assertAdminConsoleRole_, scope:studentSearchScope_, find:findStudent_, rows:rows_
     };
-    let userRowsRead = false;
+    let userRowsRead = false, roleGuardCalled = false, scopeResolverCalled = false;
     try {
-      assertAdminConsoleRole_ = () => ({ Role:'admin', Clearance:'Encoder', Username:'acceptance-encoder' });
-      studentSearchScope_ = () => ({ grades:['Grade 1'], sections:{ 'Grade 1':['A'] } });
+      who_ = (token, requiredRole) => {
+        assert(token === 'acceptance-token' && requiredRole === 'admin', 'Unexpected authentication arguments.');
+        return { Role:'admin', Clearance:'Encoder', Username:'acceptance-encoder' };
+      };
+      assertAdminConsoleRole_ = user => {
+        roleGuardCalled = true;
+        return user;
+      };
+      studentSearchScope_ = user => {
+        scopeResolverCalled = true;
+        assert(user && user.Username === 'acceptance-encoder', 'Scope resolver received the wrong account.');
+        return { grades:['Grade 1'], sections:{ 'Grade 1':['A'] } };
+      };
       findStudent_ = id => ({ r:2, o:{ StudentID:id, GradeLevel:'Grade 2', Section:'B' } });
       rows_ = key => { if (key === 'U') userRowsRead = true; return []; };
       const result = resetStudentAccount('acceptance-token', 'OUT-OF-SCOPE');
       assert(result && result.success === false, 'Out-of-scope account reset did not return a denied result.');
+      assert(roleGuardCalled, 'The admin-console role guard was not invoked.');
+      assert(scopeResolverCalled, 'The Encoder scope resolver was not invoked.');
       assert(/outside your assigned/i.test(String(result.error || '')),
-        'The endpoint did not return the real student-scope denial.');
+        'The endpoint did not return the real student-scope denial: ' + String(result.error || 'no error returned'));
       assert(!userRowsRead, 'The endpoint read user-account rows before enforcing student scope.');
-      return 'The real student-scope guard denied the out-of-scope Encoder reset before the user-account sheet was read.';
+      return 'Authenticated synthetic Encoder reached the real student-scope guard; the out-of-scope reset was denied before the user-account sheet was read.';
     } finally {
+      who_ = originals.who;
       assertAdminConsoleRole_ = originals.guard;
       studentSearchScope_ = originals.scope;
       findStudent_ = originals.find;
