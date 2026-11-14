@@ -229,6 +229,45 @@ function runSecurityAcceptanceTests() {
     return 'Valid references are normalized; malformed and duplicate references fail closed.';
   });
 
+
+  record('M7-05', 'Website draft content allowlist includes configured public keys and excludes internal keys', () => {
+    const defaults = {
+      publicBlockKeys:['pubhome','pubabout'],
+      pageBlockKeys:{ admissions:'admissions_intro', campus:'campus_intro' },
+      sectionCards:{ admissions:{ key:'admissions_cards' }, campus:{ key:'campus_cards' } }
+    };
+    const allowed = wpWebsiteContentAllowlist_(defaults);
+    ['pubhome','pubabout','admissions_intro','campus_intro','admissions_cards','campus_cards',
+      'about_data',PUBLIC_CONTENT_KEY_,PUBLIC_HERO_KEY_,PAGE_INTRO_KEY_,PAGE_BANNERS_KEY_]
+      .forEach(key => assert(allowed.has(key), 'Configured public key was omitted: ' + key));
+    ['Users','Sessions','Audit','Students','Settings','StaffCredentials',''].forEach(key =>
+      assert(!allowed.has(key), 'Internal or empty key was unexpectedly allowed: ' + key));
+    return allowed.size + ' approved content keys constructed; representative internal keys excluded.';
+  });
+
+  record('M7-06', 'Section-card sanitizer rejects unsafe links and bounds editable text', () => {
+    const groups = Object.keys(SECTION_CARDS_ || {});
+    assert(groups.length > 0, 'No section-card groups are configured.');
+    const group = groups[0];
+    const defaults = SECTION_CARDS_[group].defaults;
+    assert(Array.isArray(defaults) && defaults.length > 0, 'Selected section-card group has no defaults.');
+    const valid = sectionCardsClean_(group, defaults);
+    assert(valid.length === defaults.length, 'Sanitized section-card count differs from its configured schema.');
+    let unsafeRejected = false;
+    const unsafe = defaults.map((card, index) => index === 0
+      ? { title:card.title, text:card.text, link:'javascript:alert(1)' }
+      : card);
+    try { sectionCardsClean_(group, unsafe); }
+    catch (e) { unsafeRejected = /link must start with https:\/\/ or \?page=/.test(String(e && e.message || e)); }
+    assert(unsafeRejected, 'Unsafe section-card link was not rejected.');
+    const bounded = sectionCardsClean_(group, defaults.map(card => ({
+      title:'T'.repeat(500), text:'X'.repeat(500), link:card.link
+    })));
+    assert(bounded.every(card => card.title.length <= 90 && card.text.length <= 200),
+      'Section-card title or description exceeded its configured maximum length.');
+    return 'Configured defaults remain valid; unsafe links rejected; titles and descriptions bounded.';
+  });
+
   const passed = results.filter(x => x.passed).length;
   const failed = results.length - passed;
   const report = {
