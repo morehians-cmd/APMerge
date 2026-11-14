@@ -85,6 +85,16 @@ function runSecurityAcceptanceTests() {
     return 'Approved-folder membership required; missing configuration and outside files fail closed.';
   });
 
+  record('M3-04', 'Logo selection rejects files shared publicly', () => {
+    const fakeFile = access => ({ getSharingAccess:() => access });
+    assert(logoFileIsPrivate_(fakeFile(DriveApp.Access.PRIVATE)), 'Private logo file was rejected.');
+    assert(logoFileIsPrivate_(fakeFile(DriveApp.Access.DOMAIN)), 'Domain-restricted logo file was rejected.');
+    assert(!logoFileIsPrivate_(fakeFile(DriveApp.Access.ANYONE)), 'Publicly shared logo file was accepted.');
+    assert(!logoFileIsPrivate_(fakeFile(DriveApp.Access.ANYONE_WITH_LINK)), 'Anyone-with-link logo file was accepted.');
+    assert(!logoFileIsPrivate_(null), 'Missing logo file was accepted.');
+    return 'Private and domain-restricted files accepted; public and anyone-with-link files rejected.';
+  });
+
   record('M3-03', 'Logo MIME validation is consistent between upload and public retrieval', () => {
     ['image/png','image/jpeg','image/webp','image/gif'].forEach(mime =>
       assert(logoMimeAllowed_(mime), 'Supported logo MIME type was rejected: ' + mime));
