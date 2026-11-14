@@ -632,6 +632,19 @@ function setWebsiteUserPermissions(token, username, permissions) {
   }
 }
 
+
+function wpValidateDraftAssets_(payload) {
+  const ids = wpReferencedDriveIds_(payload.contentRows || [], payload.galleries || {}, payload.defaults || {});
+  const invalid = [];
+  ids.forEach(id => {
+    try {
+      const file = DriveApp.getFileById(id);
+      if (file.isTrashed() || !/^image\/(png|jpeg|webp|gif)$/i.test(file.getMimeType() || '')) invalid.push(id);
+    } catch (_) { invalid.push(id); }
+  });
+  if (invalid.length) throw new Error('Draft references missing, trashed, or unsupported image assets: ' + invalid.join(', '));
+}
+
 function wpReadVersion_(versionId) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const versions = ss.getSheetByName('Website Versions');
@@ -768,6 +781,7 @@ function saveWebsiteDraft(token, parentVersionId, payload) {
         if (wpText_(item.cap).length > 120) throw new Error('Gallery captions must be 120 characters or fewer.');
       });
     });
+    wpValidateDraftAssets_(payload);
     const id = 'WV-' + Utilities.getUuid();
     const saved = wpWriteVersion_(id, parentVersionId, 'Draft', actor, payload, 'Revision of draft ' + parentVersionId);
     const audit = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Publishing Audit');
@@ -862,7 +876,7 @@ function listWebsiteVersions(token) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Versions');
     if (!sheet || sheet.getLastRow() < 2) return ok([]);
     const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, WP_VERSION_HEADERS_.length).getValues();
-    const versions = rows.filter(row => row[0]).map(row => ({
+    const versions = rows.filter(row => row[0] && (user.Clearance === 'Full' || permissions['website.content.review'] || wpText_(row[3]).toLowerCase() === user.Username.toLowerCase() || ['Baseline','Published','Archived'].includes(wpText_(row[2])))).map(row => ({
       versionId:wpText_(row[0]), parentVersionId:wpText_(row[1]), status:wpText_(row[2]),
       createdBy:wpText_(row[3]), createdAt:row[4] instanceof Date ? row[4].toISOString() : wpText_(row[4]),
       updatedBy:wpText_(row[5]), updatedAt:row[6] instanceof Date ? row[6].toISOString() : wpText_(row[6]),
@@ -886,7 +900,8 @@ function getWebsiteVersion(token, versionId) {
         !permissions['website.content.publish'] && !permissions['website.content.rollback'] &&
         user.Clearance !== 'Full') throw new Error('You do not have access to website publishing.');
     const version = wpReadVersion_(String(versionId || ''));
-    if (wpText_(version.meta[2]) === 'Draft' && wpText_(version.meta[3]).toLowerCase() !== user.Username.toLowerCase() &&
+    if (!['Baseline','Published','Archived'].includes(wpText_(version.meta[2])) &&
+        wpText_(version.meta[3]).toLowerCase() !== user.Username.toLowerCase() &&
         !permissions['website.content.review'] && user.Clearance !== 'Full') {
       throw new Error("You cannot view another user's draft.");
     }
