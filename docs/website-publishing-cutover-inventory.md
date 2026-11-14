@@ -13,6 +13,10 @@ Status: **publishing remains disabled**. This inventory is a migration control d
 | `getPublicAbout()` | Reads live `about_data`; `puba_v1` cache; returns public leader name/title/photo only | Read `about_data` from the published snapshot; continue omitting leader contact details |
 | `getPublicBlock(key)` | Reads live Content sheet rows from `PUBLIC_BLOCK_KEYS` | Resolve the matching key from the published snapshot; preserve sanitization and key allow-list |
 | `getPublicFacilities()` / `getPublicFacilityPhoto(id)` | Live facilities gallery and image membership checks | Version gallery membership and keep photo serving allow-listed |
+| `getPublicPagePhoto(page)` | First item from each page-specific live gallery | Version page-to-gallery membership and preserve page allow-list |
+| `getPublicLeaderPhoto(id)` | Current live `about_data.leaders[].photo` allow-list | Resolve leader references from the published About record; continue excluding contact details |
+| `getPublicHistoryGallery()` / `getPublicHistoryPhoto(id)` | Live history gallery and image membership checks | Version history gallery membership and retain explicit photo allow-list |
+| `getHomepageHero()` | Live `pubhome_hero` row/defaults | Resolve from published snapshot |
 | `getHomepageContent()` | Live `pubhome_content` setting | Resolve from published snapshot |
 | `getPageIntros()` / `getPageBanners()` | Live `pubpage_intro` and `pubpage_banners` settings | Resolve from published snapshot |
 | `getPublicSectionCards(group)` | Live `pub_*_cards` rows | Resolve from published snapshot |
@@ -52,3 +56,8 @@ Events, announcements, active school year, admission/application status, and oth
 - About photo preview verifies the image is referenced by the selected version, staged metadata is unique, the uploader matches the draft creator, MIME/size match Drive, and the staging folder/file are not publicly shared.
 - `publishWebsiteVersion()` deliberately fails closed.
 - No public-reader cutover or production deployment has been activated.
+
+
+## Reader inventory follow-up
+
+The Public.gs endpoint list was enumerated during this pass. In addition to the primary content readers, the implementation includes page-specific image, leadership-photo, history-gallery, facilities-gallery, and homepage-hero readers. Their allow-list checks are security boundaries and must be preserved while changing the source of truth. The homepage About/brand header photo and header logos are served by separate helpers in Code.gs; these are institutional branding assets and need an explicit decision on whether they are versioned editorial assets or fixed deployment assets before cutover.
