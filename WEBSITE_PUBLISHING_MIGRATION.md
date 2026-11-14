@@ -101,6 +101,9 @@ Repository syntax parsing is not a substitute for Apps Script execution. Before 
 7. A reviewer cannot approve their own draft.
 8. Publication switches the pointer only after approval and media promotion.
 9. Rollback restores an archived version and invalidates public caches.
-10. All legacy editor workflows write to drafts; none can silently mutate the live stores after cutover.
+10. Active About, Website Pages, Homepage Hero, Homepage Sections and Page Banners navigation opens the versioned workspace with the expected content key selected; no normal editor route invokes the old live-write callbacks.
+11. Each of the six section-card groups can be loaded from its captured defaults, edited as a draft JSON array, validated with the legacy section-card rules, and saved without changing the live Content sheet.
+12. A privately staged image URL can be referenced from homepage hero, homepage content, page banners and public HTML blocks; referenced assets validate and promote, while unreferenced staged files remain private and are not promoted.
+13. With the cutover gate enabled only in a disposable test copy, every guarded legacy writer rejects the old live-write path and the versioned editor continues to save drafts.
 
 Production deployment remains a separate, explicitly approved operation.
