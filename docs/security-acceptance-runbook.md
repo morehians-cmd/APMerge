@@ -75,7 +75,7 @@ The following endpoint paths were inspected on branch `website-pages-fixes`. Thi
 
 | Endpoint / helper | Scope behavior to verify in the development copy |
 |---|---|
-| `studentSearchScope_`, `studentWithinSearchScope_`, `assertStudentScope_` | Missing/malformed assignments fail closed; matching grade and section are both required. M4-03 additionally rejects two distinct usernames that collapse to the same legacy Script Property suffix. |
+| `studentSearchScope_`, `studentWithinSearchScope_`, `assertStudentScope_` | Missing/malformed assignments fail closed; matching grade and section are both required. M4-03 checks the shared account-property collision detector; both Encoder scope and website-permission readers now fail closed when distinct staff usernames collapse to the same legacy Script Property suffix. |
 | `searchStudents` | Filters rows and returned bulk IDs to assigned grade/section combinations; an explicitly requested unassigned grade is rejected. |
 | `getStudent` | Direct lookup of an out-of-scope StudentID fails closed. |
 | `saveStudent` | Checks the existing record before editing and the resulting grade/section before writing. |
@@ -130,6 +130,8 @@ For Full, Manager, Encoder, Guidance, Accounting, HeadTeacher, Teacher and Stude
 Expected: only the documented administrator roles can access report data; Encoder, office, academic and Student accounts cannot obtain report datasets, drill-down rows or exports. Preferences/history metadata must remain caller-scoped as implemented. Verify the UI does not expose controls that backend rejects. Confirm Full/Manager compatibility with the captured baseline.
 
 ### M7 — Versioned website publishing
+
+The website-permission property store uses the same legacy username-suffix normalization as Encoder scopes. The shared collision guard now rejects reads and permission assignments when distinct staff usernames collapse to one property key; verify this with two synthetic staff accounts before granting website capabilities. The automated M4-03 helper check covers collision detection, but the live staff-account/property behavior remains part of browser acceptance.
 
 The automated suite currently contains M7-01 (cutover remains disabled), M7-02 (Unicode-safe chunk reconstruction), M7-03 (duplicate content-key rejection), M7-04 (gallery asset validation), M7-05 (public content allowlist boundaries), and M7-06 (section-card link and text validation). These are helper-level checks; they do not substitute for spreadsheet, Drive, browser or end-to-end publishing tests.
 
