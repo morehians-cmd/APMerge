@@ -1154,6 +1154,7 @@ function publishWebsiteVersion(token, versionId) {
   let publishedPointerCommitted = false;
   let publishVersionId = '';
   let priorMigrationState = '';
+  let publishMetadataChanged = false;
   try {
     lock.waitLock(20000);
     const actor = wpRequirePermission_(token, 'website.content.publish');
@@ -1184,6 +1185,7 @@ function publishWebsiteVersion(token, versionId) {
       Status:'Published', PublishedBy:actor.Username, PublishedAt:now,
       UpdatedBy:actor.Username, UpdatedAt:now
     });
+    publishMetadataChanged = true;
     wpSetConfigValue_(config, 'migration_state', 'PUBLISHING');
     wpSetConfigValue_(config, 'published_version_id', versionId);
     publishedPointerCommitted = true;
@@ -1215,7 +1217,7 @@ function publishWebsiteVersion(token, versionId) {
             String(recoveryError && recoveryError.message || recoveryError);
         }
       }
-      if (publishVersionId) {
+      if (publishVersionId && publishMetadataChanged) {
         try {
           const failedVersion = wpReadVersion_(publishVersionId);
           if (wpText_(failedVersion.meta[2]) === 'Published') {
@@ -1239,6 +1241,8 @@ function publishWebsiteVersion(token, versionId) {
             String(recoveryError && recoveryError.message || recoveryError);
         }
       }
+    } else if (publishedPointerCommitted) {
+      message += ' The published-version pointer was committed before this error. Do not retry publication; reconcile the previous-version status, audit entry and public cache before further changes.';
     }
     return fail(new Error(message));
   } finally {
