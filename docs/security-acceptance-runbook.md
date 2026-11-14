@@ -555,3 +555,33 @@ Do not mark a gate closed until every applicable case above has an evidence refe
 | M7 | Browser end-to-end publishing/media workflow and injected Drive recovery evidence | OPEN |
 
 The current 26/26 automated execution does not change these statuses. `WP_PUBLISH_CUTOVER_READY_ = false` remains mandatory until the five manual gates are closed and the owner explicitly approves release.
+
+
+## 12. Source-level execution notes for the manual reviewer
+
+The following observations were verified against the current `Code.gs`, `Security.gs` and `WebsitePublishing.gs` source on this branch. They guide the manual tests but are **not substitutes for runtime evidence**.
+
+### M4 source checkpoints
+- `studentSearchScope_(u)` returns unrestricted scope only for Full and Manager. Encoder scope is loaded from the username-specific Script Property after collision detection; missing or malformed scope throws.
+- `studentWithinSearchScope_(scope, student)` requires an exact grade membership and exact section membership for scoped users. A missing/blank section is not implicitly granted.
+- `searchStudents` filters the student collection by scope before applying user search/status/grade/year filters. An explicit grade outside the assignment is rejected.
+- `getStudent` resolves the requested row, then checks the returned record against scope before audit enrichment, account lookup, decoration and return. The manual test must verify that no out-of-scope details are returned.
+- `saveStudent` checks an existing record against scope before constructing the update and checks the resulting grade/section against scope before writing. New student records must also resolve to an assigned grade/section before they are written. The manual test must prove denied updates/creates leave the Students sheet unchanged.
+- `resetStudentAccount` checks the target student's scope before searching the Users rows, as confirmed by automated M4-04.
+
+**Reviewer caution:** `getStudent` must read the target student row to discover its grade/section before it can decide whether the requested ID is in scope. The security boundary is that no out-of-scope student details, related user account, audit enrichment or mutation is returned/performed after that lookup. Do not incorrectly report the initial row lookup itself as proof of a leak; verify the actual response and subsequent side effects.
+
+### M5 source checkpoints
+- `who_(token, 'admin')` rejects office and Academic clearance accounts for admin-console calls.
+- `assertAdminConsoleRole_(...)` is applied to the admissions dashboard/report/student-care surfaces identified in the earlier sections; verify direct server calls rather than relying on menu visibility.
+- College routes use the separate College administrator guard. Test Manager and Full separately, and verify mutation permissions independently from read permissions.
+- Student self-service remains a separate path; verify its field allowlist and identity lock rather than assuming admin-console role behavior applies to it.
+
+### M7 source checkpoints
+- Draft content saves require `website.content.edit`, an editable Draft/Changes Requested version, and matching draft creator.
+- Gallery saves validate page, item count, unique asset IDs and caption length before saving the new draft payload.
+- Publish requires `website.content.publish`, an Approved version and the cutover constant. Rollback separately requires `website.content.rollback` and the cutover constant.
+- Media promotion validates the referenced asset metadata and distinguishes staged, promoting, recovery-required and published states. The manual injected-failure sequence is still required to prove Drive-side effects and retry behavior.
+- The branch constant remains disabled. Any test that needs it enabled must occur in a separate disposable clone, never in this branch or a production deployment.
+
+These source notes were added to make the manual evidence reviewer more precise; they do not change the OPEN status of M3–M7.
