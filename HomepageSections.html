@@ -47,7 +47,7 @@ function homepageSectionsPage() {
     hsRender(r.data || {});
   }).withFailureHandler(function (e) {
     $('view').innerHTML = '<div class="card"><div class="aemp">' + esc(e.message || 'Could not load the homepage text.') + '</div></div>';
-  }).getHomepageContent();
+  }).getHomepageContentForEditor(T());
 }
 
 function hsField(id, label, value, max, wide, textarea, upload) {
