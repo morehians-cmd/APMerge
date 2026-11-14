@@ -15,12 +15,26 @@ function mqSh_() {
   return sh;
 }
 
+/** Serializes every queue append with the sender's script lock to prevent row collisions. */
+function mqAppendRows_(rows) {
+  if (!Array.isArray(rows) || !rows.length) return 0;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const sh = mqSh_();
+    const start = sh.getLastRow() + 1;
+    put_(sh, start, 1, rows);
+    return rows.length;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 /** Adds one e-mail to the queue. Never throws. */
 function queueMail_(to, subject, body) {
   try {
     if (!EMAIL_RE.test(to || '')) return;
-    const sh = mqSh_();
-    put_(sh, sh.getLastRow() + 1, 1, [[Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss'), String(to), String(subject), String(body)]]);
+    mqAppendRows_([[Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss'), String(to), String(subject), String(body)]]);
   } catch (e) { Logger.log('queueMail: ' + e.message); }
 }
 
@@ -69,7 +83,7 @@ function notifyMany_(list, subject, body) {
       if (!EMAIL_RE.test(row.Email || '')) return;
       out.push([now, String(row.Email), SCHOOL + ' - ' + subject, 'Hello ' + (row.FirstName || '') + ',\n\n' + body + '\n\nEnrollment ID: ' + row.StudentID + '\n\n' + SCHOOL + ' Admissions Office']);
     });
-    if (out.length) { const sh = mqSh_(); put_(sh, sh.getLastRow() + 1, 1, out); }
+    if (out.length) mqAppendRows_(out);
   } catch (e) { Logger.log('notifyMany: ' + e.message); }
 }
 
@@ -77,7 +91,7 @@ function notifyMany_(list, subject, body) {
 function queueMailMany_(items) {
   const sh = mqSh_(), now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
   const out = items.filter(x => EMAIL_RE.test(x.to || '')).map(x => [now, String(x.to), String(x.subject), String(x.body)]);
-  if (out.length) put_(sh, sh.getLastRow() + 1, 1, out);
+  if (out.length) mqAppendRows_(out);
 }
 
 /** Admin / Encoder. MANUAL send: queues the current-status e-mail for the chosen learners (max 100 per click, within today's quota). */
