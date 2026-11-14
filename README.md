@@ -71,6 +71,21 @@ The `WebsitePublishing.gs` functions are migration tools, not part of the normal
 
 All five accept a Full administrator session token when called from the portal, or can be run without arguments from the bound Apps Script editor by the script owner. The self-check, preflight, and baseline validation are read-only. The setup function creates the additive publishing tabs, private draft-media folder, and folder property; the seed function writes the immutable baseline. Draft media uploads create private Drive files and metadata rows., so run them only in the bound non-production copy after reviewing the migration plan. Baseline seeding leaves the published pointer blank. The current public website and editors continue using the existing live stores; no production deployment or public-reader cutover is implied.
 
+## Applicant document uploads and registrar review
+
+The integrated document workspace is available at `?page=admission-documents` and is linked from the signed-in portal navigation.
+
+1. In the bound Apps Script project, set Script Property `MA_SCRIPT_OWNER_EMAIL` to the actual script owner's email address.
+2. Run `initialSetupAdmissionDocuments()` once as the script owner. It creates the `Admission Documents` metadata tab and a private Drive folder. It is safe to rerun; existing mismatched headers are rejected rather than overwritten.
+3. Applicants sign in through the existing portal, complete their student profile so their grade and scholarship requirements can be determined, then choose **Admission Documents** in the portal navigation.
+4. Applicants can submit PDF, JPG/JPEG or PNG files up to 8 MB per file. Each upload is associated with the authenticated student's own StudentID and a requirement applicable to that student's grade/category.
+5. Authorized registrar accounts can search, open, verify or reject uploads. Encoder accounts are constrained by their existing assigned grade/section scope. Rejections require a reason. Review decisions are emailed to the applicant when a valid email is on file.
+6. Files are stored in the private Drive folder and are delivered to authorized staff through a session-checked server function. Do not change the folder's sharing settings to "Anyone with the link".
+
+Document review status (Pending / Verified / Rejected) is separate from the existing enrollment status. The established student record and existing enrollment-status notifications remain authoritative for admission/enrollment decisions.
+
+**Verification boundary:** run setup and acceptance tests only in a disposable development copy first. This change has not been runtime-tested against the live spreadsheet or deployed to production. Use a test deployment until the owner explicitly approves production deployment.
+
 ## Unified About Moreh Academy content
 
 The About page is edited as one cohesive screen inside the existing portal. Its single `about_data` record holds Vision, Mission, Core Values, History milestones, and Key Leadership profiles/photos. The existing Edit Page experience already supports adding/removing values, leaders, and milestones, uploading leader photos, and saving the sections together. Keep this editor's existing Moreh Academy styling and preserve the legacy About text during migration. The website-publishing migration must snapshot this entire record and its photo references together; it must not split these sections into separate competing editors or live content stores. The About editor will be switched to versioned draft saves only as part of the coordinated editor/public-reader/media cutover. Until then, its existing live save path remains in place and publishing remains disabled.
