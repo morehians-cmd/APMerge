@@ -286,9 +286,25 @@ function homepageContent_() {
 }
 /** PUBLIC. Plain text only, so it is safe for the open web. */
 function getHomepageContent() {
-  try { return ok(homepageContent_()); } catch (e) { return fail(e); }
+  try {
+    const snapshot = wpPublishedPayload_();
+    if (!snapshot) return ok(homepageContent_());
+    const raw = wpPublicContentValue_(snapshot, PUBLIC_CONTENT_KEY_);
+    let parsed = {};
+    if (raw) {
+      try { parsed = JSON.parse(raw); }
+      catch (_) { throw new Error('Published homepage content is not valid JSON.'); }
+    }
+    return ok(publicContentClean_(parsed));
+  } catch (e) { return fail(e); }
 }
-/** OWNER ONLY. Saves the homepage section headings and text. */
+
+/** OWNER ONLY. Live-source reader for the existing homepage editor. */
+function getHomepageContentForEditor(token) {
+  try { owner_(token); return ok(homepageContent_()); }
+  catch (e) { return fail(e); }
+}
+
 function saveHomepageContent(token, input) {
   const lock = LockService.getScriptLock();
   try {
@@ -333,9 +349,32 @@ function pageIntrosRead_() {
 }
 /** PUBLIC. Intro text only, so it is safe for the open web. */
 function getPageIntros() {
-  try { return ok({ saved: pageIntrosRead_(), defaults: PAGE_INTRO_DEFAULTS_ }); } catch (e) { return fail(e); }
+  try {
+    const snapshot = wpPublishedPayload_();
+    if (!snapshot) return ok({ saved:pageIntrosRead_(), defaults:PAGE_INTRO_DEFAULTS_ });
+    const raw = wpPublicContentValue_(snapshot, PAGE_INTRO_KEY_);
+    let parsed = {};
+    if (raw) {
+      try { parsed = JSON.parse(raw); }
+      catch (_) { throw new Error('Published page introductions are not valid JSON.'); }
+    }
+    const saved = {};
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      Object.keys(parsed).forEach(key => {
+        if (!PAGE_INTRO_SLUGS_.includes(key)) return;
+        saved[key] = pageIntroClean_(parsed[key], key);
+      });
+    }
+    return ok({ saved:saved, defaults:PAGE_INTRO_DEFAULTS_ });
+  } catch (e) { return fail(e); }
 }
-/** Internal. The intro a given interior page shows when it has no saved Website Pages content. */
+
+/** OWNER ONLY. Live-source reader for the existing page-introduction editor. */
+function getPageIntrosForEditor(token) {
+  try { owner_(token); return ok({ saved:pageIntrosRead_(), defaults:PAGE_INTRO_DEFAULTS_ }); }
+  catch (e) { return fail(e); }
+}
+
 function pageIntroFor_(page) {
   page = String(page || '');
   return pageIntroClean_(pageIntrosRead_()[page] || {}, page);
@@ -432,9 +471,32 @@ function pageBannersRead_() {
 }
 /** PUBLIC. Banner text and image addresses only, so it is safe for the open web. */
 function getPageBanners() {
-  try { return ok({ saved: pageBannersRead_(), defaults: PAGE_TITLES_ }); } catch (e) { return fail(e); }
+  try {
+    const snapshot = wpPublishedPayload_();
+    if (!snapshot) return ok({ saved:pageBannersRead_(), defaults:PAGE_TITLES_ });
+    const raw = wpPublicContentValue_(snapshot, PAGE_BANNERS_KEY_);
+    let parsed = {};
+    if (raw) {
+      try { parsed = JSON.parse(raw); }
+      catch (_) { throw new Error('Published page banners are not valid JSON.'); }
+    }
+    const saved = {};
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      Object.keys(parsed).forEach(key => {
+        if (!PAGE_BANNER_SLUGS_.includes(key)) return;
+        saved[key] = pageBannerClean_(parsed[key], key);
+      });
+    }
+    return ok({ saved:saved, defaults:PAGE_TITLES_ });
+  } catch (e) { return fail(e); }
 }
-/** Internal. The banner a given interior page renders. */
+
+/** OWNER ONLY. Live-source reader for the existing page-banner editor. */
+function getPageBannersForEditor(token) {
+  try { owner_(token); return ok({ saved:pageBannersRead_(), defaults:PAGE_TITLES_ }); }
+  catch (e) { return fail(e); }
+}
+
 function pageBannerFor_(page) {
   page = String(page || '');
   const saved = pageBannersRead_()[page] || {};
@@ -519,30 +581,39 @@ function publicHeroClean_(input) {
 /** PUBLIC. Only non-sensitive public homepage presentation settings are returned. */
 function getHomepageHero() {
   try {
-    const b=blockRow_(PUBLIC_HERO_KEY_);
-    if (!b.row) return ok(PUBLIC_HERO_DEFAULTS_);
-    const raw=String(b.sh.getRange(b.row,2).getValue()||'');
-    if (!raw) return ok(PUBLIC_HERO_DEFAULTS_);
-    return ok(publicHeroClean_(JSON.parse(raw)));
-  } catch(e) { return fail(e); }
-}
-/** PUBLIC. Returns the homepage hero from the published snapshot without changing the admin editor reader. */
-function getPublishedHomepageHero() {
-  try {
     const snapshot = wpPublishedPayload_();
-    if (!snapshot) return getHomepageHero();
+    if (!snapshot) {
+      const b = blockRow_(PUBLIC_HERO_KEY_);
+      if (!b.row) return ok(PUBLIC_HERO_DEFAULTS_);
+      const raw = String(b.sh.getRange(b.row, 2).getValue() || '');
+      if (!raw) return ok(PUBLIC_HERO_DEFAULTS_);
+      return ok(publicHeroClean_(JSON.parse(raw)));
+    }
     const raw = wpPublicContentValue_(snapshot, PUBLIC_HERO_KEY_);
     if (!raw) return ok(PUBLIC_HERO_DEFAULTS_);
     let parsed;
     try { parsed = JSON.parse(raw); }
     catch (_) { throw new Error('Published homepage hero data is not valid JSON.'); }
     return ok(publicHeroClean_(parsed));
-  } catch (error) {
-    return fail(error);
-  }
+  } catch (e) { return fail(e); }
 }
 
-/** OWNER ONLY. Saves homepage hero text, CTA links and three approved image URLs. */
+/** OWNER ONLY. Live-source reader for the existing homepage hero editor. */
+function getHomepageHeroForEditor(token) {
+  try {
+    owner_(token);
+    const b = blockRow_(PUBLIC_HERO_KEY_);
+    if (!b.row) return ok(PUBLIC_HERO_DEFAULTS_);
+    const raw = String(b.sh.getRange(b.row, 2).getValue() || '');
+    if (!raw) return ok(PUBLIC_HERO_DEFAULTS_);
+    return ok(publicHeroClean_(JSON.parse(raw)));
+  } catch (e) { return fail(e); }
+}
+
+function getPublishedHomepageHero() {
+  return getHomepageHero();
+}
+
 function saveHomepageHero(token, input) {
   const lock=LockService.getScriptLock();
   try {
