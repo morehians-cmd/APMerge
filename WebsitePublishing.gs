@@ -245,6 +245,9 @@ const WP_VERSION_HEADERS_ = [
 const WP_CHUNK_HEADERS_ = ['VersionID','ChunkIndex','ChunkCount','PayloadChunk','ChunkHash'];
 const WP_CONFIG_HEADERS_ = ['ConfigKey','ConfigValue'];
 const WP_AUDIT_HEADERS_ = ['AuditID','VersionID','Action','Actor','Timestamp','Reason','PayloadHash'];
+const WP_MEDIA_HEADERS_ = ['AssetID','FileName','MimeType','SizeBytes','UploadedBy','UploadedAt','State'];
+const WP_MEDIA_FOLDER_PROPERTY_ = 'MA_WEBSITE_DRAFT_MEDIA_FOLDER_ID';
+const WP_MEDIA_MAX_BYTES_ = 2 *  1024 * 1024;
 
 function wpEnsureSheet_(ss, name, headers) {
   let sheet = ss.getSheetByName(name);
@@ -304,32 +307,46 @@ function setupWebsitePublishingStores(token) {
     const chunks = wpEnsureSheet_(ss, 'Website Version Chunks', WP_CHUNK_HEADERS_);
     const config = wpEnsureSheet_(ss, 'Website Publishing Config', WP_CONFIG_HEADERS_);
     const audit = wpEnsureSheet_(ss, 'Website Publishing Audit', WP_AUDIT_HEADERS_);
+    const media = wpEnsureSheet_(ss, 'Website Draft Media', WP_MEDIA_HEADERS_);
+    const properties = PropertiesService.getScriptProperties();
+    let folderId = properties.getProperty(WP_MEDIA_FOLDER_PROPERTY_);
+    let folder = null;
+    if (folderId) {
+      try { folder = DriveApp.getFolderById(folderId); if (folder.isTrashed()) folder = null; } catch (_) { folder = null; }
+    }
+    if (!folder) {
+      folder = DriveApp.createFolder('MA Website Draft Media (Private)');
+      folderId = folder.getId();
+      properties.setProperty(WP_MEDIA_FOLDER_PROPERTY_, folderId);
+    }
+    const access = folder.getSharingAccess();
+    if (access === DriveApp.Access.ANYONE || access === DriveApp.Access.ANYONE_WITH_LINK) {
+      throw new Error('The website draft media folder is publicly shared. Remove public sharing before using draft uploads.');
+    }
     const configKeys = wpConfigEnsure_(config);
     const configValues = wpConfigMap_(config);
     const pointer = configValues.published_version_id || '';
     const baselineVersionId = configValues.baseline_version_id || '';
     const migrationState = configValues.migration_state || 'PREPARED';
     audit.appendRow([
-      Utilities.getUuid(),
-      '',
-      'stores.prepare',
-      actor.Username,
-      new Date(),
-      'Created or verified additive versioned publishing store headers; no live website data changed.',
-      ''
+      Utilities.getUuid(), '', 'stores.prepare', actor.Username, new Date(),
+      'Created or verified additive publishing stores and private draft-media staging; no live website data changed.', ''
     ]);
     return ok({
-      sheets:['Website Versions','Website Version Chunks','Website Publishing Config','Website Publishing Audit'],
+      sheets:['Website Versions','Website Version Chunks','Website Publishing Config','Website Publishing Audit','Website Draft Media'],
       versionHeaderCount:WP_VERSION_HEADERS_.length,
       chunkHeaderCount:WP_CHUNK_HEADERS_.length,
+      mediaHeaderCount:WP_MEDIA_HEADERS_.length,
       configKeyCount:configKeys,
+      draftMediaFolderId:folderId,
+      draftMediaFolderPrivate:true,
       publishedVersionId:pointer,
       baselineVersionId:baselineVersionId,
       migrationState:migrationState,
       liveContentChanged:false,
       publicReaderChanged:false,
       editorWritesRedirected:false
-    }, 'Website publishing stores are prepared. Existing live website content remains unchanged.');
+    }, 'Website publishing stores and private media staging are prepared. Existing live website content remains unchanged.');
   } catch (error) {
     return fail(error);
   } finally {
@@ -635,14 +652,32 @@ function setWebsiteUserPermissions(token, username, permissions) {
 
 function wpValidateDraftAssets_(payload) {
   const ids = wpReferencedDriveIds_(payload.contentRows || [], payload.galleries || {}, payload.defaults || {});
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const mediaSheet = ss.getSheetByName('Website Draft Media');
+  const staged = {};
+  if (mediaSheet && mediaSheet.getLastRow() > 1) {
+    mediaSheet.getRange(2, 1, mediaSheet.getLastRow() - 1, WP_MEDIA_HEADERS_.length).getDisplayValues()
+      .forEach(row => { if (row[0]) staged[row[0]] = { state:row[6], uploadedBy:row[4] }; });
+  }
   const invalid = [];
+  const folderId = PropertiesService.getScriptProperties().getProperty(WP_MEDIA_FOLDER_PROPERTY_);
   ids.forEach(id => {
     try {
       const file = DriveApp.getFileById(id);
-      if (file.isTrashed() || !/^image\/(png|jpeg|webp|gif)$/i.test(file.getMimeType() || '')) invalid.push(id);
+      if (file.isTrashed() || !/^image\/(png|jpeg|webp|gif)$/i.test(file.getMimeType() || '')) {
+        invalid.push(id);
+        return;
+      }
+      if (staged[id]) {
+        if (staged[id].state !== 'Staged' || !folderId) { invalid.push(id); return; }
+        const parents = file.getParents();
+        let inStagingFolder = false;
+        while (parents.hasNext()) if (parents.next().getId() === folderId) inStagingFolder = true;
+        if (!inStagingFolder) invalid.push(id);
+      }
     } catch (_) { invalid.push(id); }
   });
-  if (invalid.length) throw new Error('Draft references missing, trashed, or unsupported image assets: ' + invalid.join(', '));
+  if (invalid.length) throw new Error('Draft references missing, trashed, unsupported, or unavailable image assets: ' + invalid.join(', '));
 }
 
 function wpReadVersion_(versionId) {
@@ -1004,6 +1039,68 @@ function websitePublishingSelfCheck(token) {
       publicReaderCutoverImplemented:false,
       publishEndpointEnabled:false
     }, failed ? 'Website publishing self-check found issues.' : 'Website publishing self-check passed.');
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+
+/**
+ * Uploads a JPEG into a private, non-public Drive folder for website drafts.
+ * This endpoint never writes to the live Content or Gallery stores and never
+ * grants public sharing. Run setupWebsitePublishingStores() before first use.
+ */
+function stageWebsiteMedia(token, dataUrl, fileName) {
+  const lock = LockService.getScriptLock();
+  let fileId = '';
+  try {
+    lock.waitLock(20000);
+    const actor = wpRequirePermission_(token, 'website.content.edit');
+    const folderId = PropertiesService.getScriptProperties().getProperty(WP_MEDIA_FOLDER_PROPERTY_);
+    if (!folderId) throw new Error('Private draft media storage is not prepared. Run setupWebsitePublishingStores first.');
+    const folder = DriveApp.getFolderById(folderId);
+    if (folder.isTrashed() || [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(folder.getSharingAccess())) {
+      throw new Error('The private draft media folder is unavailable or publicly shared.');
+    }
+    const parts = String(dataUrl || '').split(',');
+    if (parts.length !== 2 || !/^data:image\/jpeg;base64$/i.test(parts[0])) throw new Error('Draft media must be a JPEG image.');
+    if (!parts[1] || parts[1].length > Math.ceil(WP_MEDIA_MAX_BYTES_ * 4 / 3) + 8) throw new Error('Draft media exceeds the 2 MB upload limit.');
+    const bytes = Utilities.base64Decode(parts[1]);
+    if (!bytes.length || bytes.length > WP_MEDIA_MAX_BYTES_ ||
+        (bytes[0] & 255) !== 0xFF || (bytes[1] & 255) !== 0xD8) throw new Error('The uploaded file is not a valid JPEG within the 2 MB limit.');
+    const safeName = String(fileName || 'website-draft.jpg').replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 100) || 'website-draft.jpg';
+    const file = folder.createFile(Utilities.newBlob(bytes, 'image/jpeg', safeName));
+    fileId = file.getId();
+    if (file.getSharingAccess() === DriveApp.Access.ANYONE || file.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK) {
+      file.setTrashed(true);
+      throw new Error('Drive returned a publicly shared draft asset; the upload was rejected.');
+    }
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Draft Media');
+    if (!sheet) throw new Error('Website Draft Media store is missing. Run setupWebsitePublishingStores first.');
+    sheet.appendRow([fileId, safeName, 'image/jpeg', bytes.length, actor.Username, new Date(), 'Staged']);
+    audit_(actor, 'website.media.stage', fileId, safeName);
+    return ok({ assetId:fileId, fileName:safeName, mimeType:'image/jpeg', sizeBytes:bytes.length, state:'Staged' }, 'Image uploaded privately for website draft use.');
+  } catch (error) {
+    if (fileId) {
+      try {
+        const file = DriveApp.getFileById(fileId);
+        if (!file.isTrashed()) file.setTrashed(true);
+      } catch (_) {}
+    }
+    return fail(error);
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
+
+function listWebsiteStagedMedia(token) {
+  try {
+    const actor = wpRequirePermission_(token, 'website.content.edit');
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Draft Media');
+    if (!sheet || sheet.getLastRow() < 2) return ok([]);
+    const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, WP_MEDIA_HEADERS_.length).getDisplayValues();
+    return ok(rows.filter(row => row[0] && row[4].toLowerCase() === actor.Username.toLowerCase() && row[6] === 'Staged')
+      .map(row => ({ assetId:row[0], fileName:row[1], mimeType:row[2], sizeBytes:Number(row[3]) || 0, uploadedAt:row[5] })));
   } catch (error) {
     return fail(error);
   }
