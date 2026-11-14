@@ -731,7 +731,8 @@ function getNotifications(token) {
     const u = who_(token), pr = PropertiesService.getScriptProperties(), tz = Session.getScriptTimeZone(),
   prev = u.Role === 'admin' ? (pr.getProperty('pl_'+u.Username)||'') : Utilities.formatDate(new Date(Date.now()-7*864e5), tz, 'yyyy-MM-dd HH:mm:ss');
     const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'), wk = Utilities.formatDate(new Date(Date.now()+6*86400000), tz, 'yyyy-MM-dd');
-   const evs = evRows_(), items = [], all = u.Role==='admin' ? studentsLite_() : []
+   const evs = evRows_(), items = [], scope = u.Role === 'admin' ? studentSearchScope_(u) : null;
+   const all = u.Role === 'admin' ? studentsLite_().filter(s => studentWithinSearchScope_(scope, s)) : [];
    if (u.Role==='admin' && ACAD_ROLES.indexOf(u.Clearance) < 0) {
    const nw = prev ? all.filter(s=>s.CreatedAt>prev).length : 0;
       if (nw) items.push({ title:nw+' new registration'+(nw>1?'s':''), text:'Since you last signed in.', go:'newreg' });
@@ -849,7 +850,8 @@ function getScholarships(token) {
     let counts = null;
     if (u.Role==='admin' && ACAD_ROLES.indexOf(u.Clearance) < 0) {
       const MAP = { TLC:['TLC','TLC-OVAP'], ESC:['ESC'], QVR:['PUB-QVR'], QVA:['QVA PASSER'] };
-      const act = rowsSY_().filter(s=>s.EnrollStatus!=='Cancelled' && s.EnrollStatus!=='Transferred Out');
+      const scope = studentSearchScope_(u);
+      const act = rowsSY_().filter(s=>studentWithinSearchScope_(scope, s)).filter(s=>s.EnrollStatus!=='Cancelled' && s.EnrollStatus!=='Transferred Out');
       counts = {};
       SCH_KEYS.forEach(k => { const x = act.filter(s=>MAP[k].includes(s.Category)); counts[k] = { total:x.length, enrolled:x.filter(s=>s.EnrollStatus==='Enrolled').length }; });
     }
