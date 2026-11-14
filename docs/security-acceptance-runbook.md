@@ -108,6 +108,8 @@ Expected: only the documented administrator roles can access report data; Encode
 
 ### M7 — Versioned website publishing
 
+The automated suite currently contains M7-01 (cutover remains disabled), M7-02 (Unicode-safe chunk reconstruction), M7-03 (duplicate content-key rejection), M7-04 (gallery asset validation), M7-05 (public content allowlist boundaries), and M7-06 (section-card link and text validation). These are helper-level checks; they do not substitute for spreadsheet, Drive, browser or end-to-end publishing tests.
+
 Run the full sequence only after M7 implementation is synchronized to the disposable copy:
 
 1. Read-only preflight; record source hashes and Drive references.
