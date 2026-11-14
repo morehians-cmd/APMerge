@@ -187,3 +187,47 @@ function reviewAdmissionDocument(token, documentId, decision, remarks) {
   if (mail) { try { MailApp.sendEmail({to:mail.to,name:'Moreh Academy Admissions',subject:mail.subject,body:mail.body}); } catch(_) {} }
   return ok(result,'Document '+result.status.toLowerCase()+'.');
 }
+
+/** Returns the role-specific initial view without exposing another learner's data. */
+function getAdmissionDocumentsHome(token) {
+  try {
+    const u = who_(token);
+    if (u.Role==='student') {
+      const r = getMyAdmissionDocuments(token);
+      if (!r.success) throw new Error(r.error);
+      return ok({role:'student',data:r.data,userName:u.FullName});
+    }
+    if (u.Role==='admin') {
+      studentSearchScope_(u);
+      return ok({role:'admin',userName:u.FullName});
+    }
+    throw new Error('Not allowed.');
+  } catch(e) { return fail(e); }
+}
+
+/** Authenticated, scope-checked download. Returns only the selected file as a data URL. */
+function getAdmissionDocumentData(token, documentId) {
+  try {
+    const u = who_(token,'admin');
+    const r = admissionDocRows_().find(x=>x.DocumentID===String(documentId || ''));
+    if (!r) throw new Error('Document not found.');
+    admissionDocStudent_(u,r.StudentID);
+    const file = DriveApp.getFileById(r.DriveFileID);
+    if (file.isTrashed()) throw new Error('Document file is unavailable.');
+    const blob = file.getBlob(), bytes = blob.getBytes();
+    if (bytes.length>ADMISSION_DOC_MAX_BYTES_) throw new Error('The document exceeds the permitted download size.');
+    return ok({fileName:r.FileName,mimeType:r.MimeType,dataUrl:'data:'+r.MimeType+';base64,'+Utilities.base64Encode(bytes)});
+  } catch(e) { return fail(e); }
+}
+
+/** OWNER ONLY. Read-only check of the configured metadata store and Drive folder privacy. */
+function admissionDocumentsSelfCheck() {
+  ownerOnly_();
+  const sh = admissionDocsSheet_(), folder = admissionDocsFolder_();
+  const access = folder.getSharingAccess();
+  const publicAccess = access === DriveApp.Access.ANYONE || access === DriveApp.Access.ANYONE_WITH_LINK;
+  const out = {sheet:sh.getName(),headersValid:true,folderId:folder.getId(),folderName:folder.getName(),sharingAccess:String(access),publicAccess:publicAccess,documentRows:Math.max(0,sh.getLastRow()-1)};
+  Logger.log(JSON.stringify(out));
+  if (publicAccess) throw new Error('Admission document folder is publicly accessible. Remove link sharing immediately.');
+  return out;
+}
