@@ -96,7 +96,7 @@ function setGalleryCaption(token, page, id, caption) {
   } catch (e) { return fail(e); } finally { try { lock.releaseLock(); } catch (_) {} }
 }
 
-/** OWNER ONLY. Removes the photo from the page, then moves the Drive file to the trash. */
+/** OWNER ONLY. Removes the photo from the page while retaining the Drive file for website version history and rollback. */
 function removeGalleryPhoto(token, page, id) {
   const lock = LockService.getScriptLock();
   try {
