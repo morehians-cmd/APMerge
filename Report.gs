@@ -33,7 +33,7 @@ function rowsForSY_(sy, stu) {
 /** Admin / Manager. KPIs for one school year + the list of school years that have data. Encoders: no access (same rule as report()). */
 function reportsHome(token, sy) {
   try {
-    const u = who_(token, 'admin');
+    const u = assertAdminConsoleRole_(who_(token, 'admin'));
     if (u.Clearance === 'Encoder') throw new Error('Encoders do not have access to reports.');
     const stu = rows_('S'), S0 = reportSY_(sy), all = rowsForSY_(S0, stu), n = f => all.filter(f).length, m = {};
     m[activeSY_()] = 1; m[S0] = 1;
@@ -56,7 +56,7 @@ const anClass_ = r => [r.GradeLevel, Object.keys(CL).find(k => CL[k] === r.Clust
 const anReqLabel_ = k => (FIELDS.find(f => f[1] === k) || [0, 0, k])[2];
 
 function anCtx_(token) {
-  const u = who_(token, 'admin');
+  const u = assertAdminConsoleRole_(who_(token, 'admin'));
   if (u.Clearance === 'Encoder') throw new Error('Encoders do not have access to reports.');
   return u;
 }
