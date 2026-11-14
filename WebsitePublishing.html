@@ -94,7 +94,7 @@ function wpUiContentEditor(){
 function wpUiGalleryEditor(){
   const pages=WPUI.payload&&WPUI.payload.galleries?Object.keys(WPUI.payload.galleries):[];
   const options=pages.map(page=>'<option value="'+esc(page)+'" '+(page===WPUI.galleryPage?'selected':'')+'>'+esc(page)+'</option>').join('');
-  return '<div class="card"><h3>Draft gallery lists</h3><p class="wp-muted">Edit IDs and captions in this version. Removing an image here does not delete its Drive file. New uploads must first be staged through the private media workflow.</p><div class="wp-field"><label>Gallery page</label><select id="wpGalleryPage">'+options+'</select></div><div class="wp-field" style="margin-top:10px"><label>Gallery JSON</label><textarea id="wpGalleryValue" rows="10" style="font-family:monospace">'+esc(WPUI.galleryValue)+'</textarea></div><div class="wp-actions"><button class="btn" data-act="wpgallerysave">Save gallery revision</button></div></div>';
+  return '<div class="card"><h3>Draft gallery lists</h3><p class="wp-muted">Edit IDs and captions in this version. Removing an image here does not delete its Drive file. Uploads are privately staged and remain unpublished until an approved version is published.</p><div class="wp-field"><label>Gallery page</label><select id="wpGalleryPage">'+options+'</select></div><div class="wp-field" style="margin-top:10px"><label>Add a photo to this draft gallery</label><input id="wpGalleryFile" type="file" accept="image/jpeg,image/png,image/webp"></div><div class="wp-field" style="margin-top:10px"><label>Gallery JSON</label><textarea id="wpGalleryValue" rows="10" style="font-family:monospace">'+esc(WPUI.galleryValue)+'</textarea></div><div class="wp-actions"><button class="btn" data-act="wpgallerysave">Save gallery revision</button></div></div>';
 }
 function wpUiSaveContent(){
   const key=$('wpContentKey')?$('wpContentKey').value:WPUI.contentKey;
@@ -210,6 +210,28 @@ function wpUiPhoto(index){
   const el=$('wpPhotoFile');if(el)el.click();
 }
 document.addEventListener('change',e=>{
+  if(e.target.id==='wpGalleryFile'){
+    const file=e.target.files&&e.target.files[0];e.target.value='';
+    if(!file)return;
+    const page=WPUI.galleryPage,versionId=WPUI.selected,image=new Image();let objectUrl='';
+    image.onerror=()=>{if(objectUrl)URL.revokeObjectURL(objectUrl);toast('The selected gallery image could not be read.',false)};
+    image.onload=()=>{
+      if(objectUrl)URL.revokeObjectURL(objectUrl);
+      if(WPUI.selected!==versionId||WPUI.galleryPage!==page){toast('The selected draft or gallery changed before upload completed.',false);return;}
+      const scale=Math.min(1,1600/Math.max(image.width,image.height));
+      const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));
+      const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);
+      const dataUrl=canvas.toDataURL('image/jpeg',.86);
+      call('stageWebsiteMedia',[T(),dataUrl,file.name||'gallery-photo.jpg'],r=>{
+        if(WPUI.selected!==versionId||WPUI.galleryPage!==page){toast('The photo was staged privately but the selected draft changed before attachment.',false);return;}
+        let items=[];try{items=JSON.parse($('wpGalleryValue').value||'[]');}catch(_){}
+        items.push({id:r.data.assetId,cap:''});WPUI.galleryValue=JSON.stringify(items,null,2);
+        const field=$('wpGalleryValue');if(field)field.value=WPUI.galleryValue;
+        toast('Photo staged privately. Save the gallery revision to attach it to this draft.');
+      });
+    };
+    objectUrl=URL.createObjectURL(file);image.src=objectUrl;return;
+  }
   if(e.target.id==='wpContentKey'){WPUI.contentKey=e.target.value;const row=(WPUI.payload.contentRows||[]).find(x=>x[0]===WPUI.contentKey);WPUI.contentValue=row?String(row[1]||''):'';const el=$('wpContentValue');if(el)el.value=WPUI.contentValue;return}
   if(e.target.id==='wpGalleryPage'){WPUI.galleryPage=e.target.value;const items=WPUI.payload.galleries[WPUI.galleryPage]||[];WPUI.galleryValue=JSON.stringify(items,null,2);const el=$('wpGalleryValue');if(el)el.value=WPUI.galleryValue;return}
   if(e.target.id==='wpVersionSelect'){wpUiSelect(e.target.value);return}
