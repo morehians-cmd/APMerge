@@ -1543,7 +1543,7 @@ function boot(){try{boot0()}catch(e){$('app').classList.remove('hidden');toast('
 function boot0(){const u=S.user;$('role').textContent=A()?'Admin':'Student';$('who').textContent=u.FullName||u.Username;$('uname').textContent=tc(u.FullName||u.Username);$('urole').textContent=A()?ROLEN(u.Clearance):'Student';setAv();topInit();
 renderNav(menuFor());document.querySelector('[data-act=out]').innerHTML=I.out+'Sign out';if(u.MustChange==='1'){S.pe=true;nav('me');toast('Please set a new password to continue.','warn')}else{nav(OFC()?'fl':'home');if(!OFC())loadNotifs()}idleReset()}
 
-function nav(id){$('dd').classList.add('hidden');$('np').classList.add('hidden');document.querySelectorAll('#nav .nav').forEach(b=>b.classList.toggle('on',b.dataset.v===id));const hit=document.querySelector('#nav .sub[data-v="'+id+'"]'),hg=hit&&hit.closest('.ng');if(hg){document.querySelectorAll('#nav .ng').forEach(x=>{x.classList.toggle('open',x===hg);x.querySelector('.ngh').classList.toggle('has',x===hg)})}$('side').classList.remove('open');({home,adm,rep,docs:admissionDocumentsPage,me:profile,sp:stuProfile,rq:stuReq,pp:privacyPage,ev:eventsPage,um:usersPage,set:settingsPage,sch:schPage,tf:tuitionPage,fl:flagsPage,gd:guidePage,about:()=>contentPage('about'),cluster:()=>contentPage('cluster'),handbook:()=>contentPage('handbook'),facilities:()=>contentPage('facilities'),faq:()=>contentPage('faq'),ia:idArtPage,ce:careerPage,ac:acadPage,col:collegePage,colprog:collegeProgramsPage,actlog:activityLogPage,webhero:homepageHeroPage,webpages:websitePagesPage,pbanners:pageBannersPage,hpsections:homepageSectionsPage})[id]()}
+function nav(id){$('dd').classList.add('hidden');$('np').classList.add('hidden');document.querySelectorAll('#nav .nav').forEach(b=>b.classList.toggle('on',b.dataset.v===id));const hit=document.querySelector('#nav .sub[data-v="'+id+'"]'),hg=hit&&hit.closest('.ng');if(hg){document.querySelectorAll('#nav .ng').forEach(x=>{x.classList.toggle('open',x===hg);x.querySelector('.ngh').classList.toggle('has',x===hg)})}$('side').classList.remove('open');({home,adm,rep,me:profile,sp:stuProfile,rq:stuReq,pp:privacyPage,ev:eventsPage,um:usersPage,set:settingsPage,sch:schPage,tf:tuitionPage,fl:flagsPage,gd:guidePage,about:()=>contentPage('about'),cluster:()=>contentPage('cluster'),handbook:()=>contentPage('handbook'),facilities:()=>contentPage('facilities'),faq:()=>contentPage('faq'),ia:idArtPage,ce:careerPage,ac:acadPage,col:collegePage,colprog:collegeProgramsPage,actlog:activityLogPage,webhero:homepageHeroPage,webpages:websitePagesPage,pbanners:pageBannersPage,hpsections:homepageSectionsPage})[id]()}
 
 const csvCell=c=>{let s=String(c==null?'':c);if(/^[=+\-@\t\r]/.test(s))s="'"+s;else if(/^(0\d+|\d{11,})$/.test(s))return '="'+s+'"';return '"'+s.split('"').join('""')+'"'};
 const act={out:()=>{clearInterval(CD);if($('idm'))$('idm').remove();try{google.script.run.logout(S.token)}catch(e){}S.token=null;$('app').classList.add('hidden');const m=document.createElement('div');m.className='mod';m.innerHTML='<div style="max-width:430px;padding:32px;text-align:center"><h3 style="color:var(--navy);margin-bottom:8px">You have been signed out</h3><p style="color:var(--mut)">For your security, please refresh the page before signing in again.</p><div><button class="btn" onclick="location.reload()" style="margin-top:8px">Refresh page</button></div></div>';document.body.appendChild(m)},
@@ -2693,7 +2693,7 @@ function menuFor(){
  const guides=[['about','About Moreh Academy',I.bldg],['cluster','Senior High Cluster Guide',I.sch],['handbook','Student Handbook',I.book],['facilities','Facilities & Campus Tour',I.bldg]];
  if(A())return[
   ...(F?[{g:'Overview',i:I.home,items:[['home','Dashboard',I.home],['rep','Analytics & Reports',I.rep]]}]:[['home','Dashboard',I.home]]),
-  {g:'Operations & Management',i:I.adm,items:[['adm','Admission Operations',I.adm],['docs','Applicant Documents',I.rep],['fl','Holds Management',I.flag],['sch','Scholarships',I.sch],['tf','Schedule of Fees',I.tf]]},
+  {g:'Operations & Management',i:I.adm,items:[['adm','Admission Operations',I.adm],['fl','Holds Management',I.flag],['sch','Scholarships',I.sch],['tf','Schedule of Fees',I.tf]]},
   ...(F?[{g:'College',i:I.users,items:[['col','College Roster',I.users],['colprog','Programs & Courses',I.book]]}]:[]),
   {g:'Institutional Resources',i:I.book,items:[...guides,...(F?[['gd','Enrollment Guide',I.rep]]:[])]},
   {g:'Communication',i:I.mega,items:[['ev','Campus Bulletin',I.cal],['faq','Help Center & FAQs',I.help]]},
@@ -2701,7 +2701,7 @@ function menuFor(){
   ['me','My Profile',I.me]];
  return[
   ['home','Home',I.home],
-  {g:'Enrollment & Academics',i:I.adm,items:[['sp','Student Profile & Account',I.adm],['rq','School Requirements',I.rep],['docs','My Documents',I.rep],['tf','Schedule of Fees',I.tf],['sch','Scholarships',I.sch]]},
+  {g:'Enrollment & Academics',i:I.adm,items:[['sp','Student Profile & Account',I.adm],['rq','School Requirements',I.rep],['tf','Schedule of Fees',I.tf],['sch','Scholarships',I.sch]]},
   {g:'Campus & Student Life',i:I.book,items:guides},
   {g:'Support & Updates',i:I.help,items:[['ev','Campus Bulletin',I.cal],['faq','Help Center & FAQs',I.help]]},
   ['me','My Profile',I.me]];
@@ -6616,4 +6616,4 @@ schRender = function () {
   if (S.schGo) { S.sk = S.schGo; S.schGo = ''; S.schEdit = null; }
   _schRenderGo();
 };
-</script><?!= include('College') ?><?!= include('ActivityLog') ?><?!= include('HomepageHero') ?><?!= include('WebsitePages') ?><?!= include('PageBanners') ?><?!= include('HomepageSections') ?><?!= include('AdmissionDocumentsUI') ?></body></html>
+</script><?!= include('College') ?><?!= include('ActivityLog') ?><?!= include('HomepageHero') ?><?!= include('WebsitePages') ?><?!= include('PageBanners') ?><?!= include('HomepageSections') ?></body></html>
