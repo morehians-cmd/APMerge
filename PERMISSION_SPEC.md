@@ -93,6 +93,24 @@ Full Administrator maps to the existing Full clearance during transition. System
 | M6 | Reports: report() denies Encoders except when type is daily; other report endpoints use separate checks. | Decide whether daily exception remains; enforce explicit permission keys consistently in backend and UI; test every report type per role. |
 | M7 | Website workflow: Public.gs and Content.gs content-save methods currently use owner_(), which permits Full and Manager. | Preserve published content; introduce draft/review/publish states; require separate website.content.publish grant; verify Manager does not receive publish by default after explicit migration. |
 
+### M4 implementation note — explicit Encoder search scope
+
+The current implementation in `Code.gs` preserves unrestricted legacy search for `Full` and `Manager`, while requiring an explicit Script Property for each `Encoder`. The property name is `STUDENT_SCOPE_<normalized-username>` (lowercase; characters outside letters, digits, period, underscore, and hyphen become underscores). Its value is JSON in this shape:
+
+```json
+{
+  "grades": ["Grade 1", "Grade 2"],
+  "sections": {
+    "Grade 1": ["A", "B"],
+    "Grade 2": ["C"]
+  }
+}
+```
+
+Only listed grades and listed sections are returned. To include unassigned-section students for a grade, include the empty string in that grade's section list. Missing, malformed, or empty assignments fail closed. Grade and section names must match the canonical student record values. Configure these properties manually in Apps Script Project Settings > Script Properties only after the school confirms each Encoder's authorized grade/section scope.
+
+This first M4 code change scopes the student search response and its bulk-action `ids` list. It does **not** yet authorize direct `getStudent`, `saveStudent`, report, dashboard, or export endpoints for Encoders. Those endpoints remain separate M4/M5/M6 remediation work and must be audited before claiming full closure. Existing Encoder accounts without an explicit property will temporarily see an authorization message rather than a broad school-wide search.
+
 ## Migration sequence and release gates
 
 ### Gate 0 — Baseline
