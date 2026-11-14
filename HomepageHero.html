@@ -26,7 +26,7 @@ html[data-theme=dark] .hh-thumb{background-color:#10173a;border-color:#2a3558;co
    only the headline, tagline, description, button labels/links and three images. */
 function homepageHeroPage() {
   if (typeof SYS === 'function' && !SYS()) return toast('Homepage settings are for the main administrator.', 'warn');
-  head('Homepage Hero', 'Edit the public homepage banner, buttons and carousel images');
+  return openWebsitePublishingEditor('pubhome_hero');
   $('view').innerHTML = '<div class="card"><div class="aemp">Loading homepage settings&hellip;</div></div>';
   google.script.run
     .withSuccessHandler(function (r) {
