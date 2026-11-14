@@ -658,7 +658,7 @@ function wpValidateDraftAssets_(payload, actor) {
   const staged = {};
   if (mediaSheet && mediaSheet.getLastRow() > 1) {
     mediaSheet.getRange(2, 1, mediaSheet.getLastRow() - 1, WP_MEDIA_HEADERS_.length).getDisplayValues()
-      .forEach(row => { if (row[0]) staged[row[0]] = { state:row[6], uploadedBy:row[4] }; });
+      .forEach(row => { if (row[0]) staged[row[0]] = staged[row[0]] ? { duplicate:true } : { state:row[6], uploadedBy:row[4] }; });
   }
   const invalid = [];
   const folderId = PropertiesService.getScriptProperties().getProperty(WP_MEDIA_FOLDER_PROPERTY_);
@@ -670,7 +670,7 @@ function wpValidateDraftAssets_(payload, actor) {
         return;
       }
       if (staged[id]) {
-        if (staged[id].state !== 'Staged' || !folderId || !actor || wpText_(staged[id].uploadedBy).toLowerCase() !== wpText_(actor.Username).toLowerCase()) { invalid.push(id); return; }
+        if (staged[id].duplicate || staged[id].state !== 'Staged' || !folderId || !actor || wpText_(staged[id].uploadedBy).toLowerCase() !== wpText_(actor.Username).toLowerCase()) { invalid.push(id); return; }
         const parents = file.getParents();
         let inStagingFolder = false;
         while (parents.hasNext()) if (parents.next().getId() === folderId) inStagingFolder = true;
