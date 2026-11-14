@@ -75,7 +75,7 @@ The following endpoint paths were inspected on branch `website-pages-fixes`. Thi
 
 | Endpoint / helper | Scope behavior to verify in the development copy |
 |---|---|
-| `studentSearchScope_`, `studentWithinSearchScope_`, `assertStudentScope_` | Missing/malformed assignments fail closed; matching grade and section are both required. |
+| `studentSearchScope_`, `studentWithinSearchScope_`, `assertStudentScope_` | Missing/malformed assignments fail closed; matching grade and section are both required. M4-03 additionally rejects two distinct usernames that collapse to the same legacy Script Property suffix. |
 | `searchStudents` | Filters rows and returned bulk IDs to assigned grade/section combinations; an explicitly requested unassigned grade is rejected. |
 | `getStudent` | Direct lookup of an out-of-scope StudentID fails closed. |
 | `saveStudent` | Checks the existing record before editing and the resulting grade/section before writing. |
@@ -178,7 +178,7 @@ The execution output explicitly retains these manual evidence items as open:
 4. **M6:** Run every report, drill-down, export and history endpoint for every role.
 5. **M7:** Complete editor/public-reader/media cutover and draft/review/publish/rollback browser acceptance.
 
-This 19/19 result closes the automated execution gap for M3-04. It does not close the five manual evidence gates, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
+This 19/19 result closes the automated execution gap for M3-04. It predates the subsequent M4-03 scope-key collision hardening and test addition, so it is not evidence that the current 20-check suite passes. Rerun runSecurityAcceptanceTests() after synchronizing the latest Code.gs and AcceptanceTests.gs. It does not close the five manual evidence gates, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
 
 ### Historical execution — original 18-check suite
 
