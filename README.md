@@ -17,9 +17,14 @@ All data lives in the Google Spreadsheet the script is attached to. Website word
 | `Academic.gs`, `CollegeModule.gs`, `Report.gs`, `ReEnroll.gs`, `Retention.gs`, `IdCard.gs`, `Cor.gs`, `Speed.gs`, `Housekeeping.gs`, `Contact.gs`, `Flags.gs`, `DashboardSpec.gs`, `DashboardAudit.gs` | Feature modules (academics, College roster, reports, ID cards, scheduled jobs). |
 | `Public.gs`, `Gallery.gs`, `Content.gs` | Public site data: homepage content, page banners and intros, page text, photo galleries, uploads. |
 | `WebsitePublishing.gs` | Additive M7 migration preflight, empty version-store preparation, and immutable chunked baseline seeding. Does not switch public readers or redirect editor writes. |
+| `AcceptanceTests.gs` | Non-production, read-only security acceptance checks for student self-edit, trigger guards, logo input validation and Encoder scope. |
 | `Index.html` | Dashboard shell. |
 | `PublicHome.html`, `PublicPage.html` | The public homepage and interior-page templates. |
 | `Script.html` | Legacy client bundle kept for reference — not loaded by any page. |
+
+## Security acceptance
+
+Use [the security acceptance runbook](docs/security-acceptance-runbook.md) to execute the mandatory M1–M7 role, endpoint, report and website-publishing test matrix in a disposable development copy. Run `runSecurityAcceptanceTests()` from the Apps Script editor as the script owner for the automated source-level/runtime checks; it temporarily changes and restores one synthetic Script Property. It does not certify untested roles or endpoints, and it must not be treated as production approval.
 
 ## Deploying
 
