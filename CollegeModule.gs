@@ -205,7 +205,7 @@ function collegeUnconfigured_(e) {
 function collegeDashboard(token) {
   try {
     const u = who_(token, 'admin');
-    if (OFFICE_CL.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
+    if (u.Clearance === 'Encoder' || OFFICE_CL.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
     let students;
     try { students = collegeStudents_(); } catch (e) { return collegeUnconfigured_(e); }
     const stats = collegeStats_({});
@@ -223,7 +223,8 @@ function collegeDashboard(token) {
 /** Roster with filters. Kept read-only: the college write paths arrive with enrollment. */
 function collegeRoster(token, opts) {
   try {
-    who_(token, 'admin');
+    const u = who_(token, 'admin');
+    if (u.Clearance === 'Encoder') throw new Error('Not allowed.');
     opts = opts || {};
     let rows;
     try { rows = collegeStudents_(); } catch (e) { return collegeUnconfigured_(e); }
@@ -249,7 +250,7 @@ function collegeRoster(token, opts) {
 function getCollegePrograms(token) {
   try {
     const u = who_(token, 'admin');
-    if (OFFICE_CL.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
+    if (u.Clearance === 'Encoder' || OFFICE_CL.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
     let programs;
     try { programs = collegePrograms_(true); } catch (e) { return collegeUnconfigured_(e); }
     return ok({ programs: programs, canEdit: u.Clearance === 'Full', editable: !!cTab_(collegeSS_(), COLLEGE_TABS.programs) });
