@@ -189,6 +189,65 @@ This section records source observations from the current `website-pages-fixes` 
 
 The live public renderer currently reads the existing content stores directly. The following write endpoints still persist immediately to those live stores under legacy `owner_(token)` authorization: `saveBlock`, `saveAbout`, `saveHomepageContent`, `savePageIntro`, `savePageBanner`, `saveHomepageHero`, and `saveSectionCards` (including the `saveAboutCards` alias). This confirms M7 is a data-model and migration change, not a role-check-only patch. A safe migration must snapshot every affected key and media reference, add draft/review/published version storage, switch public readers only after the published baseline is seeded, and preserve an explicit rollback path. No live content was changed in this source audit.
 
+
+### M7 complete content-store inventory and cutover contract
+
+The current live website is not backed by one content record. Its public renderer reads a mixture of:
+
+1. **Content sheet key/value records**
+   - Legacy/public HTML blocks: `pubhome`, `pubabout`, `pubadmissions`, `pubacademics`, `pubcampus`, `pubforms`, `pubnews`, `pubcontact`, and the page-specific `pub_*` blocks listed in `PUBLIC_BLOCK_KEYS`.
+   - Structured About page record: `about_data` (vision, mission, values, leadership names/titles, and photo IDs), plus legacy `about` HTML.
+   - Homepage section content: `pubhome_content`.
+   - Interior page intro overrides: `pubpage_intro`.
+   - Interior page banner overrides: `pubpage_banners`.
+   - Homepage hero: `pubhome_hero`.
+   - Section-card records: `pub_about_cards`, `pub_admissions_cards`, `pub_academics_cards`, `pub_campus_cards`, `pub_forms_cards`, and `pub_news_cards`.
+   - Enrollment guide: `guide` (also returned by the public feed).
+2. **Other live data sources**
+   - Events/announcements from the Events store.
+   - Gallery and campus/facility photos from the existing gallery store.
+   - School leader and About photos referenced by Drive file IDs.
+   - Homepage, page-banner, and hero image URLs that may refer to Drive-hosted assets.
+3. **Public cache surfaces**
+   - Public feed cache `pubc_v1_<date>`, About cache `puba_v1`, individual photo caches, and the cache invalidation helper. A publish must invalidate every affected public cache after the published pointer changes.
+
+### Required versioned publishing model
+
+Use a dedicated additive store; do not repurpose or overwrite the current Content sheet records.
+
+- **Website Versions**: immutable version rows with `VersionID`, `ParentVersionID`, `Status` (Draft, InReview, ChangesRequested, Approved, Published, Archived), `CreatedBy`, `CreatedAt`, `UpdatedBy`, `UpdatedAt`, `ReviewedBy`, `ReviewedAt`, `ReviewNotes`, `PublishedBy`, `PublishedAt`, `PayloadJSON`, and `PayloadHash`.
+- **Website Publishing Config**: one controlled pointer to the currently published version, current schema version, migration baseline ID, and migration state. The published pointer is the only source-selection switch for public reads.
+- **Website Publishing Audit**: append-only action history with actor, action, version, timestamp, and reason. Do not store applicant/student data in these records.
+
+A version payload must be a complete, schema-validated snapshot of every content domain above, including stable Drive file IDs/URLs and the event/gallery references that the public site currently displays. Events and galleries that remain operational records should be referenced by stable IDs and not copied into editable website prose. Their inclusion/exclusion must be explicit in the payload schema.
+
+### Permission and state transitions
+
+- `website.content.edit`: create/update Draft versions. Existing Full/Manager legacy write access must not silently become a grant to this new permission.
+- `website.content.review`: move Draft to InReview, then Approved or ChangesRequested. Reviewer cannot approve their own draft.
+- `website.content.publish`: publish only an Approved version; separate from edit/review and default-deny. System Manager does not inherit this automatically.
+- `website.content.rollback`: restore a previously published immutable version through a new audited publication event; never mutate historical rows.
+- Public readers: anonymous read of the one published version only. Draft/InReview/Approved content must never be returned by public endpoints.
+- Existing legacy write endpoints must be converted into draft mutations before any new role grants are activated. During migration they must not bypass the draft workflow.
+
+The exact per-account permission grants must be seeded only after the existing user/clearance inventory and legacy Manager snapshot have been captured. The publishing permission must be independently assignable; do not hard-code a clearance name as a permanent substitute for the permission catalog.
+
+### Safe migration and rollback sequence
+
+1. Run a read-only preflight that inventories every key and row, records row counts and hashes, captures all relevant Drive IDs/URLs, and checks that the snapshot can be serialized within Apps Script and Sheets limits.
+2. Create the additive version/config/audit stores without modifying the live Content, Events, Gallery, or Drive records.
+3. Seed a baseline version from the current live stores. Compare source and payload hashes; abort if any key, media reference, or structured record is missing.
+4. Keep the public pointer unset until a complete baseline passes validation. While unset, public readers continue using the legacy live stores.
+5. Route every editor save/reset operation to a draft version. This includes all legacy HTML block writes, About structured data and photos, homepage sections/hero, page intros/banners, and section cards. Photo uploads must remain unreferenced until a draft includes them; abandoning a draft must not trash assets referenced by the published version.
+6. Convert public readers as one release unit to resolve the published payload, with legacy fallback only while the pointer is unset. Switch the pointer atomically after smoke tests pass.
+7. Publish an approved test version and verify all public page routes, hero links, page intros/banners, section cards, About content, leader photos, and gallery/event integrations. Verify that a draft edit cannot alter public output.
+8. Rollback by moving the published pointer to the previous immutable version and invalidating all relevant caches. Preserve both versions and audit the rollback.
+9. Only after these checks pass, disable legacy direct-to-live writes. Keep a documented emergency rollback procedure.
+
+### M7 implementation boundary
+
+The source audit has completed the inventory and migration contract only. It has **not** created the version sheets, migrated any live content, changed public readers, or redirected existing editor saves. That restraint is intentional: a partial cutover would either expose drafts or make current content disappear. Implementation should proceed in additive stages with a complete snapshot and regression tests before the single public-reader cutover.
+
 ### Release-gate status
 
 - M1: allow-list exists; negative field-tampering tests are not evidenced.
