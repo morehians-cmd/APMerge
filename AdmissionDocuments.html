@@ -1,0 +1,75 @@
+<script>
+(function(){
+  const $d=id=>document.getElementById(id);
+  const docEsc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function docBusy(on){const x=$d('load');if(x)x.classList.toggle('hidden',!on)}
+  function docCall(name,args,done){
+    docBusy(true);
+    google.script.run.withSuccessHandler(r=>{docBusy(false);if(!r||!r.success){toast(r&&r.error||'The request failed.',false);return}done&&done(r.data,r)})
+      .withFailureHandler(e=>{docBusy(false);toast(e&&e.message||'The request failed.',false)})[name].apply(null,args);
+  }
+  window.admissionDocumentsPage=function(){
+    const admin=!!(S.user&&S.user.Role==='admin');
+    head(admin?'Applicant Documents':'My Application Documents',admin?'Review uploaded applicant requirements':'Upload and track your submitted requirements');
+    $('view').innerHTML=`
+      <div class="card">
+        <div class="ch"><h3>${admin?'Find applicant documents':'Submit your requirements'}</h3></div>
+        ${admin?'<div class="g"><div class="f"><label>Student / Application ID</label><input id="adStudentId" placeholder="Enter the applicant Student ID"></div><div class="f" style="align-self:end"><button class="btn" onclick="adDocsLoad()">Load documents</button></div></div>':'<p class="muted">Upload clear scans or photos of your requirements. Each file may be up to 10 MB.</p>'}
+        <div id="adDocsStatus" style="margin-top:12px;color:var(--mut)"></div>
+      </div>
+      <div class="card" id="adUploadCard" ${admin?'style="display:none"':''}>
+        <h3>Upload a document</h3>
+        <div class="g">
+          <div class="f"><label>Document type</label><select id="adDocType">${['Birth Certificate','Report Card / SF9','Form 137','Good Moral Certificate','JHS Completion Certificate','Transferee Certification','Other Supporting Document'].map(x=>'<option>'+x+'</option>').join('')}</select></div>
+          <div class="f"><label>File (PDF, JPG or PNG; max 10 MB)</label><input id="adDocFile" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"></div>
+          <div class="f wide"><label>Note to Admissions (optional)</label><input id="adDocNote" maxlength="300" placeholder="Add a short note about this document"></div>
+        </div>
+        <button class="btn" id="adUploadBtn" onclick="adDocsUpload()">Upload document</button>
+      </div>
+      <div class="card"><div class="ch"><h3>Document records</h3><span id="adDocCount" class="chip">0 documents</span></div><div id="adDocsList"><div class="aemp">Loading documents…</div></div></div>`;
+    if(admin)$('adStudentId').value='';
+    else window.adDocsLoad();
+  };
+  window.adDocsLoad=function(){
+    const admin=!!(S.user&&S.user.Role==='admin'),id=admin?($d('adStudentId').value||'').trim():'';
+    if(admin&&!id){toast('Enter an applicant Student ID.',false);return}
+    docCall('listAdmissionDocuments',[T(),id],data=>{
+      S.adDocStudent=data.studentId;S.adDocReview=!!data.canReview;
+      $('adDocCount').textContent=data.documents.length+' document(s)';
+      $('adDocsStatus').textContent='Applicant ID: '+data.studentId;
+      $('adDocsList').innerHTML=data.documents.length?data.documents.map(d=>`
+        <div class="lr" style="padding:12px 0;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:180px"><b>${docEsc(d.type)}</b><div style="color:var(--mut);font-size:13px">${docEsc(d.fileName)} · ${(d.fileSize/1048576).toFixed(2)} MB · ${docEsc(d.uploadedAt)}</div>
+          ${d.reviewNote?'<small style="color:var(--danger)">'+docEsc(d.reviewNote)+'</small>':''}</div>
+          <span class="chip ${d.status==='Approved'?'good':d.status==='Rejected'||d.status==='Needs Correction'?'warn':''}">${docEsc(d.status)}</span>
+          <button class="btn alt" onclick="adDocsOpen('${docEsc(d.documentId)}')">View</button>
+          ${data.canReview?'<button class="btn alt" onclick="adDocsReview(\''+docEsc(d.documentId)+'\',\'Approved\')">Approve</button><button class="btn alt" onclick="adDocsReview(\''+docEsc(d.documentId)+'\',\'Needs Correction\')">Request correction</button><button class="btn red" onclick="adDocsReview(\''+docEsc(d.documentId)+'\',\'Rejected\')">Reject</button>':''}
+        </div>`).join(''):'<div class="aemp">No documents have been uploaded.</div>';
+    });
+  };
+  window.adDocsUpload=function(){
+    const f=$d('adDocFile').files[0];if(!f)return toast('Choose a file to upload.',false);
+    if(f.size>10*1024*1024)return toast('Each document must be 10 MB or smaller.',false);
+    const allowed=['application/pdf','image/jpeg','image/png'];if(!allowed.includes(f.type))return toast('Upload a PDF, JPEG or PNG file.',false);
+    const reader=new FileReader();reader.onerror=()=>toast('The selected file could not be read.',false);
+    reader.onload=()=>{
+      const btn=$d('adUploadBtn');btn.disabled=true;
+      docCall('uploadAdmissionDocument',[T(),$d('adDocType').value,f.name,f.type,reader.result,$d('adDocNote').value],()=>{
+        $d('adDocFile').value='';$d('adDocNote').value='';btn.disabled=false;toast('Document uploaded for review.');adDocsLoad();
+      });
+      setTimeout(()=>{if(btn)btn.disabled=false},15000);
+    };reader.readAsDataURL(f);
+  };
+  window.adDocsOpen=function(id){
+    docCall('getAdmissionDocument',[T(),id],d=>{
+      const raw=atob(d.dataUrl.split(',')[1]),arr=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)arr[i]=raw.charCodeAt(i);
+      const url=URL.createObjectURL(new Blob([arr],{type:d.mimeType}));window.open(url,'_blank','noopener');
+    });
+  };
+  window.adDocsReview=function(id,status){
+    let note='';if(status!=='Approved'){note=prompt(status==='Rejected'?'Explain why this document is rejected:':'Explain what the applicant must correct:')||'';if(!note.trim())return}
+    if(!confirm('Mark this document as '+status+'?'))return;
+    docCall('reviewAdmissionDocument',[T(),id,status,note],()=>{toast('Review saved.');adDocsLoad()});
+  };
+})();
+</script>
