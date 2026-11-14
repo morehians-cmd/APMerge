@@ -75,7 +75,7 @@ The following endpoint paths were inspected on branch `website-pages-fixes`. Thi
 
 | Endpoint / helper | Scope behavior to verify in the development copy |
 |---|---|
-| `studentSearchScope_`, `studentWithinSearchScope_`, `assertStudentScope_` | Missing/malformed assignments fail closed; matching grade and section are both required. M4-03 checks the shared account-property collision detector; both Encoder scope and website-permission readers now fail closed when distinct staff usernames collapse to the same legacy Script Property suffix. |
+| `studentSearchScope_`, `studentWithinSearchScope_`, `assertStudentScope_` | Missing/malformed assignments fail closed; matching grade and section are both required. M4-03 invokes both the Encoder scope reader and website-permission reader under a synthetic collision table. The collision helper now detects distinct usernames that collapse to the same suffix and duplicate case-insensitive usernames, while allowing exactly one matching account row. The latest source change and expanded test have not yet been rerun in Apps Script. |
 | `searchStudents` | Filters rows and returned bulk IDs to assigned grade/section combinations; an explicitly requested unassigned grade is rejected. |
 | `getStudent` | Direct lookup of an out-of-scope StudentID fails closed. |
 | `saveStudent` | Checks the existing record before editing and the resulting grade/section before writing. |
@@ -180,7 +180,7 @@ The execution output explicitly retains these manual evidence items as open:
 4. **M6:** Run every report, drill-down, export and history endpoint for every role.
 5. **M7:** Complete editor/public-reader/media cutover and draft/review/publish/rollback browser acceptance.
 
-This 20/20 result records a successful execution of the then-current 20-check suite. After reviewing the M4-03 test implementation, the check was strengthened in source to invoke both `studentSearchScope_` and `wpPermissionMap_` under a synthetic colliding staff-account table, rather than relying only on the shared collision helper. That test-strengthening commit postdates this execution; synchronize the latest `AcceptanceTests.gs` and rerun `runSecurityAcceptanceTests()` before treating the strengthened M4-03 reader assertions as runtime-passed. The 20/20 result does not close the five manual evidence gates, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
+This 20/20 result records a successful execution of the then-current 20-check suite. Subsequent source commits strengthened M4-03 to invoke both `studentSearchScope_` and `wpPermissionMap_` under a synthetic colliding staff-account table, and hardened the collision helper to detect duplicate case-insensitive usernames as well as distinct usernames that normalize to the same property suffix. Those source and test changes postdate this execution; synchronize the latest `Code.gs` and `AcceptanceTests.gs` and rerun `runSecurityAcceptanceTests()` before treating the expanded M4-03 assertions as runtime-passed. The 20/20 result does not close the five manual evidence gates, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
 
 ### Historical execution — 19-check suite
 
