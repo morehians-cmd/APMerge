@@ -109,7 +109,7 @@ The current implementation in `Code.gs` preserves unrestricted legacy search for
 
 Only listed grades and listed sections are returned. To include unassigned-section students for a grade, include the empty string in that grade's section list. Missing, malformed, or empty assignments fail closed. Grade and section names must match the canonical student record values. Configure these properties manually in Apps Script Project Settings > Script Properties only after the school confirms each Encoder's authorized grade/section scope.
 
-This first M4 code change scopes the student search response and its bulk-action `ids` list. It does **not** yet authorize direct `getStudent`, `saveStudent`, report, dashboard, or export endpoints for Encoders. Those endpoints remain separate M4/M5/M6 remediation work and must be audited before claiming full closure. Existing Encoder accounts without an explicit property will temporarily see an authorization message rather than a broad school-wide search.
+This M4 code change now applies the same grade/section scope to `searchStudents` and its bulk-action `ids` list, direct `getStudent` access, `saveStudent` updates/creation, the main `dashboard`, `dashboardExtra`, and the Encoder daily report. Non-daily reports remain denied to Encoders. Full and Manager behavior remains unchanged. The property is required for every Encoder; missing or invalid assignments fail closed. This closes the identified student search and associated record-scope exposure for these audited endpoints, but does not certify every student-bearing endpoint or the broader M5 dashboard payload audit. A separate endpoint inventory and negative test run is still required before M4/M5 can be marked complete.
 
 ## Migration sequence and release gates
 
