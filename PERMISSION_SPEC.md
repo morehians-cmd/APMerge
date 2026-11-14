@@ -482,6 +482,6 @@ The harness and runbook are **test assets, not proof that tests have passed**. T
 
 The non-destructive runSecurityAcceptanceTests() suite now includes:
 - M5-01: invalid-session direct-call rejection for dashboard, dashboardExtra, and dashboardDemo.
-- M6-01: invalid-session direct-call rejection for report home, analytics, drill, logging, preferences, favorites, saved-report create/delete, and history endpoints.
+- M6-01: invalid-session direct-call rejection for legacy report data, report home, analytics, drill, logging, preferences, favorites, saved-report create/delete, and history endpoints.
 
 The updated AcceptanceTests.gs passed a JavaScript syntax parse after this change. The checks have **not** been executed in Apps Script; no runtime pass is claimed. They test unauthenticated rejection only and do not close M5 or M6. The authenticated role matrix, endpoint coverage, exports, field minimization, and data-scope checks remain mandatory. Production deployment and website publishing cutover remain unauthorized; WP_PUBLISH_CUTOVER_READY_ must remain false.
