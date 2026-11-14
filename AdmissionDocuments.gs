@@ -99,7 +99,9 @@ function uploadAdmissionDocument(token, documentType, fileName, mimeType, dataUr
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
-    const u = who_(token), ctx = admissionDocAccess_(token, u.Role === 'student' ? u.StudentID : '');
+    const u = who_(token);
+    if (u.Role !== 'student') throw new Error('Applicants must upload documents from their own student account.');
+    const ctx = admissionDocAccess_(token, u.StudentID);
     if (!ADMISSION_DOC_TYPES.includes(String(documentType))) throw new Error('Choose a valid document type.');
     const mime = String(mimeType || '').toLowerCase();
     if (!ADMISSION_DOC_MIME.includes(mime)) throw new Error('Upload a PDF, JPEG or PNG file.');
@@ -133,7 +135,10 @@ function reviewAdmissionDocument(token, documentId, decision, note) {
     const msg = String(note || '').trim().slice(0,500);
     if (status !== 'Approved' && !msg) throw new Error('Add a note explaining what the applicant must correct.');
     const now = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm:ss');
-    put_(admissionDocSheet_(), d._row, 8, [[status,msg ? d.ApplicantNote : d.ApplicantNote, msg, now, u.Username]]);
+    const sh = admissionDocSheet_();
+    put_(sh, d._row, 8, [[status]]);
+    put_(sh, d._row, 10, [[msg]]);
+    put_(sh, d._row, 13, [[now, u.Username]]);
     audit_(u, 'admission.document.review', d.StudentID, d.DocumentType + ' => ' + status);
     return ok(null, 'Document marked ' + status + '.');
   } catch(e) { return fail(e); } finally { try { lock.releaseLock(); } catch(_) {} }
