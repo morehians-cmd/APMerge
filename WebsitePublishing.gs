@@ -152,12 +152,13 @@ function websitePublishingPreflight(token) {
         serializedBytes:payloadBytes,
         sha256:wpHash_(payloadJson),
         singleCellSafe:payloadJson.length <= 45000,
+        chunkedStorageSupported:true,
         chunkChars:WP_PREFLIGHT_CHUNK_CHARS_,
         requiredChunkRows:Math.max(1, Math.ceil(payloadJson.length / WP_PREFLIGHT_CHUNK_CHARS_)),
         oversizedExistingContentCells:oversizedContentCells
       },
       readiness:{
-        readyForBaselineSeed:!!eventsSheet && duplicateKeys.length === 0 && duplicateGalleryIds.length === 0 && missingOrTrashed.length === 0 && oversizedContentCells.length === 0 && payloadJson.length <= 45000,
+        readyForBaselineSeed:!!eventsSheet && duplicateKeys.length === 0 && duplicateGalleryIds.length === 0 && missingOrTrashed.length === 0 && oversizedContentCells.length === 0,
         blockers:[]
       }
     };
@@ -167,7 +168,7 @@ function websitePublishingPreflight(token) {
     if (duplicateGalleryIds.length) report.readiness.blockers.push('Duplicate gallery file references were found within a page.');
     if (missingOrTrashed.length) report.readiness.blockers.push('One or more referenced Drive files are missing or trashed.');
     if (oversizedContentCells.length) report.readiness.blockers.push('One or more existing Content values exceed the conservative single-cell limit.');
-    if (payloadJson.length > 45000) report.readiness.blockers.push('The complete snapshot requires chunked storage; do not store it in one Google Sheets cell.');
+    if (payloadJson.length > 45000) report.candidatePayload.chunkedStorageRequired = true;
 
     return ok(report, 'Read-only website publishing preflight completed. No live data was changed.');
   } catch (error) {
@@ -262,6 +263,142 @@ function setupWebsitePublishingStores(token) {
       publicReaderChanged:false,
       editorWritesRedirected:false
     }, 'Website publishing stores are prepared. Existing live website content remains unchanged.');
+  } catch (error) {
+    return fail(error);
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
+
+
+function wpConfigMap_(sheet) {
+  const out = {};
+  if (sheet.getLastRow() > 1) {
+    sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getDisplayValues().forEach(row => {
+      if (row[0]) out[wpText_(row[0])] = wpText_(row[1]);
+    });
+  }
+  return out;
+}
+
+function wpSetConfigValue_(sheet, key, value) {
+  if (sheet.getLastRow() > 1) {
+    const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getDisplayValues();
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i][0] === key) {
+        sheet.getRange(i + 2, 2).setNumberFormat('@').setValue(wpText_(value));
+        return;
+      }
+    }
+  }
+  throw new Error('Publishing configuration key is missing: ' + key);
+}
+
+/**
+ * Seeds one immutable, chunked snapshot of the current live website data.
+ * Requires the additive stores and a clean read-only preflight.
+ * Leaves published_version_id blank; public readers remain on legacy stores.
+ */
+function seedWebsitePublishingBaseline(token) {
+  const lock = LockService.getScriptLock();
+  try {
+    const actor = sysOwner_(token);
+    lock.waitLock(20000);
+
+    const preflight = websitePublishingPreflight(token);
+    if (!preflight.success) throw new Error(preflight.error || 'Website preflight failed.');
+    if (!preflight.data.readiness.readyForBaselineSeed) {
+      throw new Error('Baseline seed blocked: ' + preflight.data.readiness.blockers.join(' '));
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const versions = ss.getSheetByName('Website Versions');
+    const chunks = ss.getSheetByName('Website Version Chunks');
+    const config = ss.getSheetByName('Website Publishing Config');
+    const audit = ss.getSheetByName('Website Publishing Audit');
+    if (!versions || !chunks || !config || !audit) throw new Error('Run setupWebsitePublishingStores(token) before seeding the baseline.');
+    [WP_VERSION_HEADERS_, WP_CHUNK_HEADERS_, WP_CONFIG_HEADERS_, WP_AUDIT_HEADERS_].forEach((headers, index) => {
+      const sheet = [versions, chunks, config, audit][index];
+      const actual = sheet.getRange(1, 1, 1, headers.length).getDisplayValues()[0];
+      if (headers.some((header, i) => actual[i] !== header)) throw new Error('Publishing store schema mismatch in "' + sheet.getName() + '".');
+    });
+
+    const currentConfig = wpConfigMap_(config);
+    if (currentConfig.baseline_version_id) throw new Error('A baseline version is already recorded. Do not overwrite it.');
+    if (currentConfig.published_version_id) throw new Error('The published pointer is already set. Baseline seeding is closed.');
+    if (currentConfig.migration_state !== 'PREPARED') throw new Error('Publishing migration is not in PREPARED state.');
+
+    const contentSheet = ss.getSheetByName('Content');
+    const eventsSheet = ss.getSheetByName('Events');
+    const contentRows = contentSheet.getLastRow() > 1
+      ? contentSheet.getRange(2, 1, contentSheet.getLastRow() - 1, 2).getDisplayValues()
+          .filter(row => wpText_(row[0]).trim() !== '')
+          .map(row => [wpText_(row[0]), wpText_(row[1])])
+      : [];
+    const events = eventsSheet.getLastRow() > 1
+      ? eventsSheet.getRange(2, 1, eventsSheet.getLastRow() - 1, Math.min(eventsSheet.getLastColumn(), EVCOLS.length)).getDisplayValues()
+          .filter(row => row.some(cell => wpText_(cell).trim() !== ''))
+          .map(row => {
+            const event = {};
+            EVCOLS.forEach((key, i) => { event[key] = wpText_(row[i]); });
+            return event;
+          })
+      : [];
+    const galleries = {};
+    GAL_PAGES.forEach(page => {
+      galleries[page] = galRead_(page).list.map(item => ({ id:wpText_(item.id), cap:wpText_(item.cap) }));
+    });
+
+    const payloadJson = JSON.stringify({ schemaVersion:WP_PREFLIGHT_SCHEMA_, contentRows:contentRows, events:events, galleries:galleries });
+    const payloadHash = wpHash_(payloadJson);
+    if (payloadHash !== preflight.data.candidatePayload.sha256) {
+      throw new Error('Live website content changed after preflight. Run the preflight again and retry.');
+    }
+
+    const versionId = 'WV-' + Utilities.getUuid();
+    const chunkCount = Math.max(1, Math.ceil(payloadJson.length / WP_PREFLIGHT_CHUNK_CHARS_));
+    const chunkRows = [];
+    for (let i = 0; i < chunkCount; i++) {
+      const part = payloadJson.slice(i * WP_PREFLIGHT_CHUNK_CHARS_, (i + 1) * WP_PREFLIGHT_CHUNK_CHARS_);
+      chunkRows.push([versionId, i + 1, chunkCount, part, wpHash_(part)]);
+    }
+
+    const chunkStart = chunks.getLastRow() + 1;
+    chunks.getRange(chunkStart, 1, chunkRows.length, WP_CHUNK_HEADERS_.length).setNumberFormat('@');
+    chunks.getRange(chunkStart, 1, chunkRows.length, WP_CHUNK_HEADERS_.length).setValues(chunkRows);
+    const saved = chunks.getRange(chunkStart, 1, chunkRows.length, WP_CHUNK_HEADERS_.length).getDisplayValues();
+    const rebuilt = saved.map(row => row[3]).join('');
+    if (saved.length !== chunkCount || wpHash_(rebuilt) !== payloadHash) {
+      throw new Error('Stored baseline chunks failed integrity verification. The published pointer remains unchanged.');
+    }
+
+    const now = new Date();
+    const payloadBytes = Utilities.newBlob(payloadJson, 'application/json').getBytes().length;
+    versions.appendRow([
+      versionId, '', 'Approved', actor.Username, now, actor.Username, now,
+      actor.Username, now, 'Immutable migration baseline captured from the current live website.',
+      '', '', payloadHash, payloadJson.length, payloadBytes, chunkCount
+    ]);
+    wpSetConfigValue_(config, 'baseline_version_id', versionId);
+    wpSetConfigValue_(config, 'migration_state', 'BASELINE_SEEDED');
+    audit.appendRow([
+      Utilities.getUuid(), versionId, 'baseline.seed', actor.Username, now,
+      'Baseline snapshot stored and chunk hashes verified; published pointer intentionally left blank.',
+      payloadHash
+    ]);
+
+    return ok({
+      versionId:versionId,
+      status:'Approved',
+      payloadHash:payloadHash,
+      payloadChars:payloadJson.length,
+      payloadBytes:payloadBytes,
+      payloadChunkCount:chunkCount,
+      publishedVersionId:'',
+      migrationState:'BASELINE_SEEDED',
+      publicReadersChanged:false,
+      editorWritesRedirected:false
+    }, 'Baseline snapshot seeded and verified. Public readers and editor writes remain unchanged.');
   } catch (error) {
     return fail(error);
   } finally {
