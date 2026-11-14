@@ -93,7 +93,7 @@ For every mutation test, capture the exact target StudentID, account username/cl
 
 ### M5 — Dashboard, role and endpoint matrix
 
-The automated suite includes M5-01 for dashboard, dashboardExtra, and dashboardDemo, plus M5-02 for event, notification, system-settings, school-year, and career-result endpoints. M5-03 now checks the pure row-scope helper used by `dashboardSpec()` so Encoder dashboard aggregation cannot include cross-section or cross-grade rows. M5-01/M5-02 invoke their listed endpoints directly with an invalid session token; M5-03 is a helper regression test, not a live endpoint/account test. These checks prove only the specific behaviors stated; they do not replace the role-by-role and data-minimization tests below.
+The automated suite includes M5-01 for dashboard, dashboardExtra, and dashboardDemo, plus M5-02 for event, notification, system-settings, school-year, and career-result endpoints. M5-03 now invokes `dashboardSpec()` through a controlled endpoint harness with synthetic Encoder authentication and student rows. It asserts that totals, recent registrations and charts contain only the assigned grade/section and that College figures are withheld. M5-01/M5-02 invoke their listed endpoints directly with an invalid session token; M5-03 exercises the endpoint logic with stubbed dependencies, not real accounts or live spreadsheet records. These checks prove only the specific behaviors stated; they do not replace the role-by-role and data-minimization tests below.
 
 Test both UI navigation and direct `google.script.run` invocation. Hidden buttons do not count as authorization.
 
@@ -207,7 +207,7 @@ The defect has been corrected on `website-pages-fixes`:
 - `dashboardSpec()` now obtains `studentSearchScope_(u)` and applies `dsScopeRows_()` to the active-year rows before filters, counts, charts, recent registrations or attention data are assembled.
 - The helper preserves existing Full/Manager behavior because their scope is `null`.
 - College dashboard aggregates are omitted for scoped Encoder accounts; College data is not represented in the Basic Education grade/section assignment model.
-- `AcceptanceTests.gs` now includes M5-03 with cross-section, cross-grade and Senior High fixtures, and confirms Full/Manager's existing unscoped helper behavior remains unchanged.
+- `AcceptanceTests.gs` now includes M5-03 with cross-section, cross-grade and Senior High fixtures, asserts the endpoint's returned totals/recent/chart data and confirms Full/Manager's existing unscoped scope-helper behavior remains unchanged.
 
 **Commits:** `DashboardSpec.gs` — `e31d73c45fa96dbd0fc17534aaead83815c56695`; `AcceptanceTests.gs` — `346d1eeae3dbce10ca4ce0b02895fe549ef1bbc3`.
 
