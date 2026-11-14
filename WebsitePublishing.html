@@ -5,8 +5,13 @@
 <script>
 const WPUI={permissions:{},versions:[],selected:'',username:'',publishingReady:false,publishingBlockers:[],canPrepare:false,diagnostics:null,about:null,photoCache:{},photoLoading:{},photoIndex:-1,payload:null,contentKey:'',contentValue:'',galleryPage:'',galleryValue:'',aboutSavedJSON:''};
 const WP_ICONS=['heart','award','users','bulb','shield','book','star','eye','target'];
-function websitePublishingPage(){
+function openWebsitePublishingEditor(contentKey,galleryPage){
+  websitePublishingPage(contentKey||'',galleryPage||'');
+}
+function websitePublishingPage(initialContentKey,initialGalleryPage){
   head('Website Publishing','Prepare, review, publish and restore approved public website content');
+  if(initialContentKey)WPUI.contentKey=initialContentKey;
+  if(initialGalleryPage)WPUI.galleryPage=initialGalleryPage;
   WPUI.permissions={};WPUI.versions=[];WPUI.selected='';WPUI.about=null;
   $('view').innerHTML='<div class="card"><div class="aemp">Loading website publishing permissions…</div></div>';
   call('getMyWebsitePermissions',[T()],r=>{
