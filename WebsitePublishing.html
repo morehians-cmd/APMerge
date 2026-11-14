@@ -58,7 +58,7 @@ function wpUiContentKeys_(){
 }
 function wpUiDefaultContentValue_(key){
   const d=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};
-  const values={pubhome_content:d.homepageContent||{},pubhome_hero:d.homepageHero||{},pubpage_intro:d.pageIntros||{},pubpage_banners:d.pageBanners||{}};
+  const values={pubhome_content:d.homepageContent||{},pubhome_hero:d.homepageHero||{},pubpage_intro:d.pageIntros||{},pubpage_banners:{}};
   const group=Object.values(d.sectionCards||{}).find(item=>item&&item.key===key);
   if(group)return JSON.stringify(group.defaults||[],null,2);
   return Object.prototype.hasOwnProperty.call(values,key)?JSON.stringify(values[key],null,2):'';
@@ -126,9 +126,21 @@ function wpUiLoad(id){
     });
   });
 }
+function wpUiContentHint_(key){
+  const d=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};
+  const group=Object.values(d.sectionCards||{}).find(item=>item&&item.key===key);
+  if(group)return 'JSON array of '+group.label+' cards. Each card has title, text and link. Use https:// or an internal ?page= link.';
+  if(key==='pubhome_hero')return 'JSON object with headline, subheadline, description, primaryText, primaryUrl, secondaryText, secondaryUrl and three image URLs.';
+  if(key==='pubhome_content')return 'JSON object for homepage section wording, values, About photo and footer details.';
+  if(key==='pubpage_intro')return 'JSON object keyed by page slug. Each value has eyebrow, title and lead. An empty object keeps the standard introductions.';
+  if(key==='pubpage_banners')return 'JSON object keyed by page slug. Each value has eyebrow, title, subtitle and image. An empty object keeps standard banners.';
+  if(key==='about_data')return 'Use the structured About editor above.';
+  if(Object.values(d.pageBlockKeys||{}).includes(key)|| (d.publicBlockKeys||[]).includes(key))return 'Public HTML content block. The value is sanitized before it is saved to the draft.';
+  return 'Edit this captured public website value in the selected draft only.';
+}
 function wpUiContentEditor(){
   const options=wpUiContentKeys_().map(key=>'<option value="'+esc(key)+'" '+(key===WPUI.contentKey?'selected':'')+'>'+esc(key)+'</option>').join('');
-  return '<div class="card"><h3>Website content blocks and page settings</h3><p class="wp-muted">Edit a captured Content-sheet key in this draft only. JSON-backed settings must remain valid JSON. Keys with no saved override start from the captured defaults. The original live Content sheet is not changed.</p><div class="wp-field"><label>Content key</label><select id="wpContentKey">'+options+'</select></div><div class="wp-field" style="margin-top:10px"><label>Draft value</label><textarea id="wpContentValue" rows="12" style="font-family:monospace">'+esc(WPUI.contentValue)+'</textarea></div><div class="wp-actions"><button class="btn" data-act="wpcontentsave">Save content revision</button></div></div>';
+  return '<div class="card"><h3>Website content blocks and page settings</h3><p class="wp-muted">Edit a captured public website value in this draft only. The original live Content sheet is not changed.</p><div class="wp-field"><label>Content key</label><select id="wpContentKey">'+options+'</select></div><p class="wp-muted">'+esc(wpUiContentHint_(WPUI.contentKey))+'</p><div class="wp-field" style="margin-top:10px"><label>Draft value</label><textarea id="wpContentValue" rows="12" style="font-family:monospace">'+esc(WPUI.contentValue)+'</textarea></div><div class="wp-actions"><button class="btn" data-act="wpcontentsave">Save content revision</button></div></div>';
 }
 function wpUiGalleryEditor(){
   const pages=WPUI.payload&&WPUI.payload.galleries?Object.keys(WPUI.payload.galleries):[];
