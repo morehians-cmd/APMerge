@@ -508,6 +508,8 @@ function validateWebsitePublishingBaseline(token) {
       baselinePayloadHash:wpText_(meta[12]),
       currentLivePayloadHash:liveHash,
       sourceUnchangedSinceSeed:sourceUnchanged,
+      livePreflightReady:!!live.data.readiness.readyForBaselineSeed,
+      livePreflightBlockers:live.data.readiness.blockers,
       publishedVersionId:cfg.published_version_id || '',
       migrationState:cfg.migration_state || '',
       baselineValidationPassed:payloadIntegrity && payloadSchemaValid,
