@@ -984,7 +984,7 @@ function getWebsiteDraftAboutPhoto(token, versionId, assetId) {
       : [];
     const staged = mediaRows.filter(row => row[0] === id);
     const file = DriveApp.getFileById(id);
-    if (file.isTrashed() || !/^image\\/(png|jpeg|webp|gif)$/i.test(file.getMimeType() || '')) {
+    if (file.isTrashed() || !/^image\/(png|jpeg|webp|gif)$/i.test(file.getMimeType() || '')) {
       throw new Error('The referenced About photo is trashed or is not a supported image.');
     }
     let allowed = false;
