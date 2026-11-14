@@ -70,6 +70,8 @@ Record endpoint, account, requested StudentID(s), response, and before/after sta
 
 ### M5 — Dashboard, role and endpoint matrix
 
+The automated suite includes M5-01, which directly invokes dashboard, dashboardExtra, and dashboardDemo with an invalid session token. This proves only unauthenticated rejection; it does not replace the role-by-role and data-minimization tests below.
+
 Test both UI navigation and direct `google.script.run` invocation. Hidden buttons do not count as authorization.
 
 | Role | Expected access boundary |
@@ -86,6 +88,8 @@ Test both UI navigation and direct `google.script.run` invocation. Hidden button
 Exercise `dashboard`, `dashboardExtra`, `dashboardDemo`, `searchStudents`, `getStudent`, `saveStudent`, notifications, scholarships, Holds endpoints, College dashboard/roster/program endpoints, ID-card endpoints, and all helper endpoints called by the corresponding screens. Verify sensitive demographic fields and unrelated student records are not returned.
 
 ### M6 — Reports
+
+The automated suite includes M6-01, which directly invokes the report home, analytics, drill, history, preferences, logging, favorites, and saved-report mutation endpoints with an invalid session token. Each must reject before returning data or mutating report metadata. This does not replace authenticated role-matrix tests or export-path verification.
 
 For Full, Manager, Encoder, Guidance, Accounting, HeadTeacher, Teacher and Student, directly call:
 
