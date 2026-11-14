@@ -3,14 +3,14 @@
 @media(max-width:760px){.wp-grid,.wp-ver{grid-template-columns:1fr}.wp-field.wide{grid-column:auto}}
 </style>
 <script>
-const WPUI={permissions:{},versions:[],selected:'',username:'',about:null,photoCache:{},photoLoading:{},photoIndex:-1};
+const WPUI={permissions:{},versions:[],selected:'',username:'',publishingReady:false,publishingBlockers:[],about:null,photoCache:{},photoLoading:{},photoIndex:-1};
 const WP_ICONS=['heart','award','users','bulb','shield','book','star','eye','target'];
 function websitePublishingPage(){
   head('Website Publishing','Prepare, review, publish and restore approved public website content');
   WPUI.permissions={};WPUI.versions=[];WPUI.selected='';WPUI.about=null;
   $('view').innerHTML='<div class="card"><div class="aemp">Loading website publishing permissions…</div></div>';
   call('getMyWebsitePermissions',[T()],r=>{
-    WPUI.permissions=r.data.permissions||{};WPUI.username=String(r.data.username||'').toLowerCase();
+    WPUI.permissions=r.data.permissions||{};WPUI.username=String(r.data.username||'').toLowerCase();WPUI.publishingReady=!!(r.data.publishing&&r.data.publishing.publishEndpointEnabled);WPUI.publishingBlockers=(r.data.publishing&&r.data.publishing.blockers)||[];
     if(!Object.keys(WPUI.permissions).some(key=>WPUI.permissions[key]===true)){
       $('view').innerHTML='<div class="card"><h3>Website publishing access</h3><p class="wp-muted">This account has not been assigned website publishing permissions. Ask the System Manager to assign the required individual website permissions.</p></div>';
       return;
@@ -37,12 +37,12 @@ function wpUiRender(){
   if(v){
     if(['Draft','ChangesRequested'].includes(v.status)&&wpUiCan('website.content.edit'))actions+='<button class="btn" data-act="wpsave">Save About revision</button><button class="btn alt" data-act="wpsubmit">Submit for review</button>';
     if(v.status==='InReview'&&wpUiCan('website.content.review'))actions+='<button class="btn" data-act="wpapprove">Approve</button><button class="btn alt" data-act="wprequest">Request changes</button>';
-    if(v.status==='Approved'&&wpUiCan('website.content.publish'))actions+='<button class="btn" data-act="wppublish">Publish approved version</button>';
-    if(['Archived','Published'].includes(v.status)&&wpUiCan('website.content.rollback')&&v.status!=='Published')actions+='<button class="btn alt" data-act="wprollback">Restore this version</button>';
+    if(v.status==='Approved'&&wpUiCan('website.content.publish')&&WPUI.publishingReady)actions+='<button class="btn" data-act="wppublish">Publish approved version</button>';
+    if(['Archived','Published'].includes(v.status)&&wpUiCan('website.content.rollback')&&WPUI.publishingReady&&v.status!=='Published')actions+='<button class="btn alt" data-act="wprollback">Restore this version</button>';
   }
   const actionCard=actions?'<div class="wp-actions">'+actions+'</div>':'';
   const editor=WPUI.about?wpUiAboutEditor(v):'';
-  $('view').innerHTML='<div class="wp-wrap">'+versionCard+actionCard+editor+'</div>';
+  const publishGate=!WPUI.publishingReady?'<div class="card"><h3 style="margin-top:0">Publication is safely locked</h3><p class="wp-muted">The draft, review and approval workflow is available, but publishing and rollback remain disabled until all legacy website content and media editors write to immutable drafts.</p><ul>'+WPUI.publishingBlockers.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'';\n  $('view').innerHTML='<div class="wp-wrap">'+publishGate+versionCard+actionCard+editor+'</div>';
   if(WPUI.about)wpUiLoadPhotos();
 }
 function wpUiSelect(id){WPUI.selected=id;WPUI.about=null;wpUiRender();if(id)wpUiLoad(id)}
