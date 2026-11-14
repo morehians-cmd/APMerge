@@ -175,3 +175,19 @@ function getAdmissionDocument(token, documentId) {
     return ok({ fileName:d.FileName, mimeType:d.MimeType, dataUrl:'data:'+d.MimeType+';base64,'+Utilities.base64Encode(bytes) });
   } catch(e) { return fail(e); }
 }
+
+/** Internal privacy cleanup used by record deletion and retention jobs. */
+function purgeAdmissionDocuments_(studentIds) {
+  const wanted = {};
+  [].concat(studentIds || []).forEach(id => wanted[String(id)] = true);
+  const sh = admissionDocSheet_(), rows = admissionDocRows_();
+  const targets = rows.filter(d => wanted[d.StudentID]);
+  if (!targets.length) return 0;
+  targets.forEach(d => {
+    try { DriveApp.getFileById(d.DriveFileID).setTrashed(true); }
+    catch(e) { Logger.log('Applicant document cleanup failed for ' + d.DocumentID + ': ' + e.message); }
+  });
+  deleteRowNums_(sh, targets.map(d => d._row));
+  audit_('system:privacy', 'admission.documents.purge', Object.keys(wanted).join(','), targets.length + ' file record(s)');
+  return targets.length;
+}
