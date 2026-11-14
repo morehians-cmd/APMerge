@@ -682,14 +682,12 @@ function wpAssertLegacyWriterOpen_() {
   }
 }
 const WP_PUBLISH_CUTOVER_BLOCKERS_ = [
-  'Content.gs saveAbout() still writes about_data directly to the live Content sheet.',
-  'Content.gs saveBlock() still writes public text blocks directly to the live Content sheet.',
-  'Content.gs setAboutPhoto() still uploads directly to the approved photo folder instead of staging against a draft.',
-  'Public.gs saveHomepageContent() and saveHomepageHero() still write live Content rows.',
-  'Public.gs savePageIntro() and savePageBanner() still write live Content rows.',
-  'Public.gs saveSectionCards() / saveAboutCards() still write live Content rows.',
-  'Gallery.gs addGalleryPhoto(), setGalleryCaption() and removeGalleryPhoto() still mutate live gallery lists.',
-  'Public.gs uploadHomepagePhoto() still writes and shares a photo before it is attached to an immutable draft.'
+  'Run the complete versioned editor workflow in a disposable Apps Script development copy, including About, public blocks, all six section-card groups, homepage settings, page intros/banners and every gallery page.',
+  'Verify staged image ownership, privacy, draft-reference validation, idempotent promotion into the approved photo folder, and rollback retention using real Drive files in the development copy.',
+  'Verify publication pointer switching, public cache invalidation, event snapshot reads, and rollback restoration end to end in the development copy.',
+  'Enable the legacy writer guard in a disposable test copy and verify all 14 guarded endpoints reject legacy live writes while the active versioned editor routes continue to save drafts.',
+  'Run preflight, baseline validation and self-check against the actual development spreadsheet and Drive folders; resolve every reported blocker before considering cutover.',
+  'Complete browser acceptance tests for all migrated navigation entry points and obtain explicit production deployment approval.'
 ];
 
 function wpPublishingCutoverStatus_() {
