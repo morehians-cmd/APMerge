@@ -40,7 +40,7 @@ var PB = { page:'about', saved:{}, defaults:{}, introSaved:{}, introDefaults:{},
 
 function pageBannersPage() {
   if (typeof SYS === 'function' && !SYS()) return toast('The page banners are for the main administrator.', 'warn');
-  head('Page Banners', 'Edit the title banner on About, Admissions, Academics and every other interior page');
+  return openWebsitePublishingEditor('pubpage_banners');
   PB.saved = {}; PB.defaults = {};
   $('view').innerHTML = '<div class="card"><div class="aemp">Loading page banners&hellip;</div></div>';
   google.script.run.withSuccessHandler(function (r) {
