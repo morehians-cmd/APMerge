@@ -56,6 +56,16 @@ function initialSetupAdmissionDocuments() {
   return { sheet:sh.getName(), folderId:folder.getId(), folderUrl:folder.getUrl() };
 }
 
+function inAdmissionDocFolder_(file) {
+  try {
+    const id = PropertiesService.getScriptProperties().getProperty('ADMISSION_DOC_FOLDER_ID');
+    if (!id || !file) return false;
+    const parents = file.getParents();
+    while (parents.hasNext()) if (parents.next().getId() === id) return true;
+  } catch (_) {}
+  return false;
+}
+
 function admissionDocRows_() {
   const sh = admissionDocSheet_(), n = sh.getLastRow() - 1;
   if (n < 1) return [];
@@ -170,6 +180,7 @@ function getAdmissionDocument(token, documentId) {
     const ctx = admissionDocAccess_(token, d.StudentID);
     const f = DriveApp.getFileById(d.DriveFileID);
     if (f.isTrashed()) throw new Error('This file is no longer available.');
+    if (!inAdmissionDocFolder_(f)) throw new Error('Document storage reference is invalid.');
     const blob = f.getBlob(), bytes = blob.getBytes();
     if (bytes.length > ADMISSION_DOC_MAX_BYTES) throw new Error('This file exceeds the preview limit.');
     return ok({ fileName:d.FileName, mimeType:d.MimeType, dataUrl:'data:'+d.MimeType+';base64,'+Utilities.base64Encode(bytes) });
@@ -184,7 +195,7 @@ function purgeAdmissionDocuments_(studentIds) {
   const targets = rows.filter(d => wanted[d.StudentID]);
   if (!targets.length) return 0;
   targets.forEach(d => {
-    try { DriveApp.getFileById(d.DriveFileID).setTrashed(true); }
+    try { const file = DriveApp.getFileById(d.DriveFileID); if (inAdmissionDocFolder_(file)) file.setTrashed(true); }
     catch(e) { Logger.log('Applicant document cleanup failed for ' + d.DocumentID + ': ' + e.message); }
   });
   deleteRowNums_(sh, targets.map(d => d._row));
