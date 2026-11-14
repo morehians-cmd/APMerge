@@ -297,23 +297,26 @@ function getPublicHeaderLogos() {
  * A grade omitted from sections is not accessible. An empty section list grants
  * no access. This deliberately fails closed until an owner explicitly assigns scope.
  */
-function studentScopeKeySuffix_(username) {
+function accountPropertyKeySuffix_(username) {
   return String(username || '').toLowerCase().replace(/[^a-z0-9._-]/g, '_');
 }
 
 /** Returns distinct account names that collapse to the same legacy Script Property suffix. */
-function studentScopeKeyCollisions_(username, usernames) {
+function accountPropertyKeyCollisions_(username, usernames) {
   const current = String(username || '').toLowerCase();
-  const suffix = studentScopeKeySuffix_(current);
+  const suffix = accountPropertyKeySuffix_(current);
   return (usernames || []).map(v => String(v || '').toLowerCase())
-    .filter(v => v && v !== current && studentScopeKeySuffix_(v) === suffix);
+    .filter(v => v && v !== current && accountPropertyKeySuffix_(v) === suffix);
 }
+
+function studentScopeKeySuffix_(username) { return accountPropertyKeySuffix_(username); }
+function studentScopeKeyCollisions_(username, usernames) { return accountPropertyKeyCollisions_(username, usernames); }
 
 function studentSearchScope_(u) {
   if (u.Clearance === 'Full' || u.Clearance === 'Manager') return null;
   if (u.Clearance !== 'Encoder') throw new Error('Not allowed.');
   const username = String(u.Username || '').toLowerCase();
-  const collisions = studentScopeKeyCollisions_(username, rows_('U').map(x => x.Username));
+  const collisions = accountPropertyKeyCollisions_(username, rows_('U').map(x => x.Username));
   if (collisions.length) {
     throw new Error('This account shares a student-scope property key with another staff username. Ask the system administrator to resolve the username collision before using student search.');
   }
