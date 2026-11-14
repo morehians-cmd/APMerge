@@ -916,3 +916,95 @@ function getWebsiteVersion(token, versionId) {
     return fail(error);
   }
 }
+
+
+/**
+ * Read-only diagnostic for the website publishing foundation.
+ * It does not create sheets, alter permissions, edit versions, or change the public site.
+ */
+function websitePublishingSelfCheck(token) {
+  try {
+    const actor = wpActor_(token);
+    const checks = [];
+    const check = (name, passed, detail) => checks.push({ name:name, passed:!!passed, detail:detail || '' });
+
+    const unicodeSample = 'a'.repeat(WP_PREFLIGHT_CHUNK_CHARS_ - 1) + '😀' + 'b'.repeat(17);
+    const unicodeParts = wpSplitChunks_(unicodeSample, WP_PREFLIGHT_CHUNK_CHARS_);
+    const unicodeRoundTrip = unicodeParts.join('') === unicodeSample;
+    const noSplitSurrogate = unicodeParts.every((part, index) => {
+      if (index === unicodeParts.length - 1 || !part.length) return true;
+      const last = part.charCodeAt(part.length - 1);
+      return !(last >= 0xD800 && last <= 0xDBFF);
+    });
+    check('Unicode-safe chunk round trip', unicodeRoundTrip && noSplitSurrogate,
+      'Synthetic emoji boundary round trip across ' + unicodeParts.length + ' chunks.');
+
+    check('Version schema has unique headers', new Set(WP_VERSION_HEADERS_).size === WP_VERSION_HEADERS_.length);
+    check('Chunk schema has unique headers', new Set(WP_CHUNK_HEADERS_).size === WP_CHUNK_HEADERS_.length);
+    check('Config schema has unique headers', new Set(WP_CONFIG_HEADERS_).size === WP_CONFIG_HEADERS_.length);
+    check('Audit schema has unique headers', new Set(WP_AUDIT_HEADERS_).size === WP_AUDIT_HEADERS_.length);
+    check('Explicit website permission catalog is unique',
+      new Set(WP_PERMISSION_KEYS_).size === WP_PERMISSION_KEYS_.length &&
+      WP_PERMISSION_KEYS_.every(key => /^website\.content\.(edit|review|publish|rollback)$/.test(key)));
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const expected = [
+      ['Website Versions',WP_VERSION_HEADERS_],
+      ['Website Version Chunks',WP_CHUNK_HEADERS_],
+      ['Website Publishing Config',WP_CONFIG_HEADERS_],
+      ['Website Publishing Audit',WP_AUDIT_HEADERS_]
+    ];
+    const storeStates = expected.map(([name, headers]) => {
+      const sheet = ss.getSheetByName(name);
+      if (!sheet) return { name:name, exists:false, headerValid:false, rows:0 };
+      const actual = sheet.getRange(1, 1, 1, headers.length).getDisplayValues()[0];
+      return {
+        name:name, exists:true,
+        headerValid:headers.every((header, index) => actual[index] === header),
+        rows:Math.max(0, sheet.getLastRow() - 1)
+      };
+    });
+    check('Additive publishing store headers', storeStates.every(item => item.exists && item.headerValid),
+      storeStates.map(item => item.name + ': ' + (item.headerValid ? 'valid' : 'missing/invalid')).join('; '));
+
+    const configSheet = ss.getSheetByName('Website Publishing Config');
+    let config = {};
+    let configValid = false;
+    if (configSheet) {
+      config = wpConfigMap_(configSheet);
+      configValid = !!config.schema_version && !!config.migration_state &&
+        Object.prototype.hasOwnProperty.call(config, 'published_version_id') &&
+        Object.prototype.hasOwnProperty.call(config, 'baseline_version_id');
+    }
+    check('Publishing configuration is readable', configValid);
+    check('No public version is activated prematurely', !config.published_version_id,
+      config.published_version_id ? 'A published pointer exists; verify the reader cutover before continuing.' : 'Published pointer is blank.');
+
+    const baselineId = config.baseline_version_id || '';
+    if (baselineId) {
+      const baseline = wpReadVersion_(baselineId);
+      check('Baseline metadata and payload integrity', wpText_(baseline.meta[2]) === 'Baseline',
+        'Baseline version: ' + baselineId);
+    } else {
+      check('Baseline metadata and payload integrity', false, 'No baseline has been seeded yet.');
+    }
+
+    const passed = checks.filter(item => item.passed).length;
+    const failed = checks.length - passed;
+    return ok({
+      generatedAt:new Date().toISOString(),
+      generatedBy:actor.Username,
+      checks:checks,
+      passed:passed,
+      failed:failed,
+      stores:storeStates,
+      migrationState:config.migration_state || 'UNPREPARED',
+      baselineVersionId:baselineId,
+      publishedVersionId:config.published_version_id || '',
+      publicReaderCutoverImplemented:false,
+      publishEndpointEnabled:false
+    }, failed ? 'Website publishing self-check found issues.' : 'Website publishing self-check passed.');
+  } catch (error) {
+    return fail(error);
+  }
+}
