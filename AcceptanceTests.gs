@@ -357,6 +357,25 @@ function runSecurityAcceptanceTests() {
     return groups.length + ' section-card groups validated against their defaults, link policy and text limits.';
   });
 
+  record('M7-07', 'Interrupted media recovery is retryable and never privatizes currently published assets', () => {
+    const rows = [
+      ['asset-staged-0001','staged.jpg','image/jpeg','123','editor@example.test','2026-01-01T00:00:00Z','Staged'],
+      ['asset-moving-0002','moving.jpg','image/jpeg','123','editor@example.test','2026-01-01T00:00:00Z','Promoting'],
+      ['asset-retry-0003','retry.jpg','image/jpeg','123','editor@example.test','2026-01-01T00:00:00Z','RecoveryRequired'],
+      ['asset-live-0004','live.jpg','image/jpeg','123','editor@example.test','2026-01-01T00:00:00Z','RecoveryRequired']
+    ];
+    const candidates = wpPendingMediaRecovery_(rows, {'asset-live-0004':true});
+    assert(candidates.pending.length === 2, 'Expected only the two interrupted, unpublished assets to be recoverable.');
+    assert(candidates.pending[0] === 'asset-moving-0002' && candidates.pending[1] === 'asset-retry-0003',
+      'Interrupted recovery candidates were not selected deterministically.');
+    assert(candidates.conflicts.length === 1 && candidates.conflicts[0].assetId === 'asset-live-0004',
+      'An asset referenced by the published version was not isolated as a conflict.');
+    const duplicate = wpPendingMediaRecovery_([rows[1], rows[1]], {});
+    assert(duplicate.pending.length === 0 && duplicate.conflicts.length === 1,
+      'Duplicate media metadata was not blocked from recovery.');
+    return 'Promoting and RecoveryRequired assets are retry candidates; staged assets are ignored; published references and duplicate metadata are blocked.';
+  });
+
   const passed = results.filter(x => x.passed).length;
   const failed = results.length - passed;
   const report = {
