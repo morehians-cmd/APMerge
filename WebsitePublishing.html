@@ -160,20 +160,25 @@ document.addEventListener('change',e=>{
   if(e.target.id!=='wpPhotoFile')return;
   const file=e.target.files&&e.target.files[0];e.target.value='';
   if(!file||!WPUI.about||WPUI.photoIndex<0)return;
-  const index=WPUI.photoIndex,image=new Image();
-  image.onerror=()=>toast('The selected image could not be read.',false);
+  const index=WPUI.photoIndex,aboutRef=WPUI.about,versionId=WPUI.selected,image=new Image();
+  let objectUrl='';
+  image.onerror=()=>{if(objectUrl)URL.revokeObjectURL(objectUrl);toast('The selected image could not be read.',false)};
   image.onload=()=>{
+    if(objectUrl)URL.revokeObjectURL(objectUrl);
     const scale=Math.min(1,600/Math.max(image.width,image.height));
     const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));
     const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(image,0,0,canvas.width,canvas.height);
     const dataUrl=canvas.toDataURL('image/jpeg',.86);
     call('stageWebsiteMedia',[T(),dataUrl,file.name||'leader-photo.jpg'],r=>{
       const id=r.data.assetId;
-      if(!WPUI.about.leaders[index])return;
-      WPUI.about.leaders[index].photo=id;WPUI.photoCache[id]=dataUrl;wpUiRender();
+      if(WPUI.about!==aboutRef||WPUI.selected!==versionId||!aboutRef.leaders[index]){
+        toast('The image was staged but the selected draft changed before it could be attached.',false);
+        return;
+      }
+      aboutRef.leaders[index].photo=id;WPUI.photoCache[id]=dataUrl;wpUiRender();
     });
   };
-  image.src=URL.createObjectURL(file);
+  objectUrl=URL.createObjectURL(file);image.src=objectUrl;
 });
 act.wpcreate=()=>call('createWebsiteDraft',[T()],r=>{toast(r.message);wpUiRefresh(r.data.versionId)});
 act.wprefresh=()=>wpUiRefresh(WPUI.selected);
