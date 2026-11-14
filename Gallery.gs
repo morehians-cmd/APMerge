@@ -63,7 +63,7 @@ function addGalleryPhoto(token, page, dataUrl, caption) {
     wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const ou = owner_(token), g = galRead_(page);
-    const pageMax = ["about-values","about-history","about-leadership","admissions-enrollment","admissions-requirements","admissions-scholarships","admissions-faq","academics-kindergarten","academics-elementary","academics-junior-high","academics-senior-high","academics-college","campus-organizations","campus-events","campus-sports","campus-clubs","campus-facilities","forms-tlc-application","forms-consent","news-announcements","news-latest","news-events","news-enrollment","news-achievements"].includes(page) ? 1 : GAL_MAX;
+    const pageMax = typeof wpGalleryPageLimit_ === 'function' ? wpGalleryPageLimit_(page) : GAL_MAX;
     if (g.list.length >= pageMax) throw new Error('This page already has its photo limit. Replace or remove the current photo first.');
     const parts = String(dataUrl || '').split(',');
     if (parts.length < 2 || !/^data:image\/jpeg;base64$/i.test(parts[0])) throw new Error('Photo must be a JPEG image.');
