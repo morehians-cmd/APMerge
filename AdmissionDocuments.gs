@@ -107,10 +107,10 @@ function uploadAdmissionDocument(token, requirementKey, fileName, mimeType, data
     if (!Object.prototype.hasOwnProperty.call(ADMISSION_DOC_TYPES_,key)) throw new Error('Invalid admission requirement.');
     const applicable = reqsFor_(student).show;
     if (!applicable.includes(key)) throw new Error('This requirement does not apply to your current grade level or scholarship category.');
-    const name = String(fileName || 'document').replace(/[\\/\\:*?"<>|\\x00-\\x1F]/g,'_').slice(0,120);
+    const name = String(fileName || 'document').replace(/[\\x5c\\/ :*?"<>|\\x00-\\x1F]/g,'_').slice(0,120);
     const mime = String(mimeType || '').toLowerCase();
     if (!ADMISSION_DOC_MIMES_.includes(mime)) throw new Error('Upload a PDF, JPG, JPEG, or PNG file.');
-    const match = /^data:([a-z0-9.+-]+\\/[a-z0-9.+-]+);base64,([a-z0-9+/=]+)$/i.exec(String(dataUrl || ''));
+    const match = /^data:([^;,]+);base64,([a-z0-9+/=]+)$/i.exec(String(dataUrl || ''));
     if (!match || match[1].toLowerCase() !== mime) throw new Error('The uploaded file data is invalid.');
     const bytes = Utilities.base64Decode(match[2]);
     if (!bytes.length || bytes.length > ADMISSION_DOC_MAX_BYTES_) throw new Error('Each file must be smaller than 8 MB.');
