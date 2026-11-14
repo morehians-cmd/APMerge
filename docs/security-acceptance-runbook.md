@@ -93,7 +93,7 @@ For every mutation test, capture the exact target StudentID, account username/cl
 
 ### M5 — Dashboard, role and endpoint matrix
 
-The automated suite includes M5-01 for dashboard, dashboardExtra, and dashboardDemo, M5-02 for event, notification, system-settings, school-year, and career-result endpoints, M5-03 for Encoder dashboard scope, and M5-04 for the shared College role guard. M5-04 verifies the shared authorization helper denies Encoder, Guidance, Accounting, HeadTeacher and Teacher while preserving Full and Manager. The College dashboard, roster and program-list endpoints now all call this guard before reading the College workbook. M5-01/M5-02 invoke their listed endpoints directly with an invalid session token; M5-03/M5-04 use controlled harnesses with stubbed dependencies, not real accounts or live spreadsheet records. These checks prove only the specific behaviors stated; they do not replace the role-by-role and data-minimization tests below.
+The automated suite includes M5-01 for dashboard, dashboardExtra, and dashboardDemo, M5-02 for event, notification, system-settings, school-year, and career-result endpoints, M5-03 for Encoder dashboard scope, M5-04 for the shared College role guard, and M5-05 for the admissions dashboard/report role boundary. M5-04 verifies the shared authorization helper denies Encoder, Guidance, Accounting, HeadTeacher and Teacher while preserving Full and Manager. The College dashboard, roster and program-list endpoints now all call this guard before reading the College workbook. M5-01/M5-02 invoke their listed endpoints directly with an invalid session token; M5-03/M5-04/M5-05 use controlled harnesses with stubbed dependencies, not real accounts or live spreadsheet records. These checks prove only the specific behaviors stated; they do not replace the role-by-role and data-minimization tests below.
 
 Test both UI navigation and direct `google.script.run` invocation. Hidden buttons do not count as authorization.
 
@@ -298,8 +298,27 @@ M1–M7 are closed only when the test evidence above is attached to the release 
 
 **Commits:** `CollegeModule.gs` — `0564fe9710142406bd73f4129e25f8327b74782a`; `AcceptanceTests.gs` — `59f8f2f9196d4c50a7e5af355767a9b7837a1e5e`.
 
-**Runtime status:** The 22/22 execution at `2026-11-14T13:16:35.178Z` predates this finding and does not test M5-04. The current branch suite contains 23 checks. Synchronize the updated `CollegeModule.gs` and `AcceptanceTests.gs` into the disposable Apps Script copy and rerun `runSecurityAcceptanceTests()`. Do not claim 23/23 until the returned Apps Script JSON confirms it.
+**Runtime status:** The 22/22 execution at `2026-11-14T13:16:35.178Z` predates this finding and does not test M5-04. The current branch suite contains 24 checks. Synchronize the updated `CollegeModule.gs` and `AcceptanceTests.gs` into the disposable Apps Script copy and rerun `runSecurityAcceptanceTests()`. Do not claim 23/23 until the returned Apps Script JSON confirms it.
 
 **Static verification required:** Re-fetch both changed files from this branch, parse them with V8, confirm the three College read endpoints call `collegeAdmin_()`, confirm the program mutation remains Full-only, confirm M5-04 is present and restores its mock, and confirm `WP_PUBLISH_CUTOVER_READY_ = false`.
 
 **Manual evidence remains open:** Test the actual College endpoints with Full, Manager, Encoder, Guidance, Accounting, HeadTeacher and Teacher accounts against the development workbook. The helper-level M5-04 test is not a substitute for direct endpoint calls or confirmation that denied roles cause no College workbook read.
+
+## 5. Post-22/22 source-audit finding — office and academic dashboard/report isolation
+
+**Finding:** The expanded M5/M6 source audit found that `dashboard()` and `dashboardExtra()` authenticated any `Role: admin` account without consistently excluding office and Academic clearances. `dashboardSpec()` excluded office clearances but did not exclude HeadTeacher/Teacher. The legacy `report()`, `reportsHome()`, analytics/drill context, and report preferences/history helper similarly denied Encoder but did not deny Guidance, Accounting, HeadTeacher or Teacher. Because these staff accounts use the administrator authentication role, direct server calls could return school-wide aggregates or report data outside their assigned modules. `getNotifications()` also calculated registration/consent counts for office accounts; `getScholarships()` returned admin-only counts to office accounts.
+
+**Remediation on `website-pages-fixes`:**
+- Added `assertAdminConsoleRole_(u)` in `Code.gs`. It allows the existing administrator dashboard roles Full, Manager and Encoder, and denies office and Academic clearances.
+- Applied the shared guard to `dashboard()`, `dashboardExtra()`, `dashboardSpec()`, `report()`, `reportsHome()`, `anCtx_()` and `rpUser_()`. The report paths continue to deny Encoder after the shared guard, preserving the existing report restriction.
+- `getNotifications()` now returns an empty notification collection to office and Academic accounts instead of calculating school-wide student counts. `getScholarships()` no longer includes admin learner counts for office or Academic accounts; public scholarship descriptions remain available.
+- Added M5-05 to the automated suite to verify Guidance, Accounting, HeadTeacher and Teacher are denied by the shared console guard, Full/Manager/Encoder retain dashboard eligibility, and a Student account is denied.
+- College endpoints remain protected by `collegeAdmin_()` from M5-04; only Full and Manager may read College dashboard/roster/program lists. `saveCollegeProgram()` remains Full-only.
+
+**Commits:** `Code.gs` — `9c89c4bf0c832f20801e215e6c050aefeaac25cb`; `DashboardSpec.gs` — `871a383a4f913c346bcac0391cb330ccaf3537e1`; `Report.gs` — final update `9f1adb8d1b7081f2f11806c7cc8e1a2e5e2bf8e3`; `AcceptanceTests.gs` — `38f3a94e469373e504eb384b746e970c98468675`.
+
+**Runtime status:** The 22/22 execution at `2026-11-14T13:16:35.178Z` predates M5-04 and M5-05. The current branch suite contains 24 checks. Synchronize the latest `Code.gs`, `DashboardSpec.gs`, `Report.gs`, `CollegeModule.gs` and `AcceptanceTests.gs` into the disposable Apps Script copy and rerun `runSecurityAcceptanceTests()`. Do not claim 24/24 until the returned Apps Script JSON confirms it.
+
+**Static verification:** V8 syntax parsing passed for `Code.gs`, `DashboardSpec.gs`, `Report.gs`, `AcceptanceTests.gs` and `CollegeModule.gs`. Source inspection confirms the shared guard is wired to the listed dashboard/report paths, College read endpoints call `collegeAdmin_()`, report access remains denied to Encoder, and `saveCollegeProgram()` remains Full-only. The automated M5-04/M5-05 tests exercise shared helper behavior with mocked authentication; they do not replace direct calls using real role accounts.
+
+**Manual evidence remains open:** Test each dashboard and report endpoint directly with Full, Manager, Encoder, Guidance, Accounting, HeadTeacher and Teacher accounts. Confirm denied office/Academic calls return no student aggregates, identifiers, drill-down rows, report exports, preferences/history or College records, and verify that Full/Manager legacy access and Encoder's limited dashboard remain intact. Check browser navigation as well as direct `google.script.run` calls.
