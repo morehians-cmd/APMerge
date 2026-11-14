@@ -888,7 +888,7 @@ function getWebsiteVersion(token, versionId) {
     const version = wpReadVersion_(String(versionId || ''));
     if (wpText_(version.meta[2]) === 'Draft' && wpText_(version.meta[3]).toLowerCase() !== user.Username.toLowerCase() &&
         !permissions['website.content.review'] && user.Clearance !== 'Full') {
-      throw new Error('You cannot view another user's draft.');
+      throw new Error("You cannot view another user's draft.");
     }
     return ok({
       versionId:wpText_(version.meta[0]), parentVersionId:wpText_(version.meta[1]),
