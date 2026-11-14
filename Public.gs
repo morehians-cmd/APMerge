@@ -14,8 +14,10 @@ const PUB_GALLERY_PAGE = 'facilities', PUB_GALLERY_MAX = 5, PUB_EVENTS_MAX = 3;
 /** Internal: expire today's cached public homepage feed after relevant content changes. */
 function invalidatePublicContentCache_() {
   try {
+    const cache = CacheService.getScriptCache();
     const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
-    CacheService.getScriptCache().remove('pubc_v1_' + today);
+    cache.remove('pubc_v1_' + today);
+    cache.remove('puba_v1');
   } catch (_) {}
 }
 
@@ -524,6 +526,22 @@ function getHomepageHero() {
     return ok(publicHeroClean_(JSON.parse(raw)));
   } catch(e) { return fail(e); }
 }
+/** PUBLIC. Returns the homepage hero from the published snapshot without changing the admin editor reader. */
+function getPublishedHomepageHero() {
+  try {
+    const snapshot = wpPublishedPayload_();
+    if (!snapshot) return getHomepageHero();
+    const raw = wpPublicContentValue_(snapshot, PUBLIC_HERO_KEY_);
+    if (!raw) return ok(PUBLIC_HERO_DEFAULTS_);
+    let parsed;
+    try { parsed = JSON.parse(raw); }
+    catch (_) { throw new Error('Published homepage hero data is not valid JSON.'); }
+    return ok(publicHeroClean_(parsed));
+  } catch (error) {
+    return fail(error);
+  }
+}
+
 /** OWNER ONLY. Saves homepage hero text, CTA links and three approved image URLs. */
 function saveHomepageHero(token, input) {
   const lock=LockService.getScriptLock();
@@ -618,7 +636,18 @@ function sectionCardsRead_(group) {
 }
 /** PUBLIC. The wording and links of one page's cards only, so it is safe for the open web. */
 function getPublicSectionCards(group) {
-  try { return ok(sectionCardsRead_(group)); } catch (e) { return fail(e); }
+  try {
+    const cfg = sectionCardsGroup_(group);
+    const snapshot = wpPublishedPayload_();
+    if (!snapshot) return ok(sectionCardsRead_(group));
+    const rawText = wpPublicContentValue_(snapshot, cfg.key);
+    let raw = null;
+    if (rawText) {
+      try { raw = JSON.parse(rawText); }
+      catch (_) { throw new Error('Published section cards are not valid JSON for ' + group + '.'); }
+    }
+    return ok(sectionCardsClean_(group, raw));
+  } catch (e) { return fail(e); }
 }
 /** OWNER ONLY. A page's current cards plus the standard wording, for the Website Pages editor. */
 function getSectionCards(token, group) {
