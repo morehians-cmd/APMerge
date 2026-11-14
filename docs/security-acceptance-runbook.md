@@ -614,3 +614,10 @@ Development-copy verification:
 5. Confirm quota reserve, maximum batch size, stale-message expiry and retry behavior remain unchanged.
 
 This change provides serialized queue mutation, not exactly-once email delivery. A provider-success / sheet-delete failure can still result in a later duplicate send; the development test must record that delivery boundary rather than asserting exactly-once semantics.
+
+
+### M4-05 — ID-card category boundary
+
+The ID-card module is documented as a TLC-scholar workflow. A shared `assertIdCardEligible_()` guard now accepts only `TLC` and `TLC-OVAP`, and is called by `idCardData`, `saveIdNumber`, and `saveIdPhoto` after the authenticated user's student-scope assertion. This closes the prior gap where an in-scope non-TLC learner's photo could be retrieved or replaced through the ID-card endpoints even though number assignment already rejected non-TLC categories.
+
+The automated suite now includes M4-05 for the shared category guard. Run `runSecurityAcceptanceTests()` in the disposable development copy and capture its JSON result before treating M4-05 as passed. The helper test is not a substitute for live Encoder/Full/Manager endpoint checks; include both TLC categories and at least one non-TLC learner, and confirm rejected photo/number mutations leave the Students row and Drive folder unchanged.
