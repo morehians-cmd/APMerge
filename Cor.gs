@@ -16,7 +16,9 @@ const corMoney_ = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''
 /** Admin / Encoder. Everything the COR needs besides the learner record: ID photo and the fixed values. */
 function corData(token, studentId) {
   try {
-    const u = who_(token, 'admin'), hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
+    const u = assertAdminConsoleRole_(who_(token, 'admin')), scope = studentSearchScope_(u);
+    const hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
+    assertStudentScope_(scope, hit.o);
     const s = hit.o;
     if (!ID_CATS.includes(s.Category) || s.EnrollStatus !== 'Enrolled') throw new Error('A Certificate of Registration is issued only to Enrolled TLC scholars.');
     if (!s.IDNumber) throw new Error('Enter the Student ID number first: Print / PDF > Student ID card.');
