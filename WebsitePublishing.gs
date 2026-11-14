@@ -983,27 +983,42 @@ function getWebsiteDraftAboutPhoto(token, versionId, assetId) {
       ? mediaSheet.getRange(2, 1, mediaSheet.getLastRow() - 1, WP_MEDIA_HEADERS_.length).getDisplayValues()
       : [];
     const staged = mediaRows.filter(row => row[0] === id);
+    const file = DriveApp.getFileById(id);
+    if (file.isTrashed() || !/^image\\/(png|jpeg|webp|gif)$/i.test(file.getMimeType() || '')) {
+      throw new Error('The referenced About photo is trashed or is not a supported image.');
+    }
     let allowed = false;
-    if (staged.length === 1 && staged[0][6] === 'Staged') {
+    if (staged.length) {
+      if (staged.length !== 1) throw new Error('The staged photo has duplicate media records and cannot be previewed.');
+      const record = staged[0];
       const folderId = PropertiesService.getScriptProperties().getProperty(WP_MEDIA_FOLDER_PROPERTY_);
-      const file = DriveApp.getFileById(id);
+      if (record[6] !== 'Staged' ||
+          wpText_(record[4]).toLowerCase() !== wpText_(version.data.createdBy).toLowerCase() ||
+          wpText_(record[2]).toLowerCase() !== wpText_(file.getMimeType()).toLowerCase() ||
+          Number(record[3]) !== file.getSize() ||
+          !folderId) {
+        throw new Error('The staged photo metadata does not match the selected draft or Drive file.');
+      }
+      const folder = DriveApp.getFolderById(folderId);
+      if (folder.isTrashed() ||
+          [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(folder.getSharingAccess())) {
+        throw new Error('The private draft media folder is unavailable or publicly shared.');
+      }
       const parents = file.getParents();
       while (parents.hasNext()) if (parents.next().getId() === folderId) allowed = true;
-      if (file.isTrashed() || !folderId || !allowed ||
-          file.getSharingAccess() === DriveApp.Access.ANYONE ||
+      if (file.getSharingAccess() === DriveApp.Access.ANYONE ||
           file.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK) allowed = false;
-    } else if (!staged.length && typeof inPhotoFolder_ === 'function') {
+    } else if (typeof inPhotoFolder_ === 'function') {
       allowed = inPhotoFolder_(id);
     }
     if (!allowed) throw new Error('The referenced About photo is unavailable or is not approved website media.');
     const uri = photo_(id);
-    if (!uri) throw new Error('The referenced About photo could not be read.');
+    if (!uri) throw new Error('The referenced About photo could not be be read.');
     return ok(uri, 'About photo loaded from the selected website version.');
   } catch (error) {
     return fail(error);
   }
 }
-
 /**
  * Produces a full website payload revision with only the structured About record changed.
  * All legacy About HTML and unrelated page content are copied without modification.
