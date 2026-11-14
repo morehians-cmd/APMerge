@@ -460,7 +460,7 @@ function saveStudent(token, rec) {
 
 function dashboard(token) {
   try {
-    const u = who_(token,'admin'), scope = studentSearchScope_(u);
+    const u = assertAdminConsoleRole_(who_(token,'admin')), scope = studentSearchScope_(u);
     const all = studentsLite_().filter(inSY_).filter(r => studentWithinSearchScope_(scope, r)), s = all.filter(r=>r.EnrollStatus==='Enrolled');
     const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
     const byG = a => a.map(g=>[g, s.filter(r=>r.GradeLevel===g).length]);
@@ -477,7 +477,7 @@ const CATS = ['PUB-QVR','TLC','REGULAR','ESC','TLC-OVAP','QVA PASSER','IS'];
 const grpOf_ = g => { const i = GRADES.indexOf(g); return i<0 ? '' : i<3 ? GROUPS[0] : i<9 ? GROUPS[1] : i<13 ? GROUPS[2] : GROUPS[i===13?3:4]; };
 function report(token, type, arg, sy) {
   try {
-    const _u = who_(token,'admin');
+    const _u = assertAdminConsoleRole_(who_(token,'admin'));
     if (_u.Clearance === 'Encoder') throw new Error('Encoders do not have access to reports.');
     const scope = studentSearchScope_(_u);
     audit_(_u, 'report.view', type, 'SY ' + reportSY_(sy));
@@ -716,6 +716,14 @@ function saveEvent(token, e) {
 const FULL_CL = ['Full', 'Manager'];
 const isFull_ = u => FULL_CL.indexOf(u.Clearance) >= 0;
 
+/** Admin-console data is limited to Full, legacy Manager and scoped Encoder accounts. */
+function assertAdminConsoleRole_(u) {
+  if (!u || u.Role !== 'admin' || OFFICE_CL.indexOf(u.Clearance) >= 0 || ACAD_ROLES.indexOf(u.Clearance) >= 0) {
+    throw new Error('Not allowed.');
+  }
+  return u;
+}
+
 /** Administrator or System Manager: everything an admin can do except System Administration. */
 function owner_(token) {
   const u = who_(token, 'admin');
@@ -761,13 +769,13 @@ function evRows_() {
 }
 function getNotifications(token) {
   try {
-    { const _a = who_(token); if (ACAD_ROLES.indexOf(_a.Clearance) >= 0) return ok({ count:0, items:[] }); }
+    { const _a = who_(token); if (ACAD_ROLES.indexOf(_a.Clearance) >= 0 || OFFICE_CL.indexOf(_a.Clearance) >= 0) return ok({ count:0, items:[] }); }
     const u = who_(token), pr = PropertiesService.getScriptProperties(), tz = Session.getScriptTimeZone(),
   prev = u.Role === 'admin' ? (pr.getProperty('pl_'+u.Username)||'') : Utilities.formatDate(new Date(Date.now()-7*864e5), tz, 'yyyy-MM-dd HH:mm:ss');
     const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'), wk = Utilities.formatDate(new Date(Date.now()+6*86400000), tz, 'yyyy-MM-dd');
    const evs = evRows_(), items = [], scope = u.Role === 'admin' ? studentSearchScope_(u) : null;
    const all = u.Role === 'admin' ? studentsLite_().filter(s => studentWithinSearchScope_(scope, s)) : [];
-   if (u.Role==='admin' && ACAD_ROLES.indexOf(u.Clearance) < 0) {
+   if (u.Role==='admin' && OFFICE_CL.indexOf(u.Clearance) < 0 && ACAD_ROLES.indexOf(u.Clearance) < 0) {
    const nw = prev ? all.filter(s=>s.CreatedAt>prev).length : 0;
       if (nw) items.push({ title:nw+' new registration'+(nw>1?'s':''), text:'Since you last signed in.', go:'newreg' });
       const nc = all.filter(inSY_).filter(s=>s.EnrollStatus!=='Cancelled'&&s.EnrollStatus!=='Transferred Out'&&s.ReqConsent!=='Original').length;
@@ -1023,8 +1031,7 @@ const SCH_DEFAULT = {"TLC": [["Definition", "The TLC Scholarship Program is an i
  */
 function dashboardExtra(token) {
   try {
-    const u = who_(token, 'admin');
-    if (OFFICE_CL.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
+    const u = assertAdminConsoleRole_(who_(token, 'admin'));
     const scope = studentSearchScope_(u), full = u.Clearance !== 'Encoder';
     const tz = Session.getScriptTimeZone(), dayKey = n => Utilities.formatDate(new Date(Date.now() - n * 864e5), tz, 'yyyy-MM-dd');
     const all = rowsSY_().filter(r => studentWithinSearchScope_(scope, r));
