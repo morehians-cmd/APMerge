@@ -93,7 +93,7 @@ For every mutation test, capture the exact target StudentID, account username/cl
 
 ### M5 — Dashboard, role and endpoint matrix
 
-The automated suite includes M5-01 for dashboard, dashboardExtra, and dashboardDemo, plus M5-02 for event, notification, system-settings, school-year, and career-result endpoints. M5-03 now invokes `dashboardSpec()` through a controlled endpoint harness with synthetic Encoder authentication and student rows. It asserts that totals, recent registrations and charts contain only the assigned grade/section and that College figures are withheld. M5-01/M5-02 invoke their listed endpoints directly with an invalid session token; M5-03 exercises the endpoint logic with stubbed dependencies, not real accounts or live spreadsheet records. These checks prove only the specific behaviors stated; they do not replace the role-by-role and data-minimization tests below.
+The automated suite includes M5-01 for dashboard, dashboardExtra, and dashboardDemo, M5-02 for event, notification, system-settings, school-year, and career-result endpoints, M5-03 for Encoder dashboard scope, and M5-04 for the shared College role guard. M5-04 verifies the shared authorization helper denies Encoder, Guidance, Accounting, HeadTeacher and Teacher while preserving Full and Manager. The College dashboard, roster and program-list endpoints now all call this guard before reading the College workbook. M5-01/M5-02 invoke their listed endpoints directly with an invalid session token; M5-03/M5-04 use controlled harnesses with stubbed dependencies, not real accounts or live spreadsheet records. These checks prove only the specific behaviors stated; they do not replace the role-by-role and data-minimization tests below.
 
 Test both UI navigation and direct `google.script.run` invocation. Hidden buttons do not count as authorization.
 
@@ -108,7 +108,7 @@ Test both UI navigation and direct `google.script.run` invocation. Hidden button
 | Teacher | Shared Academic module within assigned academic scope |
 | Student | Own record and supported self-service only |
 
-Exercise `dashboard`, `dashboardExtra`, `dashboardDemo`, `dashboardSpec`, `searchStudents`, `getStudent`, `saveStudent`, notifications, scholarships, Holds endpoints, College dashboard/roster/program endpoints, ID-card endpoints, and all helper endpoints called by the corresponding screens. For Encoder, compare `dashboardSpec` totals, charts, level cards, recent registrations and College figures against only the assigned grade/section fixture; also test direct calls with restrictive filters and with no filters. Verify sensitive demographic fields and unrelated student records are not returned.
+Exercise `dashboard`, `dashboardExtra`, `dashboardDemo`, `dashboardSpec`, `searchStudents`, `getStudent`, `saveStudent`, notifications, scholarships, Holds endpoints, College dashboard/roster/program endpoints, ID-card endpoints, and all helper endpoints called by the corresponding screens. Confirm only Full and legacy Manager can call College dashboard, roster and program-list endpoints; verify direct calls by Encoder, Guidance, Accounting, HeadTeacher and Teacher fail before College workbook reads. For Encoder, compare `dashboardSpec` totals, charts, level cards, recent registrations and College figures against only the assigned grade/section fixture; also test direct calls with restrictive filters and with no filters. Verify sensitive demographic fields and unrelated student records are not returned.
 
 ### M6 — Reports
 
@@ -285,3 +285,21 @@ These local harnesses evaluate extracted pure helper functions; they do not exec
 ## 5. Release gate
 
 M1–M7 are closed only when the test evidence above is attached to the release record. Any failed, skipped, or unexecuted test remains open. Source syntax checks and self-check functions are supporting evidence, not substitutes for Apps Script runtime tests. Keep `WP_PUBLISH_CUTOVER_READY_` false and do not deploy to production until every applicable test passes and the owner explicitly approves release.
+
+## 4. Post-22/22 source-audit finding — College role boundary
+
+**Finding:** After the 22-check runtime result, the M5 source audit found that `collegeRoster()` rejected Encoder accounts but did not reject Guidance, Accounting, HeadTeacher or Teacher accounts. The roster response contains sensitive College student fields, including date of birth, contact number, address, sex and photo reference. `collegeDashboard()` and `getCollegePrograms()` also relied on a denylist that did not exclude Academic roles. This was an authorization defect not covered by the 22-check suite.
+
+**Remediation on `website-pages-fixes`:**
+- Added `collegeAdmin_(token)`, which authenticates an administrator and permits only `Full` and `Manager`.
+- Routed `collegeDashboard()`, `collegeRoster()` and `getCollegePrograms()` through this shared guard before reading College workbook data.
+- Kept `saveCollegeProgram()` restricted to `Full` only. The legacy Manager read access remains intact; no new Manager write access is granted.
+- Added M5-04 to the acceptance suite. It checks the shared guard denies Encoder, Guidance, Accounting, HeadTeacher and Teacher, while allowing Full and Manager. It restores the mocked `who_` function in a `finally` block.
+
+**Commits:** `CollegeModule.gs` — `0564fe9710142406bd73f4129e25f8327b74782a`; `AcceptanceTests.gs` — `59f8f2f9196d4c50a7e5af355767a9b7837a1e5e`.
+
+**Runtime status:** The 22/22 execution at `2026-11-14T13:16:35.178Z` predates this finding and does not test M5-04. The current branch suite contains 23 checks. Synchronize the updated `CollegeModule.gs` and `AcceptanceTests.gs` into the disposable Apps Script copy and rerun `runSecurityAcceptanceTests()`. Do not claim 23/23 until the returned Apps Script JSON confirms it.
+
+**Static verification required:** Re-fetch both changed files from this branch, parse them with V8, confirm the three College read endpoints call `collegeAdmin_()`, confirm the program mutation remains Full-only, confirm M5-04 is present and restores its mock, and confirm `WP_PUBLISH_CUTOVER_READY_ = false`.
+
+**Manual evidence remains open:** Test the actual College endpoints with Full, Manager, Encoder, Guidance, Accounting, HeadTeacher and Teacher accounts against the development workbook. The helper-level M5-04 test is not a substitute for direct endpoint calls or confirmation that denied roles cause no College workbook read.
