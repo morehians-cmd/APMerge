@@ -919,6 +919,13 @@ function logoMimeAllowed_(mime) {
 }
 
 /** Returns true only when a Drive file is directly contained in the approved branding folder. */
+/** Returns false for missing Drive files or files shared with anyone on the internet. */
+function logoFileIsPrivate_(file) {
+  if (!file || typeof file.getSharingAccess !== 'function') return false;
+  const access = file.getSharingAccess();
+  return access !== DriveApp.Access.ANYONE && access !== DriveApp.Access.ANYONE_WITH_LINK;
+}
+
 function logoIsInApprovedFolder_(file, folderId) {
   folderId = String(folderId || '').trim();
   if (!folderId || !file || typeof file.getParents !== 'function') return false;
@@ -957,6 +964,7 @@ function setLogoFile(id) {
   if (!approvedFolderId) throw new Error('The approved school branding folder has not been configured. Ask the system owner to configure it first.');
   const f = DriveApp.getFileById(id);
   if (f.isTrashed()) throw new Error('The selected logo file is in the Drive trash.');
+  if (!logoFileIsPrivate_(f)) throw new Error('The logo file must not be publicly shared.');
   if (!logoIsInApprovedFolder_(f, approvedFolderId)) {
     throw new Error('The selected logo must be stored directly in the approved school branding folder.');
   }
