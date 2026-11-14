@@ -47,17 +47,23 @@ function dsApply_(rows, f) {
   );
 }
 
+/** Applies the server-authoritative student scope before dashboard filters or aggregation. */
+function dsScopeRows_(rows, scope) {
+  return rows.filter(row => studentWithinSearchScope_(scope, row));
+}
+
 function dashboardSpec(token, filters) {
   try {
     const u = who_(token, 'admin');
     if (OFFICE_CL.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
-    const full = u.Clearance !== 'Encoder';
+    const scope = studentSearchScope_(u);
+    const full = !scope;
     const tz = Session.getScriptTimeZone();
     const now = new Date();
     const today = Utilities.formatDate(now, tz, 'yyyy-MM-dd');
 
     const sy = activeSY_();
-    const all = rowsSY_().filter(r => String(r.SchoolYear || '') === String(sy));
+    const all = dsScopeRows_(rowsSY_().filter(r => String(r.SchoolYear || '') === String(sy)), scope);
     const scoped = dsApply_(all, filters);
 
     const isEnrolled = r => r.EnrollStatus === 'Enrolled';
@@ -91,7 +97,7 @@ function dashboardSpec(token, filters) {
 
     // College students live in the separate College workbook, so their level figures
     // come from there instead of the bound Students tab.
-    const collegeKids = dsCollegeLevels_();
+    const collegeKids = full ? dsCollegeLevels_() : [];
     const collegeTotal = collegeKids.reduce((a, k) => a + (k.count || 0), 0);
 
     // Doughnut 1 — enrolled students by academic level
