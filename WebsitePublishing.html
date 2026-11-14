@@ -19,12 +19,21 @@ function websitePublishingPage(){
     wpUiRefresh();
   });
 }
+function wpUiSetupPanel(){
+  return '<div class="card"><h3 style="margin-top:0">Publishing foundation setup</h3><p class="wp-muted">Full administrators can prepare the additive publishing stores, inspect the current public-source inventory, seed the immutable baseline and validate its integrity. These actions do not change the public website.</p><div class="wp-actions"><button class="btn alt" data-act="wppreflight">Run read-only preflight</button><button class="btn alt" data-act="wpsetup">Prepare stores</button><button class="btn" data-act="wpseed">Seed / refresh baseline</button><button class="btn alt" data-act="wpvalidate">Validate baseline</button><button class="btn alt" data-act="wpselfcheck">Run self-check</button></div><pre id="wpDiagnostics" class="wp-muted" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:14px">'+(WPUI.diagnostics?esc(JSON.stringify(WPUI.diagnostics,null,2)):'No diagnostic has been run yet.')+'</pre></div>';
+}
 function wpUiRenderSetup(){
-  $('view').innerHTML='<div class="wp-wrap"><div class="card"><h3 style="margin-top:0">Publishing foundation setup</h3><p class="wp-muted">Full administrators can prepare the additive publishing stores, inspect the current public-source inventory, seed the immutable baseline and validate its integrity. These actions do not change the public website.</p><div class="wp-actions"><button class="btn alt" data-act="wppreflight">Run read-only preflight</button><button class="btn alt" data-act="wpsetup">Prepare stores</button><button class="btn" data-act="wpseed">Seed / refresh baseline</button><button class="btn alt" data-act="wpvalidate">Validate baseline</button><button class="btn alt" data-act="wpselfcheck">Run self-check</button></div><pre id="wpDiagnostics" class="wp-muted" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:14px">'+(WPUI.diagnostics?esc(JSON.stringify(WPUI.diagnostics,null,2)):'No diagnostic has been run yet.')+'</pre></div></div>';
+  $('view').innerHTML='<div class="wp-wrap">'+wpUiSetupPanel()+'</div>';
 }
 function wpUiDiagnostic(fn){
-  call(fn,[T()],r=>{WPUI.diagnostics=r.data||r;wpUiRenderSetup();toast(r.message||'Diagnostic completed.')});
+  call(fn,[T()],r=>{
+    WPUI.diagnostics=r.data||r;
+    toast(r.message||'Diagnostic completed.');
+    if(Object.keys(WPUI.permissions).some(key=>WPUI.permissions[key]===true))wpUiRefresh(WPUI.selected);
+    else wpUiRenderSetup();
+  });
 }
+
 function wpUiCan(key){return WPUI.permissions[key]===true}
 function wpUiRefresh(selectId){
   call('listWebsiteVersions',[T()],r=>{
@@ -50,7 +59,8 @@ function wpUiRender(){
   const actionCard=actions?'<div class="wp-actions">'+actions+'</div>':'';
   const editor=WPUI.about?wpUiAboutEditor(v):'';
   const publishGate=!WPUI.publishingReady?'<div class="card"><h3 style="margin-top:0">Publication is safely locked</h3><p class="wp-muted">The draft, review and approval workflow is available, but publishing and rollback remain disabled until all legacy website content and media editors write to immutable drafts.</p><ul>'+WPUI.publishingBlockers.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'';
-  $('view').innerHTML='<div class="wp-wrap">'+publishGate+versionCard+actionCard+editor+'</div>';
+  const setupPanel=WPUI.canPrepare?wpUiSetupPanel():'';
+  $('view').innerHTML='<div class="wp-wrap">'+setupPanel+publishGate+versionCard+actionCard+editor+'</div>';
   if(WPUI.about)wpUiLoadPhotos();
 }
 function wpUiSelect(id){WPUI.selected=id;WPUI.about=null;wpUiRender();if(id)wpUiLoad(id)}
