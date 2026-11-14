@@ -190,6 +190,20 @@ function runSecurityAcceptanceTests() {
     return 'Distinct colliding usernames are detected, and both live property readers reject the collision before reading shared Script Properties.';
   });
 
+  record('M6-02', 'Report history detail accepts only non-identifying grade and level descriptors', () => {
+    const grade = GRADES[0];
+    const level = GROUPS[0];
+    assert(!!grade && !!level, 'Canonical grade and level fixtures are required.');
+    assert(rpDetail_(level) === level, 'A recognized report level should remain available.');
+    assert(rpDetail_({ grade:grade, section:'A' }) === grade + ' / A', 'A valid grade/section descriptor was rejected.');
+    assert(rpDetail_({ grade:grade, section:'*' }) === grade + ' / All sections', 'The all-sections descriptor was rejected.');
+    assert(rpDetail_({ grade:grade, section:'(none)' }) === grade + ' / Unassigned', 'The unassigned descriptor was rejected.');
+    [ 'STU-2026-0001', 'student@example.com', 'Juan Dela Cruz', { grade:'Juan Dela Cruz', section:'A' },
+      { grade:grade, section:'Student Name 09171234567' }, ['Grade 1','A'] ].forEach(value =>
+      assert(rpDetail_(value) === '', 'Potentially identifying report detail was retained.'));
+    return 'Only canonical grade/level and bounded section labels survive; IDs, emails, names and arbitrary payloads are discarded.';
+  });
+
   record('M7-01', 'Website publishing cutover remains disabled until acceptance gates close', () => {
     assert(WP_PUBLISH_CUTOVER_READY_ === false, 'Publishing cutover must remain disabled.');
     wpAssertLegacyWriterOpen_();
