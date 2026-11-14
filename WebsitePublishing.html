@@ -285,7 +285,7 @@ document.addEventListener('change',e=>{
   }
   if(e.target.id==='wpContentKey'){
     if(!wpUiConfirmDiscard_('content')){e.target.value=WPUI.contentKey;return}
-    WPUI.contentKey=e.target.value;const row=(WPUI.payload.contentRows||[]).find(x=>x[0]===WPUI.contentKey);WPUI.contentValue=row?String(row[1]||''):wpUiDefaultContentValue_(WPUI.contentKey);WPUI.contentSavedValue=WPUI.contentValue;const el=$('wpContentValue');if(el)el.value=WPUI.contentValue;return
+    WPUI.contentKey=e.target.value;const row=(WPUI.payload.contentRows||[]).find(x=>x[0]===WPUI.contentKey);WPUI.contentValue=row?String(row[1]||''):wpUiDefaultContentValue_(WPUI.contentKey);WPUI.contentSavedValue=WPUI.contentValue;const el=$('wpContentValue');if(el)el.value=WPUI.contentValue;const hint=$('wpContentHint');if(hint)hint.textContent=wpUiContentHint_(WPUI.contentKey);return
   }
   if(e.target.id==='wpGalleryPage'){
     if(!wpUiConfirmDiscard_('gallery')){e.target.value=WPUI.galleryPage;return}
