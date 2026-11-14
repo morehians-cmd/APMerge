@@ -1425,6 +1425,18 @@ function saveWebsiteDraftContent(token, parentVersionId, contentKey, contentValu
  * Creates a draft revision with a changed gallery list. Removing an item changes only
  * the versioned list; its Drive file is retained for historical versions and rollback.
  */
+function wpGalleryPageLimit_(page) {
+  const singleImagePages = [
+    'about-values','about-history','about-leadership',
+    'admissions-enrollment','admissions-requirements','admissions-scholarships','admissions-faq',
+    'academics-kindergarten','academics-elementary','academics-junior-high','academics-senior-high','academics-college',
+    'campus-organizations','campus-events','campus-sports','campus-clubs','campus-facilities',
+    'forms-tlc-application','forms-consent',
+    'news-announcements','news-latest','news-events','news-enrollment','news-achievements'
+  ];
+  return singleImagePages.includes(String(page || '')) ? 1 : GAL_MAX;
+}
+
 function saveWebsiteDraftGallery(token, parentVersionId, page, items) {
   try {
     const actor = wpRequirePermission_(token, 'website.content.edit');
@@ -1434,13 +1446,16 @@ function saveWebsiteDraftGallery(token, parentVersionId, page, items) {
     const galleryPage = wpText_(page);
     const allowedPages = typeof GAL_PAGES !== 'undefined' ? GAL_PAGES : [];
     if (!allowedPages.includes(galleryPage) || !Array.isArray(items)) throw new Error('Invalid gallery page or item list.');
+    const pageLimit = wpGalleryPageLimit_(galleryPage);
+    if (items.length > pageLimit) throw new Error('This page supports at most ' + pageLimit + ' gallery image' + (pageLimit === 1 ? '' : 's') + '.');
     const seen = {};
     const clean = items.map(item => {
-      const id = wpText_(item && item.id), cap = wpText_(item && item.cap);
+      if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error('Each gallery item must contain an asset ID and caption.');
+      const id = wpText_(item.id).trim(), rawCaption = wpText_(item.cap);
       if (!/^[A-Za-z0-9_-]{10,80}$/.test(id) || seen[id]) throw new Error('Gallery asset IDs must be valid and unique.');
-      if (cap.length > 120) throw new Error('Gallery captions must be 120 characters or fewer.');
+      if (rawCaption.length > 120) throw new Error('Gallery captions must be 120 characters or fewer.');
       seen[id] = true;
-      return { id:id, cap:cap };
+      return { id:id, cap:typeof galCap_ === 'function' ? galCap_(rawCaption) : rawCaption.replace(/[\\u0000-\\u001f<>]/g, ' ').replace(/\\s+/g, ' ').trim().slice(0, 120) };
     });
     const payload = JSON.parse(JSON.stringify(parent.payload));
     payload.galleries[galleryPage] = clean;
