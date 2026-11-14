@@ -339,3 +339,21 @@ This execution supersedes the prior 22/22 and closes the automated-runtime pendi
 - M5: role-by-role dashboard, direct-call, helper-endpoint and field-minimization matrix, including the new College and office/Academic boundaries.
 - M6: every report, drill-down, export, history and saved-configuration endpoint for each applicable role.
 - M7: editor/public-reader/media browser acceptance, draft/review/publish/rollback and Drive failure/recovery scenarios.
+
+## 7. Post-24/24 source-audit finding — student-care administrative endpoints
+
+**Finding:** A further source audit found that several student-care functions authenticated any administrator account but did not exclude office/Academic clearances. This affected temporary enrollment grants (`grantTemporary`), ID-card artwork retrieval and learner ID-card read/write endpoints (`getIdArt`, `idCardData`, `saveIdNumber`, `saveIdPhoto`), manual enrollment-status email dispatch (`emailStatus`), and student portal account reset/unlock (`resetStudentAccount`). These operations were intended for the admissions/admin console and, in some cases, scoped Encoder users. Office and Academic accounts could otherwise use direct server calls to perform admissions actions outside their assigned module.
+
+**Remediation on `website-pages-fixes`:**
+- Applied `assertAdminConsoleRole_()` to all listed endpoints. The shared guard permits Full, legacy Manager and Encoder administrator accounts, denies Guidance, Accounting, Academic, HeadTeacher and Teacher clearances, and preserves the existing per-student Encoder scope checks.
+- `grantTemporary()` retains the subsequent student grade/section scope check. `emailStatus()` retains per-student scope validation. ID-card learner operations retain their per-student scope validation. Student account reset still revokes sessions and forces password change as before.
+- `saveIdArt()` remains owner-only (`sysOwner_()`); this remediation does not broaden artwork mutation privileges.
+- Added M5-06 to the automated suite to assert the shared role policy for student-care administrative actions.
+
+**Commits:** `Flags.gs` — `d234e04e0ac0a4551127469cb91a25377c137b1d`; `IdCard.gs` — `5f330e06352dac19104f777474735a35b2a7c275`; `MailQueue.gs` — `d778d67edd282800e71911261a1acd161840e3ff`; `MailSwitch.gs` — `bd8d874746c8d0aad67db628ca1ca2d3a3daaeac`; `AcceptanceTests.gs` — `8367a23478ebe94e5a7f6f00ae346366f0d754fb`.
+
+**Runtime status:** The 24/24 execution at `2026-11-14T13:37:55.267Z` predates this remediation. The branch suite now contains 25 checks. Synchronize `Flags.gs`, `IdCard.gs`, `MailQueue.gs`, `MailSwitch.gs` and `AcceptanceTests.gs` into the disposable Apps Script copy, along with any previously updated files not yet synchronized, then rerun `runSecurityAcceptanceTests()`. Do not claim 25/25 until the Apps Script JSON confirms it.
+
+**Static verification required:** V8 parse all changed files; inspect each named endpoint to ensure the guard runs before spreadsheet/Drive reads or writes; verify the per-student Encoder scope checks remain; verify ID artwork writes remain owner-only; and verify publishing cutover remains false.
+
+**Manual evidence remains open:** Use real synthetic Full, Manager, Encoder, Guidance, Accounting, Academic, HeadTeacher and Teacher accounts to test direct calls to each endpoint. For Encoder, test both in-scope and out-of-scope student IDs. Verify denied calls do not read or mutate student, user, Drive or mail-queue records.
