@@ -63,6 +63,28 @@ function runSecurityAcceptanceTests() {
     return 'Malformed ID rejected; no Script Property update occurs.';
   });
 
+
+  record('M3-02', 'Logo selection requires direct membership in the configured approved branding folder', () => {
+    const fakeFile = ids => ({
+      getParents:() => {
+        let index = 0;
+        return {
+          hasNext:() => index < ids.length,
+          next:() => ({ getId:() => ids[index++] })
+        };
+      }
+    });
+    assert(logoIsInApprovedFolder_(fakeFile(['parent-a','approved-folder']), 'approved-folder'),
+      'A file directly in the approved folder was rejected.');
+    assert(!logoIsInApprovedFolder_(fakeFile(['parent-a']), 'approved-folder'),
+      'A file outside the approved folder was accepted.');
+    assert(!logoIsInApprovedFolder_(fakeFile(['approved-folder']), ''),
+      'A file was accepted without a configured approved folder.');
+    assert(!logoIsInApprovedFolder_(null, 'approved-folder'),
+      'A missing Drive file object was accepted.');
+    return 'Approved-folder membership required; missing configuration and outside files fail closed.';
+  });
+
   record('M4-01', 'Student scope filters grade and section combinations', () => {
     const scope = { grades:['Grade 1'], sections:{'Grade 1':['A']} };
     assert(studentWithinSearchScope_(scope, { GradeLevel:'Grade 1', Section:'A' }), 'Assigned student was rejected.');
