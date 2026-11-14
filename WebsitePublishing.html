@@ -79,7 +79,7 @@ function wpUiRender(){
   const editor=WPUI.about?wpUiAboutEditor(v):'';
   const contentEditor=editable?wpUiContentEditor():'';
   const galleryEditor=editable?wpUiGalleryEditor():'';
-  const publishGate=!WPUI.publishingReady?'<div class="card"><h3 style="margin-top:0">Publication is safely locked</h3><p class="wp-muted">The draft, review and approval workflow is available, but publishing and rollback remain disabled until all legacy website content and media editors write to immutable drafts.</p><ul>'+WPUI.publishingBlockers.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'';
+  const publishGate=!WPUI.publishingReady?'<div class="card"><h3 style="margin-top:0">Publication is safely locked</h3><p class="wp-muted">The editor routes now use immutable drafts. Publishing and rollback remain disabled until Apps Script, Sheets, Drive, browser, media-promotion and rollback tests pass in development.</p><ul>'+WPUI.publishingBlockers.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'';
   const setupPanel=WPUI.canPrepare?wpUiSetupPanel():'';
   $('view').innerHTML='<div class="wp-wrap">'+setupPanel+publishGate+versionCard+actionCard+editor+contentEditor+galleryEditor+'</div>';
   if(WPUI.about)wpUiLoadPhotos();
