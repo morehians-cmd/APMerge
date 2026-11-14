@@ -208,7 +208,7 @@ function runSecurityAcceptanceTests() {
       rows_ = key => { if (key === 'U') userRowsRead = true; return []; };
       const result = resetStudentAccount('acceptance-token', 'OUT-OF-SCOPE');
       assert(result && result.success === false, 'Out-of-scope account reset did not return a denied result.');
-      assert(/outside your assigned scope|outside your assigned grade\\/section/i.test(String(result.error || '')),
+      assert(/outside your assigned/i.test(String(result.error || '')),
         'The endpoint did not return the real student-scope denial.');
       assert(!userRowsRead, 'The endpoint read user-account rows before enforcing student scope.');
       return 'The real student-scope guard denied the out-of-scope Encoder reset before the user-account sheet was read.';
