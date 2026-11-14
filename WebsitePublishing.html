@@ -3,20 +3,27 @@
 @media(max-width:760px){.wp-grid,.wp-ver{grid-template-columns:1fr}.wp-field.wide{grid-column:auto}}
 </style>
 <script>
-const WPUI={permissions:{},versions:[],selected:'',username:'',publishingReady:false,publishingBlockers:[],about:null,photoCache:{},photoLoading:{},photoIndex:-1};
+const WPUI={permissions:{},versions:[],selected:'',username:'',publishingReady:false,publishingBlockers:[],canPrepare:false,diagnostics:null,about:null,photoCache:{},photoLoading:{},photoIndex:-1};
 const WP_ICONS=['heart','award','users','bulb','shield','book','star','eye','target'];
 function websitePublishingPage(){
   head('Website Publishing','Prepare, review, publish and restore approved public website content');
   WPUI.permissions={};WPUI.versions=[];WPUI.selected='';WPUI.about=null;
   $('view').innerHTML='<div class="card"><div class="aemp">Loading website publishing permissions…</div></div>';
   call('getMyWebsitePermissions',[T()],r=>{
-    WPUI.permissions=r.data.permissions||{};WPUI.username=String(r.data.username||'').toLowerCase();WPUI.publishingReady=!!(r.data.publishing&&r.data.publishing.publishEndpointEnabled);WPUI.publishingBlockers=(r.data.publishing&&r.data.publishing.blockers)||[];
+    WPUI.permissions=r.data.permissions||{};WPUI.username=String(r.data.username||'').toLowerCase();WPUI.publishingReady=!!(r.data.publishing&&r.data.publishing.publishEndpointEnabled);WPUI.publishingBlockers=(r.data.publishing&&r.data.publishing.blockers)||[];WPUI.canPrepare=!!r.data.canPrepare;
     if(!Object.keys(WPUI.permissions).some(key=>WPUI.permissions[key]===true)){
+      if(WPUI.canPrepare){wpUiRenderSetup();return;}
       $('view').innerHTML='<div class="card"><h3>Website publishing access</h3><p class="wp-muted">This account has not been assigned website publishing permissions. Ask the System Manager to assign the required individual website permissions.</p></div>';
       return;
     }
     wpUiRefresh();
   });
+}
+function wpUiRenderSetup(){
+  $('view').innerHTML='<div class="wp-wrap"><div class="card"><h3 style="margin-top:0">Publishing foundation setup</h3><p class="wp-muted">Full administrators can prepare the additive publishing stores, inspect the current public-source inventory, seed the immutable baseline and validate its integrity. These actions do not change the public website.</p><div class="wp-actions"><button class="btn alt" data-act="wppreflight">Run read-only preflight</button><button class="btn alt" data-act="wpsetup">Prepare stores</button><button class="btn" data-act="wpseed">Seed / refresh baseline</button><button class="btn alt" data-act="wpvalidate">Validate baseline</button><button class="btn alt" data-act="wpselfcheck">Run self-check</button></div><pre id="wpDiagnostics" class="wp-muted" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:14px">'+(WPUI.diagnostics?esc(JSON.stringify(WPUI.diagnostics,null,2)):'No diagnostic has been run yet.')+'</pre></div></div>';
+}
+function wpUiDiagnostic(fn){
+  call(fn,[T()],r=>{WPUI.diagnostics=r.data||r;wpUiRenderSetup();toast(r.message||'Diagnostic completed.')});
 }
 function wpUiCan(key){return WPUI.permissions[key]===true}
 function wpUiRefresh(selectId){
@@ -182,6 +189,11 @@ document.addEventListener('change',e=>{
   objectUrl=URL.createObjectURL(file);image.src=objectUrl;
 });
 act.wpcreate=()=>call('createWebsiteDraft',[T()],r=>{toast(r.message);wpUiRefresh(r.data.versionId)});
+act.wppreflight=()=>wpUiDiagnostic('websitePublishingPreflight');
+act.wpsetup=()=>{if(confirm('Create or verify the additive publishing sheets and private staging folder?'))wpUiDiagnostic('setupWebsitePublishingStores')};
+act.wpseed=()=>{if(confirm('Seed or refresh the immutable baseline from the current live website sources?'))wpUiDiagnostic('seedWebsitePublishingBaseline')};
+act.wpvalidate=()=>wpUiDiagnostic('validateWebsitePublishingBaseline');
+act.wpselfcheck=()=>wpUiDiagnostic('websitePublishingSelfCheck');
 act.wprefresh=()=>wpUiRefresh(WPUI.selected);
 act.wpsave=()=>wpUiSave();
 act.wpsubmit=()=>wpUiSubmit();
