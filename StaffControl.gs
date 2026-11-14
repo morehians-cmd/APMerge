@@ -21,10 +21,16 @@ const STAFF_TZ = 'Asia/Manila', STAFF_FROM = 7 * 60, STAFF_TO = 18 * 60;   // mi
 
 /* ============================ 1. SIGN-IN GATE (Encoders only) ============================ */
 
-/** Throws if this Encoder may not sign in right now. Called after the password is correct and again when the OTP is verified. */
+/** The scheduled sign-in window is an Encoder-specific control, not a blanket staff-hours policy. */
+function staffHoursGateApplies_(u) {
+  return !!u && u.Role === 'admin' && u.Clearance === 'Encoder';
+}
+
+/** Throws if this staff account is deactivated, or if an Encoder signs in outside its permitted window. */
 function staffGate_(u) {
   if (!u || u.Role !== 'admin' || u.Clearance === 'Full') return;
   if (u.Disabled === '1') throw new Error('This account has been deactivated. Please contact the administrator.');
+  if (!staffHoursGateApplies_(u)) return;
   const d = new Date(), m = parseInt(Utilities.formatDate(d, STAFF_TZ, 'H'), 10) * 60 + parseInt(Utilities.formatDate(d, STAFF_TZ, 'm'), 10);
   if (m >= STAFF_FROM && m < STAFF_TO) return;
   if (parseInt(u.AfterHrs || '0', 10) > Date.now()) return;                       // approved after-hours window
