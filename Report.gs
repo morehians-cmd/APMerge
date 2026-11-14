@@ -167,9 +167,16 @@ function rpUser_(token) {
 }
 /** Safe, learner-free description of a report request (class and level only, never names). */
 function rpDetail_(a) {
-  if (a && typeof a === 'object' && a.grade) return [a.grade, a.section === '*' ? 'All sections' : a.section === '(none)' ? 'Unassigned' : a.section].filter(Boolean).join(' / ');
-  if (typeof a === 'string' && GROUPS.indexOf(a) >= 0) return a;
-  return '';
+  if (typeof a === 'string') return GROUPS.indexOf(a) >= 0 ? a : '';
+  if (!a || typeof a !== 'object' || Array.isArray(a)) return '';
+  const grade = String(a.grade || '').trim();
+  if (GRADES.indexOf(grade) < 0) return '';
+  const rawSection = String(a.section || '').trim();
+  let section = '';
+  if (rawSection === '*') section = 'All sections';
+  else if (rawSection === '(none)') section = 'Unassigned';
+  else if (/^[A-Za-z0-9 _-]{1,30}$/.test(rawSection)) section = rawSection;
+  return [grade, section].filter(Boolean).join(' / ').slice(0, 80);
 }
 /** Appends one history row. Never throws. Keeps the sheet to about 5,000 rows. */
 function rpLog_(u, type, fmt, sy, status, detail) {
@@ -186,7 +193,7 @@ function reportLog(token, type, format, sy, status, detail) {
   try {
     const u = rpUser_(token);
     if (RP_TYPES.indexOf(String(type)) < 0 || RP_FMT.indexOf(String(format)) < 0) throw new Error('Invalid entry.');
-    rpLog_(u, String(type), String(format), String(sy || ''), status === 'Failed' ? 'Failed' : 'Success', String(detail || '').slice(0, 120));
+    rpLog_(u, String(type), String(format), String(sy || ''), status === 'Failed' ? 'Failed' : 'Success', rpDetail_(detail));
     return ok(null);
   } catch (e) { return fail(e); }
 }
