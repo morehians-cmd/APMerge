@@ -1208,7 +1208,15 @@ function publishWebsiteVersion(token, versionId) {
     }, 'Website version published.');
   } catch (error) {
     let message = String(error && error.message || error);
-    if (!publishedPointerCommitted) {
+    let pointerCommitted = publishedPointerCommitted;
+    if (!pointerCommitted && publishVersionId) {
+      try {
+        const configSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Publishing Config');
+        pointerCommitted = !!configSheet &&
+          wpText_(wpConfigMap_(configSheet).published_version_id) === publishVersionId;
+      } catch (_) {}
+    }
+    if (!pointerCommitted) {
       if (promotionJournal.length) {
         try {
           wpRestoreUncommittedPromotions_(promotionJournal);
@@ -1241,7 +1249,7 @@ function publishWebsiteVersion(token, versionId) {
             String(recoveryError && recoveryError.message || recoveryError);
         }
       }
-    } else if (publishedPointerCommitted) {
+    } else if (pointerCommitted) {
       message += ' The published-version pointer was committed before this error. Do not retry publication; reconcile the previous-version status, audit entry and public cache before further changes.';
     }
     return fail(new Error(message));
