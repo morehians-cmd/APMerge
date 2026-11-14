@@ -12,6 +12,12 @@
 const WP_PREFLIGHT_SCHEMA_ = 1;
 const WP_PREFLIGHT_CHUNK_CHARS_ = 40000;
 
+function wpActor_(token) {
+  if (token) return sysOwner_(token);
+  ownerOnly_();
+  return { Username:Session.getEffectiveUser().getEmail() || 'script-owner' };
+}
+
 function wpHash_(value) {
   const bytes = Utilities.newBlob(String(value), 'text/plain').getBytes();
   return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bytes));
@@ -50,7 +56,7 @@ function wpReferencedDriveIds_(contentRows, galleries) {
  */
 function websitePublishingPreflight(token) {
   try {
-    const actor = sysOwner_(token);
+    const actor = wpActor_(token);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const contentSheet = ss.getSheetByName('Content');
     const eventsSheet = ss.getSheetByName('Events');
