@@ -367,3 +367,22 @@ During verification of the M5 student-care changes, `resetStudentAccount()` was 
 **Commits:** `MailSwitch.gs` — `8e6f3da5d8a5cd7fe240f7d4743816f8d2067b77`; `AcceptanceTests.gs` — `aa658efb8bf1d93c9222c9c612a9976b19b95c09`.
 
 **Runtime status:** The 24/24 execution predates M5-06 and M4-04. The current branch suite contains 26 checks. Rerun the complete suite after synchronizing all changes listed in Sections 7 and 8. Do not claim 26/26 until the Apps Script JSON confirms it.
+
+
+## 9. Latest automated execution — 25/26; M4-04 follow-up
+
+**Execution:** 2026-11-14T13:52:08.771Z  
+**Environment:** non-production development copy  
+**Result:** 25 passed, 1 failed, 26 total.
+
+The supplied execution confirms all checks except M4-04. The failure detail was: "The student scope assertion was not invoked." All M1, M2, M3, M5, M6 and M7 checks passed. M4-01 through M4-03 also passed. This result does not establish M4-04.
+
+**Investigation:** The current branch implementation of `resetStudentAccount()` calls `assertStudentScope_(scope, hit.o)` after resolving the student and before calling `rows_('U')`. The original M4-04 test replaced the assertion helper with a mock and relied on that mock being observed. That instrumentation is unnecessarily coupled to global function replacement and does not independently prove that the production scope guard rejects the fixture.
+
+**Test hardening committed after the supplied execution:** M4-04 now leaves the real `assertStudentScope_()` implementation in place, supplies an Encoder scope and an out-of-scope synthetic student, and verifies both (a) the endpoint returns the actual scope-denial error and (b) the Users-sheet row reader is never called. It restores the mocked role guard, scope resolver, student finder and row reader in `finally`. This improves the test's evidentiary value; it is not yet runtime evidence.
+
+**Commit:** `AcceptanceTests.gs` — `3abe2f90d233b5e7d32b06c1f2828da64c136ca9`.
+
+**Next runtime action:** Synchronize the latest `MailSwitch.gs` and `AcceptanceTests.gs` from `website-pages-fixes` into the disposable Apps Script copy, then run `runSecurityAcceptanceTests()` again. If M4-04 still fails, retain the exact returned `error` text and Apps Script execution log; do not weaken the expected denial or infer a pass. Do not claim 26/26 until the new runtime JSON confirms it.
+
+All five manual evidence gates remain open. Keep `WP_PUBLISH_CUTOVER_READY_ = false`; no production deployment or publishing cutover is authorized.
