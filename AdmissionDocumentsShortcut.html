@@ -1,0 +1,20 @@
+<script>
+(function(){
+  function install(){
+    const nav=document.getElementById('nav');
+    if(!nav||document.getElementById('admission-docs-nav'))return;
+    const b=document.createElement('button');
+    b.type='button';b.id='admission-docs-nav';b.className='nav';
+    b.innerHTML='<span aria-hidden="true">▣</span><span>Admission Documents</span>';
+    b.addEventListener('click',function(){
+      if(!window.S||!S.token){alert('Please sign in to the portal first.');return;}
+      const url='<?= appUrl ?>?page=admission-documents#'+encodeURIComponent(S.token);
+      window.open(url,'_blank','noopener');
+    });
+    nav.appendChild(b);
+  }
+  const observer=new MutationObserver(install);
+  observer.observe(document.body,{childList:true,subtree:true});
+  install();
+})();
+</script>
