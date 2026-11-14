@@ -674,7 +674,13 @@ function wpValidateDraftAssets_(payload) {
         const parents = file.getParents();
         let inStagingFolder = false;
         while (parents.hasNext()) if (parents.next().getId() === folderId) inStagingFolder = true;
-        if (!inStagingFolder) invalid.push(id);
+        if (!inStagingFolder || file.getSharingAccess() === DriveApp.Access.ANYONE ||
+            file.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK) invalid.push(id);
+      } else if (typeof inPhotoFolder_ !== 'function' || !inPhotoFolder_(id)) {
+        // Existing (non-staged) images are trusted only when they belong to the
+        // established public-photo library. Never allow a draft to reference an
+        // arbitrary Drive image that happens to be readable by the script owner.
+        invalid.push(id);
       }
     } catch (_) { invalid.push(id); }
   });
@@ -1023,6 +1029,7 @@ function saveWebsiteDraftAbout(token, parentVersionId, aboutData) {
     }
     if (typeof aboutClean_ !== 'function') throw new Error('The About content validator is unavailable.');
     const clean = aboutClean_(aboutData);
+    clean.timeline.sort((a, b) => String(a.year).localeCompare(String(b.year), undefined, { numeric:true }));
     clean.leaders.forEach(leader => {
       if (leader.email && !EMAIL_RE.test(leader.email)) throw new Error('Enter a valid email address for ' + leader.name + '.');
     });
