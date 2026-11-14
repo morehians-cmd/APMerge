@@ -172,6 +172,7 @@ function deleteStudent(token, id) {
     archiveStudent_(all[i], ou);
     try { if (all[i].IDPhotoID) DriveApp.getFileById(all[i].IDPhotoID).setTrashed(true); } catch (_) {}
     purgeHistory_(id);
+    purgeAdmissionDocuments_([id]);
     sh.deleteRow(i + 2);stBump_();
     const us = sh_('U'), uids = us.getLastRow() > 1 ? us.getRange(2, 9, us.getLastRow() - 1, 1).getValues().flat() : [];
     for (let k = uids.length - 1; k >= 0; k--) if (uids[k] === id) us.deleteRow(k + 2);
