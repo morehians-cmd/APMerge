@@ -757,7 +757,7 @@ function wpValidateDraftAssets_(payload, actor) {
           }
           const parents = file.getParents();
           let inStagingFolder = false;
-          while (parents.hasNext()) if (folderId && parents.next().getId() === folderId) inStagingFolder = true;
+          while (parents.hasNext()) { const parentId = parents.next().getId(); if (folderId && parentId === folderId) inStagingFolder = true; }
           const inApprovedFolder = typeof inPhotoFolder_ === 'function' && inPhotoFolder_(id);
           if (record.state === 'Staged' && (!folderId || !inStagingFolder ||
               [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess()))) invalid.push(id);
@@ -1261,16 +1261,18 @@ function getWebsiteDraftAboutPhoto(token, versionId, assetId) {
           throw new Error('The staged photo is not owned by the selected draft creator.');
         }
         const parents = file.getParents();
-        while (parents.hasNext()) if (folderId && parents.next().getId() === folderId) allowed = true;
-        if (record[6] === 'Staged') {
-          if (!folderId) throw new Error('The private draft media folder is unavailable.');
-          const folder = DriveApp.getFolderById(folderId);
-          if (folder.isTrashed() ||
-              [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(folder.getSharingAccess()) ||
-              [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) allowed = false;
-        } else {
-          allowed = allowed || inPhotoFolder_(id);
+        while (parents.hasNext()) { const parentId = parents.next().getId(); if (folderId && parentId === folderId) allowed = true; }
+        if (allowed && ['Staged','Promoting'].includes(record[6])) {
+          if (!folderId) allowed = false;
+          else {
+            const folder = DriveApp.getFolderById(folderId);
+            if (folder.isTrashed() ||
+                [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(folder.getSharingAccess()) ||
+                [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) allowed = false;
+          }
         }
+        if (record[6] === 'Promoting') allowed = allowed || inPhotoFolder_(id);
+        if (record[6] === 'Staged' && !folderId) allowed = false;
       } else if (record[6] === 'Published') {
         allowed = inPhotoFolder_(id);
       } else {
