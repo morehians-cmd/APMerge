@@ -955,6 +955,28 @@ function getWebsiteVersion(token, versionId) {
 
 
 /**
+ * Produces a full website payload revision with only the structured About record changed.
+ * All legacy About HTML and unrelated page content are copied without modification.
+ */
+function wpAboutPayloadWithData_(sourcePayload, aboutData) {
+  if (!sourcePayload || typeof sourcePayload !== 'object' || !Array.isArray(sourcePayload.contentRows)) {
+    throw new Error('The source website version has no valid content row collection.');
+  }
+  const payload = JSON.parse(JSON.stringify(sourcePayload));
+  const rows = payload.contentRows;
+  const matches = [];
+  rows.forEach((row, index) => {
+    if (!Array.isArray(row) || row.length !== 2) throw new Error('The source website version contains an invalid content row.');
+    if (row[0] === 'about_data') matches.push(index);
+  });
+  if (matches.length > 1) throw new Error('The website version contains duplicate about_data keys.');
+  const value = JSON.stringify(aboutData);
+  if (matches.length === 1) rows[matches[0]][1] = value;
+  else rows.push(['about_data', value]);
+  return payload;
+}
+
+/**
  * Reads the About Moreh Academy sections from one immutable website version.
  * The legacy About HTML is returned for preservation and migration; it is not rewritten.
  */
@@ -1004,13 +1026,7 @@ function saveWebsiteDraftAbout(token, parentVersionId, aboutData) {
     clean.leaders.forEach(leader => {
       if (leader.email && !EMAIL_RE.test(leader.email)) throw new Error('Enter a valid email address for ' + leader.name + '.');
     });
-    const payload = JSON.parse(JSON.stringify(parent.payload));
-    const rows = payload.contentRows;
-    const matches = [];
-    rows.forEach((row, index) => { if (row[0] === 'about_data') matches.push(index); });
-    if (matches.length > 1) throw new Error('The website version contains duplicate about_data keys.');
-    if (matches.length === 1) rows[matches[0]][1] = JSON.stringify(clean);
-    else rows.push(['about_data', JSON.stringify(clean)]);
+    const payload = wpAboutPayloadWithData_(parent.payload, clean);
     const saved = saveWebsiteDraft(token, parentVersionId, payload);
     if (!saved || saved.success !== true) return saved || fail(new Error('The About draft revision could not be saved.'));
     return ok({
@@ -1036,6 +1052,19 @@ function websitePublishingSelfCheck(token) {
     const check = (name, passed, detail) => checks.push({ name:name, passed:!!passed, detail:detail || '' });
     const unicodeSample = 'a'.repeat(WP_PREFLIGHT_CHUNK_CHARS_ - 1) + '😀' + 'b'.repeat(17);
     const unicodeParts = wpSplitChunks_(unicodeSample, WP_PREFLIGHT_CHUNK_CHARS_);
+    const aboutFixture = {
+      schemaVersion:WP_PREFLIGHT_SCHEMA_,
+      contentRows:[['about','<p>Legacy About text</p>'],['pubhome','Homepage copy'],['about_data','{}']],
+      defaults:{}, eventFeed:{source:'Events'}, galleries:{}
+    };
+    const aboutFixtureUpdated = wpAboutPayloadWithData_(aboutFixture, { vision:{title:'Test vision',text:''} });
+    check('About draft update preserves legacy and unrelated content',
+      aboutFixtureUpdated.contentRows.length === 3 &&
+      aboutFixtureUpdated.contentRows.find(row => row[0] === 'about')[1] === '<p>Legacy About text</p>' &&
+      aboutFixtureUpdated.contentRows.find(row => row[0] === 'pubhome')[1] === 'Homepage copy' &&
+      JSON.parse(aboutFixtureUpdated.contentRows.find(row => row[0] === 'about_data')[1]).vision.title === 'Test vision' &&
+      aboutFixture.contentRows.find(row => row[0] === 'about_data')[1] === '{}',
+      'Synthetic check confirms only about_data changes and the source payload remains immutable.');
     check('Unicode-safe chunk round trip',
       unicodeParts.join('') === unicodeSample && unicodeParts.every((part, index) => {
         if (index === unicodeParts.length - 1 || !part.length) return true;
