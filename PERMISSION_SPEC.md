@@ -370,7 +370,7 @@ This function is source-complete but has not been run in the live bound Apps Scr
 - Requires the Full administrator session, an existing `PREPARED` config, all four additive publishing sheets, and a clean current preflight.
 - Re-reads the live source data and compares the full payload hash to the preflight hash; if the content changed between the two reads, seeding stops.
 - Writes the immutable payload in 40,000-character chunks, stores a SHA-256 hash per chunk, rebuilds the payload from the stored chunks, and verifies the full payload hash before writing version metadata.
-- Records one `Approved` migration-baseline version, its hash/size/chunk count, the `baseline_version_id`, and `migration_state=BASELINE_SEEDED`.
+- Records one immutable `Published` migration-baseline version (representing the currently live public site, not a newly reviewed draft), its hash/size/chunk count, the `baseline_version_id`, and `migration_state=BASELINE_SEEDED`.
 - Intentionally leaves `published_version_id` blank. Existing public readers continue to use the current Content/Events/Gallery stores; existing editor writes remain live and unchanged.
 - Refuses to overwrite an existing baseline or seed when the migration state is not `PREPARED`.
 
