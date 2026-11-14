@@ -350,10 +350,20 @@ This execution supersedes the prior 22/22 and closes the automated-runtime pendi
 - `saveIdArt()` remains owner-only (`sysOwner_()`); this remediation does not broaden artwork mutation privileges.
 - Added M5-06 to the automated suite to assert the shared role policy for student-care administrative actions.
 
-**Commits:** `Flags.gs` — `d234e04e0ac0a4551127469cb91a25377c137b1d`; `IdCard.gs` — `5f330e06352dac19104f777474735a35b2a7c275`; `MailQueue.gs` — `d778d67edd282800e71911261a1acd161840e3ff`; `MailSwitch.gs` — `bd8d874746c8d0aad67db628ca1ca2d3a3daaeac`; `AcceptanceTests.gs` — `8367a23478ebe94e5a7f6f00ae346366f0d754fb`.
+**Commits:** `Flags.gs` — `d234e04e0ac0a4551127469cb91a25377c137b1d`; `IdCard.gs` — `5f330e06352dac19104f777474735a35b2a7c275`; `MailQueue.gs` — `d778d67edd282800e71911261a1acd161840e3ff`; `MailSwitch.gs` — final update `8e6f3da5d8a5cd7fe240f7d4743816f8d2067b77`; `AcceptanceTests.gs` — final update `aa658efb8bf1d93c9222c9c612a9976b19b95c09`.
 
-**Runtime status:** The 24/24 execution at `2026-11-14T13:37:55.267Z` predates this remediation. The branch suite now contains 25 checks. Synchronize `Flags.gs`, `IdCard.gs`, `MailQueue.gs`, `MailSwitch.gs` and `AcceptanceTests.gs` into the disposable Apps Script copy, along with any previously updated files not yet synchronized, then rerun `runSecurityAcceptanceTests()`. Do not claim 25/25 until the Apps Script JSON confirms it.
+**Runtime status:** The 24/24 execution at `2026-11-14T13:37:55.267Z` predates this remediation. The branch suite now contains 26 checks. Synchronize `Flags.gs`, `IdCard.gs`, `MailQueue.gs`, `MailSwitch.gs` and `AcceptanceTests.gs` into the disposable Apps Script copy, along with any previously updated files not yet synchronized, then rerun `runSecurityAcceptanceTests()`. Do not claim 25/25 until the Apps Script JSON confirms it.
 
 **Static verification required:** V8 parse all changed files; inspect each named endpoint to ensure the guard runs before spreadsheet/Drive reads or writes; verify the per-student Encoder scope checks remain; verify ID artwork writes remain owner-only; and verify publishing cutover remains false.
 
 **Manual evidence remains open:** Use real synthetic Full, Manager, Encoder, Guidance, Accounting, Academic, HeadTeacher and Teacher accounts to test direct calls to each endpoint. For Encoder, test both in-scope and out-of-scope student IDs. Verify denied calls do not read or mutate student, user, Drive or mail-queue records.
+
+## 8. M4 follow-up — student account reset scope
+
+During verification of the M5 student-care changes, `resetStudentAccount()` was found to enforce the shared role guard but not the Encoder's per-student grade/section assignment. An Encoder could therefore attempt a direct reset for an out-of-scope student account.
+
+**Fix:** The endpoint now resolves the student record and calls `assertStudentScope_()` immediately after authentication and before reading the Users sheet. Full/Manager retain their unscoped behavior; Encoder is constrained by the existing assignment. Added M4-04, a controlled endpoint harness that mocks an out-of-scope Encoder student and asserts the Users sheet is not read before the scope denial. The harness restores all mocked functions in `finally`.
+
+**Commits:** `MailSwitch.gs` — `8e6f3da5d8a5cd7fe240f7d4743816f8d2067b77`; `AcceptanceTests.gs` — `aa658efb8bf1d93c9222c9c612a9976b19b95c09`.
+
+**Runtime status:** The 24/24 execution predates M5-06 and M4-04. The current branch suite contains 26 checks. Rerun the complete suite after synchronizing all changes listed in Sections 7 and 8. Do not claim 26/26 until the Apps Script JSON confirms it.
