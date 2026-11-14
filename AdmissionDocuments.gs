@@ -107,7 +107,7 @@ function uploadAdmissionDocument(token, requirementKey, fileName, mimeType, data
     if (!Object.prototype.hasOwnProperty.call(ADMISSION_DOC_TYPES_,key)) throw new Error('Invalid admission requirement.');
     const applicable = reqsFor_(student).show;
     if (!applicable.includes(key)) throw new Error('This requirement does not apply to your current grade level or scholarship category.');
-    const name = String(fileName || 'document').replace(/[\\x5c\\/ :*?"<>|\\x00-\\x1F]/g,'_').slice(0,120);
+    const name = String(fileName || 'document').replace(/[\\/:*?"<>|\u0000-\u001F]/g,'_').slice(0,120);
     const mime = String(mimeType || '').toLowerCase();
     if (!ADMISSION_DOC_MIMES_.includes(mime)) throw new Error('Upload a PDF, JPG, JPEG, or PNG file.');
     const match = /^data:([^;,]+);base64,([a-z0-9+/=]+)$/i.exec(String(dataUrl || ''));
