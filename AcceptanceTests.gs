@@ -198,26 +198,24 @@ function runSecurityAcceptanceTests() {
 
   record('M4-04', 'Student account reset enforces Encoder scope before reading user accounts', () => {
     const originals = {
-      guard:assertAdminConsoleRole_, scope:studentSearchScope_, find:findStudent_,
-      assertScope:assertStudentScope_, rows:rows_
+      guard:assertAdminConsoleRole_, scope:studentSearchScope_, find:findStudent_, rows:rows_
     };
-    let userRowsRead = false, scopeDenied = false;
+    let userRowsRead = false;
     try {
       assertAdminConsoleRole_ = () => ({ Role:'admin', Clearance:'Encoder', Username:'acceptance-encoder' });
       studentSearchScope_ = () => ({ grades:['Grade 1'], sections:{ 'Grade 1':['A'] } });
       findStudent_ = id => ({ r:2, o:{ StudentID:id, GradeLevel:'Grade 2', Section:'B' } });
-      assertStudentScope_ = () => { scopeDenied = true; throw new Error('Student is outside your assigned grade/section.'); };
       rows_ = key => { if (key === 'U') userRowsRead = true; return []; };
       const result = resetStudentAccount('acceptance-token', 'OUT-OF-SCOPE');
       assert(result && result.success === false, 'Out-of-scope account reset did not return a denied result.');
-      assert(scopeDenied, 'The student scope assertion was not invoked.');
+      assert(/outside your assigned scope|outside your assigned grade\\/section/i.test(String(result.error || '')),
+        'The endpoint did not return the real student-scope denial.');
       assert(!userRowsRead, 'The endpoint read user-account rows before enforcing student scope.');
-      return 'Out-of-scope Encoder reset rejected before the user-account sheet is read.';
+      return 'The real student-scope guard denied the out-of-scope Encoder reset before the user-account sheet was read.';
     } finally {
       assertAdminConsoleRole_ = originals.guard;
       studentSearchScope_ = originals.scope;
       findStudent_ = originals.find;
-      assertStudentScope_ = originals.assertScope;
       rows_ = originals.rows;
     }
   });
