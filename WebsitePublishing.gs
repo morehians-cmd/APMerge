@@ -651,7 +651,7 @@ function setWebsiteUserPermissions(token, username, permissions) {
 }
 
 
-function wpValidateDraftAssets_(payload) {
+function wpValidateDraftAssets_(payload, actor) {
   const ids = wpReferencedDriveIds_(payload.contentRows || [], payload.galleries || {}, payload.defaults || {});
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const mediaSheet = ss.getSheetByName('Website Draft Media');
@@ -670,7 +670,7 @@ function wpValidateDraftAssets_(payload) {
         return;
       }
       if (staged[id]) {
-        if (staged[id].state !== 'Staged' || !folderId) { invalid.push(id); return; }
+        if (staged[id].state !== 'Staged' || !folderId || !actor || wpText_(staged[id].uploadedBy).toLowerCase() !== wpText_(actor.Username).toLowerCase()) { invalid.push(id); return; }
         const parents = file.getParents();
         let inStagingFolder = false;
         while (parents.hasNext()) if (parents.next().getId() === folderId) inStagingFolder = true;
@@ -823,7 +823,7 @@ function saveWebsiteDraft(token, parentVersionId, payload) {
         if (wpText_(item.cap).length > 120) throw new Error('Gallery captions must be 120 characters or fewer.');
       });
     });
-    wpValidateDraftAssets_(payload);
+    wpValidateDraftAssets_(payload, actor);
     const id = 'WV-' + Utilities.getUuid();
     const saved = wpWriteVersion_(id, parentVersionId, 'Draft', actor, payload, 'Revision of draft ' + parentVersionId);
     const audit = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Publishing Audit');
