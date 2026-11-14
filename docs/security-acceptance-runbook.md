@@ -622,6 +622,12 @@ The ID-card module is documented as a TLC-scholar workflow. A shared `assertIdCa
 
 The automated suite now includes M4-05 for the shared category guard. Run `runSecurityAcceptanceTests()` in the disposable development copy and capture its JSON result before treating M4-05 as passed. The helper test is not a substitute for live Encoder/Full/Manager endpoint checks; include both TLC categories and at least one non-TLC learner, and confirm rejected photo/number mutations leave the Students row and Drive folder unchanged.
 
+### M4-06 — Certificate of Registration student scope
+
+A source audit found that `corData()` authenticated an admin-console user but did not apply the same per-student Encoder scope enforced by the ID-card endpoints. The endpoint now passes the authenticated user through `assertAdminConsoleRole_()`, resolves `studentSearchScope_()`, resolves the target learner, and calls `assertStudentScope_()` before reading COR fee settings or retrieving the learner photo. Full and Manager retain their unrestricted scope; Encoders are limited to assigned grade/section records. The new M4-06 automated check verifies that an out-of-scope synthetic Encoder is rejected before the fee-settings reader is reached.
+
+For manual M4 evidence, call `corData()` as an Encoder for one assigned and one unassigned enrolled TLC/TLC-OVAP learner, then as Full and Manager. Confirm the denied response contains no fee data or photo, and verify no sheet or Drive mutation occurs. Also verify office roles cannot reach this endpoint through `who_(token, 'admin')` / the admin-console role boundary.
+
 
 ### M6-02 — Report-history detail data minimization
 
@@ -630,7 +636,7 @@ The client-facing `reportLog()` endpoint previously forwarded a client-supplied 
 The automated suite now includes M6-02 for canonical level/grade-section descriptors and representative identifying or arbitrary payloads. Section values must match the configured canonical sections for that grade (including the combined Senior High cluster section lists); free-form section labels are discarded. Run the current suite in the disposable Apps Script copy. The test validates the sanitizer; the manual M6 role matrix must still verify the actual history response for Full, Manager and applicable report users, including that no pre-existing sensitive history rows are inadvertently exposed.
 
 
-**Current suite size after M5-07:** The branch now contains 29 automated acceptance cases. The last supplied runtime result remains 26/26 from before M4-05, M6-02 and M5-07. Run the full 29-case suite in the disposable Apps Script copy; no result should be inferred from the earlier run.
+**Current suite size after M4-06:** The branch now contains 30 automated acceptance cases. The last supplied runtime result remains 26/26 from before M4-05, M6-02 and M5-07. Run the full 29-case suite in the disposable Apps Script copy; no result should be inferred from the earlier run.
 
 
 ### M5-07 — Encoder-only sign-in hours
