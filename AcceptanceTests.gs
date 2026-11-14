@@ -1,5 +1,5 @@
 /**
- * Read-only security acceptance checks for the Moreh Academy development copy.
+ * Non-destructive security acceptance checks for the Moreh Academy development copy.
  *
  * Run runSecurityAcceptanceTests() from the Apps Script editor while signed in as
  * the script owner. The suite never reads or writes student rows, does not invoke
