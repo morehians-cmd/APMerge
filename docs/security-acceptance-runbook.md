@@ -180,7 +180,7 @@ The execution output explicitly retains these manual evidence items as open:
 4. **M6:** Run every report, drill-down, export and history endpoint for every role.
 5. **M7:** Complete editor/public-reader/media cutover and draft/review/publish/rollback browser acceptance.
 
-This 20/20 result closes the automated execution gap for M4-03 and confirms the current 20-check suite passed in the non-production Apps Script runtime. It does not close the five manual evidence gates, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
+This 20/20 result records a successful execution of the then-current 20-check suite. After reviewing the M4-03 test implementation, the check was strengthened in source to invoke both `studentSearchScope_` and `wpPermissionMap_` under a synthetic colliding staff-account table, rather than relying only on the shared collision helper. That test-strengthening commit postdates this execution; synchronize the latest `AcceptanceTests.gs` and rerun `runSecurityAcceptanceTests()` before treating the strengthened M4-03 reader assertions as runtime-passed. The 20/20 result does not close the five manual evidence gates, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
 
 ### Historical execution — 19-check suite
 
