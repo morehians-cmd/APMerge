@@ -118,7 +118,10 @@ function resetStudentAccount(token, studentId) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
-    const au = assertAdminConsoleRole_(who_(token, 'admin')), users = rows_('U'), i = users.findIndex(u => u.Role === 'student' && u.StudentID === studentId);
+    const au = assertAdminConsoleRole_(who_(token, 'admin')), scope = studentSearchScope_(au), hit = findStudent_(String(studentId || ''));
+    if (!hit) throw new Error('Learner not found.');
+    assertStudentScope_(scope, hit.o);
+    const users = rows_('U'), i = users.findIndex(u => u.Role === 'student' && u.StudentID === studentId);
     if (i < 0) throw new Error('This learner has no portal account yet. Use "Create account" first.');
     const acc = users[i], was = acc.Locked === '1', pw = tempPw_(), sh = sh_('U');
     put_(sh, i + 2, 2, [[hash_(pw)]]);
