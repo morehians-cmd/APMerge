@@ -89,7 +89,7 @@ Exercise `dashboard`, `dashboardExtra`, `dashboardDemo`, `searchStudents`, `getS
 
 ### M6 — Reports
 
-The automated suite includes M6-01, which directly invokes the report home, analytics, drill, history, preferences, logging, favorites, and saved-report mutation endpoints with an invalid session token. Each must reject before returning data or mutating report metadata. This does not replace authenticated role-matrix tests or export-path verification.
+The automated suite includes M6-01, which directly invokes the legacy report data, report home, analytics, drill, history, preferences, logging, favorites, and saved-report mutation endpoints with an invalid session token. Each must reject before returning data or mutating report metadata. This does not replace authenticated role-matrix tests or export-path verification.
 
 For Full, Manager, Encoder, Guidance, Accounting, HeadTeacher, Teacher and Student, directly call:
 
