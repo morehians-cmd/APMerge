@@ -42,7 +42,8 @@ function wpUiRender(){
   }
   const actionCard=actions?'<div class="wp-actions">'+actions+'</div>':'';
   const editor=WPUI.about?wpUiAboutEditor(v):'';
-  const publishGate=!WPUI.publishingReady?'<div class="card"><h3 style="margin-top:0">Publication is safely locked</h3><p class="wp-muted">The draft, review and approval workflow is available, but publishing and rollback remain disabled until all legacy website content and media editors write to immutable drafts.</p><ul>'+WPUI.publishingBlockers.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'';\n  $('view').innerHTML='<div class="wp-wrap">'+publishGate+versionCard+actionCard+editor+'</div>';
+  const publishGate=!WPUI.publishingReady?'<div class="card"><h3 style="margin-top:0">Publication is safely locked</h3><p class="wp-muted">The draft, review and approval workflow is available, but publishing and rollback remain disabled until all legacy website content and media editors write to immutable drafts.</p><ul>'+WPUI.publishingBlockers.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'';
+  $('view').innerHTML='<div class="wp-wrap">'+publishGate+versionCard+actionCard+editor+'</div>';
   if(WPUI.about)wpUiLoadPhotos();
 }
 function wpUiSelect(id){WPUI.selected=id;WPUI.about=null;wpUiRender();if(id)wpUiLoad(id)}
