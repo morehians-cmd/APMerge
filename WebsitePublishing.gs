@@ -250,7 +250,7 @@ function wpConfigEnsure_(sheet) {
 function setupWebsitePublishingStores(token) {
   const lock = LockService.getScriptLock();
   try {
-    const actor = sysOwner_(token);
+    const actor = wpActor_(token);
     lock.waitLock(20000);
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     const versions = wpEnsureSheet_(ss, 'Website Versions', WP_VERSION_HEADERS_);
@@ -320,7 +320,7 @@ function wpSetConfigValue_(sheet, key, value) {
 function seedWebsitePublishingBaseline(token) {
   const lock = LockService.getScriptLock();
   try {
-    const actor = sysOwner_(token);
+    const actor = wpActor_(token);
     lock.waitLock(20000);
 
     const preflight = websitePublishingPreflight(token);
