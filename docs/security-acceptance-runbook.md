@@ -662,3 +662,23 @@ Source cross-check on branch `website-pages-fixes`:
 - `Public.gs` contains the corresponding public readers; `getPublishedHomepageHero()` delegates to `getHomepageHero()`, and `getPublicBlock()` enforces its public-key allowlist and sanitizes the returned HTML.
 
 **Evidence classification:** This is a successful public-homepage load/smoke check only. It does not establish that the versioned publishing editor loads, that draft edits remain isolated from public readers, that review/approval and publish/rollback work, or that Drive media promotion/recovery is reliable. It therefore contributes limited browser evidence to M7 but does not close M7. The publishing cutover remains disabled, and no deployment or production content change is authorized by this screenshot.
+
+## 16. Owner identity pin — privileged setup authorization hardening
+
+A follow-up review of `ownerOnly_()` identified an execution-identity ambiguity: comparing only `Session.getActiveUser()` with `Session.getEffectiveUser()` is insufficient when a web app is deployed to execute as the accessing user, because both identities can then represent that caller. A non-owner could satisfy the equality check in that deployment mode.
+
+**Source remediation:** `Security.gs` now requires both identities to match a manually pinned Script Property named `MA_SCRIPT_OWNER_EMAIL`. The value must be the project owner's email address, entered by the owner in Apps Script Project Settings → Script Properties. Missing, malformed, blank, undisclosed or mismatched identities fail closed with `Owner only.`. This protects all existing `ownerOnly_()` call sites, including security initialization, owner reset, audit, hash benchmark, authorization and branding configuration.
+
+**Required one-time development setup:**
+1. Sign in to the Apps Script editor as the actual project owner.
+2. Open Project Settings → Script Properties.
+3. Add `MA_SCRIPT_OWNER_EMAIL` with the owner's exact Google account email address, normalized to lowercase.
+4. Save the property. Do not add it to a client HTML file, public configuration, spreadsheet cell, or repository source.
+5. Run `auditSecurity()` from the editor. It must execute successfully as owner.
+6. Run the owner-only authorization test from a separate non-owner Google account using the development web app. Invoke `setApprovedBrandingFolder` and `setLogoFile` with deliberately malformed IDs. Both must fail with `Owner only.`, not with argument-validation errors.
+7. Verify the approved-folder and logo Script Properties are unchanged.
+8. As the owner, run `setApprovedBrandingFolder` and the valid logo selection from the Apps Script editor to confirm the legitimate owner workflow remains available.
+
+**Deployment note:** Do not change production deployment settings to perform this test. In execute-as-user mode, the effective identity becomes the accessing user and cannot match the pinned owner for a non-owner. In execute-as-owner mode, a caller whose active identity is blank or differs from the pinned owner is rejected. The owner-only functions are intended to be run from the editor, not exposed as owner setup operations in the public browser UI.
+
+**Release status:** This is a source-level authorization hardening change, not proof that the Script Property has been configured in the live development project. M3 remains OPEN until the property is installed and both owner and non-owner runtime tests pass. After synchronizing `Security.gs`, re-run `runSecurityAcceptanceTests()` and retain its JSON output; the existing 30/30 result predates this change.
