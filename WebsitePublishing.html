@@ -57,7 +57,8 @@ function wpUiRender(){
     if(['Archived','Published'].includes(v.status)&&wpUiCan('website.content.rollback')&&WPUI.publishingReady&&v.status!=='Published')actions+='<button class="btn alt" data-act="wprollback">Restore this version</button>';
   }
   const actionCard=actions?'<div class="wp-actions">'+actions+'</div>':'';
-  const editable=!!(v&&['Draft','ChangesRequested'].includes(v.status)&&wpUiCan('website.content.edit')&&String(v.createdBy||'').toLowerCase()===WPUI.username);\n  const editor=WPUI.about?wpUiAboutEditor(v):'';
+  const editable=!!(v&&['Draft','ChangesRequested'].includes(v.status)&&wpUiCan('website.content.edit')&&String(v.createdBy||'').toLowerCase()===WPUI.username);
+  const editor=WPUI.about?wpUiAboutEditor(v):'';
   const contentEditor=editable?wpUiContentEditor():'';
   const galleryEditor=editable?wpUiGalleryEditor():'';
   const publishGate=!WPUI.publishingReady?'<div class="card"><h3 style="margin-top:0">Publication is safely locked</h3><p class="wp-muted">The draft, review and approval workflow is available, but publishing and rollback remain disabled until all legacy website content and media editors write to immutable drafts.</p><ul>'+WPUI.publishingBlockers.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'';
@@ -243,7 +244,8 @@ act.wpvalidate=()=>wpUiDiagnostic('validateWebsitePublishingBaseline');
 act.wpselfcheck=()=>wpUiDiagnostic('websitePublishingSelfCheck');
 act.wprefresh=()=>wpUiRefresh(WPUI.selected);
 act.wpsave=()=>wpUiSave();
-act.wpcontentsave=()=>wpUiSaveContent();\nact.wpgallerysave=()=>wpUiSaveGallery();
+act.wpcontentsave=()=>wpUiSaveContent();
+act.wpgallerysave=()=>wpUiSaveGallery();
 act.wpsubmit=()=>wpUiSubmit();
 act.wpapprove=()=>wpUiReview('Approve');
 act.wprequest=()=>wpUiReview('RequestChanges');
