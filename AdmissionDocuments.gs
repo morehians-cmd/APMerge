@@ -135,7 +135,7 @@ function uploadAdmissionDocument(token, requirementKey, fileName, mimeType, data
     const id = Utilities.getUuid();
     const row = [id,student.StudentID,key,ADMISSION_DOC_TYPES_[key],name,mime,file.getId(),'Pending',now,u.Username,'','',''];
     const sh = admissionDocsSheet_();
-    sh.getRange(sh.getLastRow()+1,1,1,row.length).setNumberFormat('@').setValues([row]); rowSaved = true;
+    put_(sh,sh.getLastRow()+1,1,[row]); rowSaved = true;
     audit_(u,'admission.document.upload',student.StudentID,key+' / '+name);
     return {success:true,message:'Document uploaded for review.',data:{documentId:id,status:'Pending',fileName:name}};
   } catch(e) { if (createdFile && !rowSaved) { try { createdFile.setTrashed(true); } catch(_) {} } return fail(e); }
@@ -186,8 +186,8 @@ function reviewAdmissionDocument(token, documentId, decision, remarks) {
     if (i<0) throw new Error('Document not found.');
     const student = admissionDocStudent_(u,rows[i].StudentID);
     const now = Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm:ss');
-    const values = [action,now,u.Username,note];
-    sh.getRange(i+2,8,1,4).setNumberFormat('@').setValues([values]);
+    sh.getRange(i+2,8).setNumberFormat('@').setValue(action);
+    sh.getRange(i+2,11,1,3).setNumberFormat('@').setValues([[now,u.Username,note]]);
     audit_(u,'admission.document.review',rows[i].StudentID,rows[i].RequirementKey+' / '+action);
     const email = String(student.Email || '').trim();
     if (email && EMAIL_RE.test(email)) mail = {to:email,subject:'Moreh Academy: admission document '+action.toLowerCase(),
