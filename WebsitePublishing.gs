@@ -1364,8 +1364,7 @@ function saveWebsiteDraftContent(token, parentVersionId, contentKey, contentValu
       ...(Array.isArray(defaults.pageBlockKeys) ? defaults.pageBlockKeys : []),
       'about_data', PUBLIC_CONTENT_KEY_, PUBLIC_HERO_KEY_, PAGE_INTRO_KEY_, PAGE_BANNERS_KEY_
     ]);
-    const existing = parent.payload.contentRows.some(row => Array.isArray(row) && row[0] === key);
-    if (!key || (!existing && !allowed.has(key))) throw new Error('This Content key is not part of the website publishing schema.');
+    if (!key || !allowed.has(key)) throw new Error('This Content key is not part of the website publishing schema.');
     let value = contentValue == null ? '' : String(contentValue);
     if (value.length > 45000) throw new Error('Website content exceeds the Google Sheets cell limit.');
     if (key === 'about_data') {
@@ -1397,7 +1396,7 @@ function saveWebsiteDraftContent(token, parentVersionId, contentKey, contentValu
       const clean = {};
       Object.keys(parsed).forEach(slug => { if (PAGE_BANNER_SLUGS_.includes(slug)) clean[slug] = pageBannerClean_(parsed[slug], slug); });
       value = JSON.stringify(clean);
-    } else if (BLOCKS.includes(key)) {
+    } else if (BLOCKS.includes(key) || (Array.isArray(defaults.pageBlockKeys) && defaults.pageBlockKeys.includes(key)) || (Array.isArray(defaults.publicBlockKeys) && defaults.publicBlockKeys.includes(key))) {
       value = cleanPolicy_(value);
     }
     const payload = JSON.parse(JSON.stringify(parent.payload));
