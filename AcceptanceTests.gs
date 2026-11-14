@@ -154,7 +154,37 @@ function runSecurityAcceptanceTests() {
       'A colliding username was not detected.');
     assert(accountPropertyKeyCollisions_('encoder.one', ['encoder.one', 'encoder-two']).length === 0,
       'Distinct non-colliding usernames were incorrectly rejected.');
-    return 'Distinct usernames that normalize to the same legacy property suffix are detected; Encoder scope and website permission readers fail closed on collisions.';
+
+    const originalRows = rows_;
+    try {
+      rows_ = function(key) {
+        if (key === 'U') return [
+          { Username:'desk@moreh', Role:'Admin' },
+          { Username:'desk_moreh', Role:'Admin' }
+        ];
+        return originalRows(key);
+      };
+
+      let encoderRejected = false;
+      try {
+        studentSearchScope_({ Clearance:'Encoder', Username:'desk@moreh' });
+      } catch (error) {
+        encoderRejected = /property key/.test(String(error && error.message || error));
+      }
+      assert(encoderRejected, 'Encoder scope reader did not fail closed for colliding staff usernames.');
+
+      let websiteRejected = false;
+      try {
+        wpPermissionMap_('desk@moreh');
+      } catch (error) {
+        websiteRejected = /property key/.test(String(error && error.message || error));
+      }
+      assert(websiteRejected, 'Website permission reader did not fail closed for colliding staff usernames.');
+    } finally {
+      rows_ = originalRows;
+    }
+
+    return 'Distinct colliding usernames are detected, and both live property readers reject the collision before reading shared Script Properties.';
   });
 
   record('M7-01', 'Website publishing cutover remains disabled until acceptance gates close', () => {
