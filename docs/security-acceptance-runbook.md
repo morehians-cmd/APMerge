@@ -128,6 +128,18 @@ Run the full sequence only after M7 implementation is synchronized to the dispos
 
 **Current status:** publishing cutover is intentionally disabled. Steps requiring cutover cannot pass until the remaining implementation is completed.
 
-## 3. Release gate
+## 3. Source-level verification evidence
+
+On 2026-11-14, the branch source was re-fetched and checked independently of Apps Script:
+
+- JavaScript syntax parsing passed for Code.gs, AcceptanceTests.gs, WebsitePublishing.gs, Public.gs, Report.gs, Content.gs, Gallery.gs, Protection.gs, Retention.gs, and Security.gs.
+- A local V8 helper harness passed the approved-folder membership and shared logo-MIME checks (M3-02/M3-03).
+- A local V8 helper harness passed Unicode chunk reconstruction, duplicate content-key rejection, and gallery asset validation (M7-02/M7-03/M7-04).
+- A local V8 schema harness confirmed 32 public block keys, 31 page-block mappings, six section-card groups, and 43 permitted content keys, with portal/internal keys excluded (M7-05).
+- A local V8 sanitizer harness passed defaults, unsafe-link rejection, and title/description length limits for all six section-card groups (M7-06).
+
+These local harnesses evaluate extracted pure helper functions; they do not execute runSecurityAcceptanceTests() inside Apps Script and do not verify Apps Script services, Drive ACLs, spreadsheet writes, authentication sessions, triggers, browser behavior, or deployment. The full runtime evidence in Sections 1–2 is still mandatory.
+
+## 4. Release gate
 
 M1–M7 are closed only when the test evidence above is attached to the release record. Any failed, skipped, or unexecuted test remains open. Source syntax checks and self-check functions are supporting evidence, not substitutes for Apps Script runtime tests. Keep `WP_PUBLISH_CUTOVER_READY_` false and do not deploy to production until every applicable test passes and the owner explicitly approves release.
