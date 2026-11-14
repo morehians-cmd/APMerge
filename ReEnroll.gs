@@ -62,8 +62,13 @@ function reenrollRun(token, o) {
     lock.waitLock(30000);
     o = o || {};
     const ids = Array.isArray(o.ids) ? o.ids.map(String).slice(0, 50) : null, u = ids ? who_(token, 'admin') : sysOwner_(token);
+    const scope = ids ? studentSearchScope_(u) : null;
     const SY = activeSY_(), tz = Session.getScriptTimeZone(), all = rows_('S'), retain = !!o.retain, last = GRADES.length - 1, todo = [];
     let skipped = 0;
+    if (ids) {
+      const byId = {}; all.forEach(r => byId[r.StudentID] = r);
+      ids.forEach(id => { if (byId[id]) assertStudentScope_(scope, byId[id]); });
+    }
     all.forEach((r, i) => {
       if (r.EnrollStatus !== 'Enrolled' || !r.SchoolYear || r.SchoolYear >= SY) return;
       if (ids ? !ids.includes(r.StudentID) : (o.grade && o.grade !== '*' && r.GradeLevel !== o.grade)) return;
