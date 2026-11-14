@@ -63,6 +63,8 @@ The existing portal shell now includes a Website Publishing workspace, opened fr
 
 The legacy About editor remains intact during migration and still writes to the legacy live store.
 
+Legacy writer safety: every inventoried legacy writer now calls `wpAssertLegacyWriterOpen_()` before its live mutation. The guard preserves current behavior while `WP_PUBLISH_CUTOVER_READY_` is false, and rejects the old live-write path if the gate is ever enabled. This is a safety interlock, not proof that those editor screens have been migrated; the gate remains false until their callers are redirected and tested.
+
 ## Public reader migration
 
 The public reader endpoints now resolve from the published payload when a published pointer exists, while preserving legacy fallback before first publication. This includes homepage content and hero, public blocks, About data and leadership photos, Events, section cards, page photos, Facilities and History galleries, page introductions and page banners.
