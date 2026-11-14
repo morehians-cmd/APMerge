@@ -1314,7 +1314,11 @@ function publishWebsiteVersion(token, versionId) {
     if (!pointerCommitted) {
       if (promotionJournal.length) {
         try {
-          wpRestoreUncommittedPromotions_(promotionJournal);
+          const recoveryResult = wpRestoreUncommittedPromotions_(promotionJournal);
+          if (recoveryResult.failed.length) {
+            message += ' Media recovery is incomplete; unresolved assets remain in RecoveryRequired state and require owner attention: ' +
+              recoveryResult.failed.map(item => item.assetId + ' (' + item.error + ')').join('; ');
+          }
         } catch (recoveryError) {
           message += ' Media recovery also failed and requires owner attention: ' +
             String(recoveryError && recoveryError.message || recoveryError);
