@@ -631,7 +631,8 @@ function setWebsiteUserPermissions(token, username, permissions) {
     const actor = sysOwner_(token);
     const target = String(username || '').trim().toLowerCase();
     if (!/^[a-z0-9._@-]{4,60}$/.test(target)) throw new Error('Enter a valid existing username.');
-    if (!rows_('U').some(user => user.Username === target && user.Role === 'admin')) throw new Error('The target staff account was not found.');
+    const matches = rows_('U').filter(user => wpText_(user.Username).trim().toLowerCase() === target && wpText_(user.Role).trim().toLowerCase() === 'admin');
+    if (matches.length !== 1) throw new Error(matches.length ? 'The target username is ambiguous in the staff account table.' : 'The target staff account was not found.');
     if (!permissions || typeof permissions !== 'object' || Array.isArray(permissions)) throw new Error('Invalid permission map.');
     const next = {};
     WP_PERMISSION_KEYS_.forEach(key => {
