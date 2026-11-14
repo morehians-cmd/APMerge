@@ -154,6 +154,9 @@ function runSecurityAcceptanceTests() {
       'A colliding username was not detected.');
     assert(accountPropertyKeyCollisions_('encoder.one', ['encoder.one', 'encoder-two']).length === 0,
       'Distinct non-colliding usernames were incorrectly rejected.');
+    const duplicateCase = accountPropertyKeyCollisions_('desk@moreh', ['desk@moreh', 'DESK@MOREH']);
+    assert(duplicateCase.length === 1 && duplicateCase[0] === 'desk@moreh',
+      'Duplicate usernames differing only by case were not detected.');
 
     const originalRows = rows_;
     try {
