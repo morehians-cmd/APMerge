@@ -912,13 +912,50 @@ function getLogo() {
   } catch (e) { return ok(''); }
 }
 
+const APPROVED_BRANDING_FOLDER_PROPERTY_ = 'MA_APPROVED_BRANDING_FOLDER_ID';
+
+/** Returns true only when a Drive file is directly contained in the approved branding folder. */
+function logoIsInApprovedFolder_(file, folderId) {
+  folderId = String(folderId || '').trim();
+  if (!folderId || !file || typeof file.getParents !== 'function') return false;
+  const parents = file.getParents();
+  while (parents.hasNext()) {
+    const parent = parents.next();
+    if (parent && parent.getId && parent.getId() === folderId) return true;
+  }
+  return false;
+}
+
+/**
+ * OWNER ONLY. Configures the sole Drive folder from which the school logo may be selected.
+ * Existing logo configuration is left unchanged; a folder must be explicitly approved first.
+ */
+function setApprovedBrandingFolder(id) {
+  ownerOnly_();
+  id = String(id || '').trim();
+  if (!/^[A-Za-z0-9_-]{20,}$/.test(id)) throw new Error('Enter a valid Google Drive folder ID.');
+  const folder = DriveApp.getFolderById(id);
+  if (folder.isTrashed()) throw new Error('The approved branding folder is in the Drive trash.');
+  const access = folder.getSharingAccess();
+  if (access === DriveApp.Access.ANYONE || access === DriveApp.Access.ANYONE_WITH_LINK) {
+    throw new Error('The approved branding folder must not be publicly shared.');
+  }
+  PropertiesService.getScriptProperties().setProperty(APPROVED_BRANDING_FOLDER_PROPERTY_, id);
+  Logger.log('Approved school branding folder configured: ' + folder.getName() + ' (' + id + ').');
+}
+
 /** OWNER ONLY (editor). setLogoFile('<Drive file ID>') */
 function setLogoFile(id) {
   ownerOnly_();
   id = String(id || '').trim();
   if (!/^[A-Za-z0-9_-]{20,}$/.test(id)) throw new Error('Enter a valid Google Drive file ID.');
+  const approvedFolderId = PropertiesService.getScriptProperties().getProperty(APPROVED_BRANDING_FOLDER_PROPERTY_);
+  if (!approvedFolderId) throw new Error('The approved school branding folder has not been configured. Ask the system owner to configure it first.');
   const f = DriveApp.getFileById(id);
   if (f.isTrashed()) throw new Error('The selected logo file is in the Drive trash.');
+  if (!logoIsInApprovedFolder_(f, approvedFolderId)) {
+    throw new Error('The selected logo must be stored directly in the approved school branding folder.');
+  }
   const mime = String(f.getMimeType() || '').toLowerCase();
   if (!/^image\/(png|jpeg|webp|gif)$/.test(mime)) throw new Error('The logo must be a PNG, JPEG, WebP or GIF image.');
   const size = f.getSize();
