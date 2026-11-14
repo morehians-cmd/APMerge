@@ -31,11 +31,11 @@ The script must be **bound to the school's spreadsheet**: the code reads and wri
    - `PHOTO_FOLDER_ID` — the Drive folder that stores uploaded photos. Share it as *Anyone with the link* so public pages can display them.
    - `SCHOOL`, `HEAD_NAME`, `HEAD_TITLE`, `FEE`, `LETTERHEAD_URL` — printed on slips and forms.
 4. Run the function **`setup()`** once and allow the permissions prompt. It creates the sheets, the security pepper and the first administrator; the username and one-time password appear in the execution log. **Back up the `PEPPER` script property**, and change the password at first sign-in.
-6. **Deploy → New deployment → Web app.** Execute as **Me**, who has access **Anyone**, then Deploy and copy the `/exec` URL.
+5. **Deploy → New deployment → Web app.** Execute as **Me**, who has access **Anyone**, then Deploy and copy the `/exec` URL.
    - `/exec` → homepage
    - `/exec?page=portal` → staff dashboard (sign-in required)
    - `/exec?page=about` (and the other page keys in `doGet`) → interior pages
-7. Optional: run `installBackupTrigger()`, `installMailQueueTrigger()` and `installRetentionTrigger()` once each to enable scheduled backups, mail and data retention.
+6. Optional: run `installBackupTrigger()`, `installMailQueueTrigger()` and `installRetentionTrigger()` once each to enable scheduled backups, mail and data retention.
 
 **After any later change**, use **Deploy → Manage deployments → edit → Version: New version**. Editing the code alone does not update the live site.
 
@@ -43,5 +43,5 @@ The script must be **bound to the school's spreadsheet**: the code reads and wri
 
 - The College module is `CollegeModule.gs`, not `College.gs`: Apps Script will not hold two project files with the same name, and the dashboard screen is already `College.html`. The file's functions and API are unchanged.
 - New spreadsheet columns must be added at the **end** of `FIELDS` in `Code.gs` — the order matters for existing rows.
-- Photo uploads are resized in the browser before being stored, so staff never need to resize images themselves.
+- Admission requirements are submitted physically to the Admissions Office. Applicants use the portal only to view their checklist and recorded status; authorized school staff update receipt and verification in the student record. There is no applicant document-upload feature.\n- Student/staff profile photo uploads are resized in the browser before being stored, so staff never need to resize images themselves.
 - Keep secrets (`SALT`, `PEPPER`, the photo folder ID) out of screenshots, chats and public copies of this repository.
