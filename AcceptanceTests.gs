@@ -146,6 +146,17 @@ function runSecurityAcceptanceTests() {
     }
   });
 
+  record('M4-03', 'Encoder scope property keys reject colliding staff usernames', () => {
+    assert(studentScopeKeySuffix_('desk@moreh') === studentScopeKeySuffix_('desk_moreh'),
+      'Test fixture no longer represents a legacy key collision.');
+    const collisions = studentScopeKeyCollisions_('desk@moreh', ['desk@moreh', 'desk_moreh', 'another.encoder']);
+    assert(collisions.length === 1 && collisions[0] === 'desk_moreh',
+      'A colliding username was not detected.');
+    assert(studentScopeKeyCollisions_('encoder.one', ['encoder.one', 'encoder-two']).length === 0,
+      'Distinct non-colliding usernames were incorrectly rejected.');
+    return 'Distinct usernames that normalize to the same legacy property suffix are detected; non-colliding usernames remain valid.';
+  });
+
   record('M7-01', 'Website publishing cutover remains disabled until acceptance gates close', () => {
     assert(WP_PUBLISH_CUTOVER_READY_ === false, 'Publishing cutover must remain disabled.');
     wpAssertLegacyWriterOpen_();
