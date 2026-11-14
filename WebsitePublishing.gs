@@ -233,7 +233,12 @@ function wpConfigEnsure_(sheet) {
   const last = sheet.getLastRow();
   const rows = last > 1 ? sheet.getRange(2, 1, last - 1, 2).getDisplayValues() : [];
   const existing = {};
-  rows.forEach(row => { if (row[0]) existing[wpText_(row[0])] = true; });
+  rows.forEach(row => {
+    if (!row[0]) return;
+    const key = wpText_(row[0]);
+    if (existing[key]) throw new Error('Duplicate publishing configuration key: ' + key);
+    existing[key] = true;
+  });
   const missing = defaults.filter(row => !existing[row[0]]);
   if (missing.length) {
     const start = Math.max(2, sheet.getLastRow() + 1);
@@ -393,9 +398,9 @@ function seedWebsitePublishingBaseline(token) {
     const now = new Date();
     const payloadBytes = Utilities.newBlob(payloadJson, 'application/json').getBytes().length;
     versions.appendRow([
-      versionId, '', 'Published', actor.Username, now, actor.Username, now,
-      '', '', 'Migration baseline representing the live public website at capture time; no draft self-review was performed.',
-      actor.Username, now, payloadHash, payloadJson.length, payloadBytes, chunkCount
+      versionId, '', 'Baseline', actor.Username, now, actor.Username, now,
+      '', '', 'Immutable migration baseline representing the live public website; not yet connected to the published pointer.',
+      '', '', payloadHash, payloadJson.length, payloadBytes, chunkCount
     ]);
     wpSetConfigValue_(config, 'baseline_version_id', versionId);
     wpSetConfigValue_(config, 'migration_state', 'BASELINE_SEEDED');
@@ -407,7 +412,7 @@ function seedWebsitePublishingBaseline(token) {
 
     return ok({
       versionId:versionId,
-      status:'Published',
+      status:'Baseline',
       payloadHash:payloadHash,
       payloadChars:payloadJson.length,
       payloadBytes:payloadBytes,
