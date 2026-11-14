@@ -477,9 +477,20 @@ function seedWebsitePublishingBaseline(token) {
     });
 
     const currentConfig = wpConfigMap_(config);
-    if (currentConfig.baseline_version_id) throw new Error('A baseline version is already recorded. Do not overwrite it.');
+    const priorBaselineId = wpText_(currentConfig.baseline_version_id);
     if (currentConfig.published_version_id) throw new Error('The published pointer is already set. Baseline seeding is closed.');
-    if (currentConfig.migration_state !== 'PREPARED') throw new Error('Publishing migration is not in PREPARED state.');
+    if (priorBaselineId) {
+      const priorBaseline = wpReadVersion_(priorBaselineId);
+      if (Array.isArray(priorBaseline.payload.eventFeed.rows)) {
+        throw new Error('A complete baseline version is already recorded. Do not overwrite it.');
+      }
+      if (wpText_(priorBaseline.meta[2]) !== 'Baseline') {
+        throw new Error('The existing baseline pointer is not in Baseline state; reconcile it before refreshing.');
+      }
+    }
+    if (!['PREPARED','BASELINE_SEEDED','BASELINE_REFRESHED'].includes(currentConfig.migration_state)) {
+      throw new Error('Publishing migration is not in a refreshable baseline state.');
+    }
 
     const contentSheet = ss.getSheetByName('Content');
     const eventsSheet = ss.getSheetByName('Events');
@@ -537,7 +548,7 @@ function seedWebsitePublishingBaseline(token) {
       '', '', payloadHash, payloadJson.length, payloadBytes, chunkCount
     ]);
     wpSetConfigValue_(config, 'baseline_version_id', versionId);
-    wpSetConfigValue_(config, 'migration_state', 'BASELINE_SEEDED');
+    wpSetConfigValue_(config, 'migration_state', priorBaselineId ? 'BASELINE_REFRESHED' : 'BASELINE_SEEDED');
     audit.appendRow([
       Utilities.getUuid(), versionId, 'baseline.seed', actor.Username, now,
       'Baseline snapshot stored and chunk hashes verified; published pointer intentionally left blank.',
@@ -890,9 +901,12 @@ function wpReadVersion_(versionId) {
   }
   let payload;
   try { payload = JSON.parse(json); } catch (_) { throw new Error('Website version payload is not valid JSON.'); }
+  const legacyBaselineWithoutEventRows = wpText_(meta[2]) === 'Baseline' &&
+    payload && payload.eventFeed && payload.eventFeed.source === 'Events' && !Array.isArray(payload.eventFeed.rows);
   if (!payload || payload.schemaVersion !== WP_PREFLIGHT_SCHEMA_ ||
       !Array.isArray(payload.contentRows) || !payload.defaults ||
-      !payload.eventFeed || payload.eventFeed.source !== 'Events' || !Array.isArray(payload.eventFeed.rows) ||
+      !payload.eventFeed || payload.eventFeed.source !== 'Events' ||
+      (!Array.isArray(payload.eventFeed.rows) && !legacyBaselineWithoutEventRows) ||
       !payload.galleries || typeof payload.galleries !== 'object') {
     throw new Error('Website version payload schema is invalid.');
   }
@@ -948,6 +962,7 @@ function createWebsiteDraft(token) {
     const sourceId = cfg.published_version_id || cfg.baseline_version_id || '';
     if (!sourceId) throw new Error('Seed and validate the migration baseline before creating a draft.');
     const source = wpReadVersion_(sourceId);
+    if (!Array.isArray(source.payload.eventFeed.rows)) throw new Error('The recorded baseline predates complete event snapshots. Run seedWebsitePublishingBaseline(token) again to refresh it before creating drafts.');
     const expectedStatus = cfg.published_version_id ? 'Published' : 'Baseline';
     if (wpText_(source.meta[2]) !== expectedStatus) {
       throw new Error('The current website source version is not in the expected ' + expectedStatus + ' state.');
@@ -976,7 +991,7 @@ function saveWebsiteDraft(token, parentVersionId, payload) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
         payload.schemaVersion !== WP_PREFLIGHT_SCHEMA_ || !Array.isArray(payload.contentRows) ||
         !payload.defaults || typeof payload.defaults !== 'object' ||
-        !payload.eventFeed || payload.eventFeed.source !== 'Events' ||
+        !payload.eventFeed || payload.eventFeed.source !== 'Events' || !Array.isArray(payload.eventFeed.rows) ||
         !payload.galleries || typeof payload.galleries !== 'object') {
       throw new Error('The submitted website payload does not match the supported schema.');
     }
