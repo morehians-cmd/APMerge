@@ -16,9 +16,7 @@ All data lives in the Google Spreadsheet the script is attached to. Website word
 | `Security.gs`, `Protection.gs`, `Hardening.gs`, `SignInGuard.gs`, `MailSwitch.gs`, `MailQueue.gs`, `StaffControl.gs` | Sign-in, sessions, hashing, audit, backups, mail, staff control. |
 | `Academic.gs`, `CollegeModule.gs`, `Report.gs`, `ReEnroll.gs`, `Retention.gs`, `IdCard.gs`, `Cor.gs`, `Speed.gs`, `Housekeeping.gs`, `Contact.gs`, `Flags.gs`, `DashboardSpec.gs`, `DashboardAudit.gs` | Feature modules (academics, College roster, reports, ID cards, scheduled jobs). |
 | `Public.gs`, `Gallery.gs`, `Content.gs` | Public site data: homepage content, page banners and intros, page text, photo galleries, uploads. |
-| `AdmissionDocumentsBackend.gs`, `AdmissionDocumentsUI.html` | Private applicant document uploads, Drive storage, registrar review, and applicant notifications. |
 | `Index.html` | Dashboard shell. |
-| `College.html`, `ActivityLog.html`, `HomepageHero.html`, `HomepageSections.html`, `PageBanners.html`, `WebsitePages.html`, `AdmissionDocumentsUI.html` | Dashboard screens, pulled in by `include()` at the end of `Index.html`. |
 | `PublicHome.html`, `PublicPage.html` | The public homepage and interior-page templates. |
 | `Script.html` | Legacy client bundle kept for reference — not loaded by any page. |
 
@@ -33,7 +31,6 @@ The script must be **bound to the school's spreadsheet**: the code reads and wri
    - `PHOTO_FOLDER_ID` — the Drive folder that stores uploaded photos. Share it as *Anyone with the link* so public pages can display them.
    - `SCHOOL`, `HEAD_NAME`, `HEAD_TITLE`, `FEE`, `LETTERHEAD_URL` — printed on slips and forms.
 4. Run the function **`setup()`** once and allow the permissions prompt. It creates the sheets, the security pepper and the first administrator; the username and one-time password appear in the execution log. **Back up the `PEPPER` script property**, and change the password at first sign-in.
-5. Run `initialSetupAdmissionDocuments()` once from the Apps Script editor as the script owner. It creates the `Admission Documents` tab and a private Drive folder named `Moreh Academy — Applicant Documents (Private)`. Do not make that folder public.
 6. **Deploy → New deployment → Web app.** Execute as **Me**, who has access **Anyone**, then Deploy and copy the `/exec` URL.
    - `/exec` → homepage
    - `/exec?page=portal` → staff dashboard (sign-in required)
