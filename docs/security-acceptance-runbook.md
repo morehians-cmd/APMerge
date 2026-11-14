@@ -599,3 +599,18 @@ The module-by-module source inventory also identified the following student-bear
 - **Admissions reports (`Report.gs`):** Encoder is denied report access; Full/Manager retain report access. Verify direct calls and exports independently.
 
 The office Holds Desk is not a blanket exception to the admin-console boundary. Its permitted narrow functions must be tested separately from the prohibited full-record, admissions dashboard, College and reports endpoints.
+
+
+## 13. Mail queue append concurrency hardening
+
+On 2026-11-14, `MailQueue.gs` was updated so every queue append uses `mqAppendRows_()`, which acquires the same ScriptLock used by `processMailQueue()` before calculating the next row and writing the batch. The single-message `queueMail_()`, multi-message `notifyMany_()`, `queueMailMany_()`, and the manual `emailStatus()` path now share that serialized append path. This closes the race where concurrent producers could read the same `getLastRow()+1` and overwrite one another, and prevents the sender from deleting rows while an append is in progress.
+
+Development-copy verification:
+
+1. Confirm all queue producers call `mqAppendRows_()` and there are no direct producer writes using `getLastRow()+1`.
+2. Submit multiple concurrent synthetic queue requests, including two bulk requests, and compare the number and exact contents of queued rows with the number submitted.
+3. Run `processMailQueue()` concurrently with queue submissions. Confirm appended rows remain present and are not deleted as part of the sender's earlier read batch.
+4. Force a temporary lock timeout in the disposable copy. Confirm `queueMail_()` and `notifyMany_()` log the failure without throwing into their caller, while `queueMailMany_()` returns a controlled failure through its calling endpoint.
+5. Confirm quota reserve, maximum batch size, stale-message expiry and retry behavior remain unchanged.
+
+This change provides serialized queue mutation, not exactly-once email delivery. A provider-success / sheet-delete failure can still result in a later duplicate send; the development test must record that delivery boundary rather than asserting exactly-once semantics.
