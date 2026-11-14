@@ -876,7 +876,7 @@ function listWebsiteVersions(token) {
     const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Versions');
     if (!sheet || sheet.getLastRow() < 2) return ok([]);
     const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, WP_VERSION_HEADERS_.length).getValues();
-    const versions = rows.filter(row => row[0] && (user.Clearance === 'Full' || permissions['website.content.review'] || wpText_(row[3]).toLowerCase() === user.Username.toLowerCase() || ['Baseline','Published','Archived'].includes(wpText_(row[2])))).map(row => ({
+    const versions = rows.filter(row => row[0] && (user.Clearance === 'Full' || permissions['website.content.review'] || wpText_(row[3]).toLowerCase() === user.Username.toLowerCase() || (['Baseline','Published','Archived'].includes(wpText_(row[2])) || (wpText_(row[2]) === 'Approved' && permissions['website.content.publish'])))).map(row => ({
       versionId:wpText_(row[0]), parentVersionId:wpText_(row[1]), status:wpText_(row[2]),
       createdBy:wpText_(row[3]), createdAt:row[4] instanceof Date ? row[4].toISOString() : wpText_(row[4]),
       updatedBy:wpText_(row[5]), updatedAt:row[6] instanceof Date ? row[6].toISOString() : wpText_(row[6]),
@@ -901,6 +901,7 @@ function getWebsiteVersion(token, versionId) {
         user.Clearance !== 'Full') throw new Error('You do not have access to website publishing.');
     const version = wpReadVersion_(String(versionId || ''));
     if (!['Baseline','Published','Archived'].includes(wpText_(version.meta[2])) &&
+        !(wpText_(version.meta[2]) === 'Approved' && permissions['website.content.publish']) &&
         wpText_(version.meta[3]).toLowerCase() !== user.Username.toLowerCase() &&
         !permissions['website.content.review'] && user.Clearance !== 'Full') {
       throw new Error("You cannot view another user's draft.");
