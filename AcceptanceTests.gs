@@ -306,6 +306,25 @@ function runSecurityAcceptanceTests() {
     }
   });
 
+  record('M5-05', 'Admissions dashboard and report role guard excludes office and academic accounts', () => {
+    const denied = ['Guidance','Accounting','HeadTeacher','Teacher'];
+    denied.forEach(clearance => {
+      let rejected = false;
+      try { assertAdminConsoleRole_({ Role:'admin', Clearance:clearance }); }
+      catch (e) { rejected = /Not allowed/.test(String(e && e.message || e)); }
+      assert(rejected, clearance + ' unexpectedly passed the admissions dashboard role guard.');
+    });
+    ['Full','Manager','Encoder'].forEach(clearance => {
+      const actor = assertAdminConsoleRole_({ Role:'admin', Clearance:clearance });
+      assert(actor.Clearance === clearance, clearance + ' should retain its existing dashboard access.');
+    });
+    let nonAdminRejected = false;
+    try { assertAdminConsoleRole_({ Role:'student', Clearance:'Student' }); }
+    catch (e) { nonAdminRejected = /Not allowed/.test(String(e && e.message || e)); }
+    assert(nonAdminRejected, 'A non-admin account passed the admissions dashboard role guard.');
+    return 'Guidance, Accounting, HeadTeacher and Teacher denied; Full, Manager and scoped Encoder remain eligible; student account denied.';
+  });
+
   record('M6-01', 'Report endpoints reject unauthenticated direct invocation', () => {
     const calls = [
       ['report', () => report('invalid-acceptance-token', 'daily')],
