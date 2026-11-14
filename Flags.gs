@@ -29,7 +29,7 @@ function studentHolds_(id) { return flagRows_().filter(f => f.StudentID === id &
 function flagUser_(token) {
   const u = who_(token);                                   // any signed-in role
   if (u.Role !== 'admin' || ACAD_ROLES.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
-  return { u:u, office:OFFICE_CL.indexOf(u.Clearance) >= 0 ? u.Clearance : '' };
+  return { u:u, office:OFFICE_CL.indexOf(u.Clearance) >= 0 ? u.Clearance : '', scope:u.Clearance === 'Encoder' ? studentSearchScope_(u) : null };
 }
 
 /** Minimal learner lookup for the Desk. Matches name, LRN or ID but never returns the LRN. */
@@ -38,7 +38,7 @@ function flagSearch(token, q) {
     const fu = flagUser_(token); q = String(q || '').trim().toLowerCase();
     if (q.length < 3) throw new Error('Type at least 3 characters of the name, LRN or Enrollment ID.');
     const act = activeFlags_();
-    return ok(studentsLite_().filter(s => (s.FullName + ' ' + s.LRN + ' ' + s.StudentID).toLowerCase().includes(q)).slice(0, 25).map(s => {
+    return ok(studentsLite_().filter(s => studentWithinSearchScope_(fu.scope, s)).filter(s => (s.FullName + ' ' + s.LRN + ' ' + s.StudentID).toLowerCase().includes(q)).slice(0, 25).map(s => {
       const h = act[s.StudentID] || [];
       return { StudentID:s.StudentID, FullName:s.FullName, GradeLevel:s.GradeLevel, Section:s.Section, SchoolYear:s.SchoolYear, EnrollStatus:s.EnrollStatus,
         Holds:fu.office ? h.filter(o => o === fu.office) : h };
@@ -50,6 +50,7 @@ function flagSearch(token, q) {
 function flagList(token, studentId) {
   try {
     const fu = flagUser_(token), id = String(studentId || ''), owner = isFull_(fu.u);
+    if (fu.scope) assertStudentScope_(fu.scope, (findStudent_(id) || {}).o);
     return ok(flagRows_().filter(f => f.StudentID === id && (!fu.office || f.Office === fu.office)).map(f => ({
       FlagID:f.FlagID, Office:f.Office, Status:f.Status, Instruction:f.Instruction, RaisedBy:f.RaisedBy, RaisedAt:f.RaisedAt, ClearedBy:f.ClearedBy, ClearedAt:f.ClearedAt,
       Reason:(owner || fu.office === f.Office) ? f.Reason : '' })).sort((a, b) => b.RaisedAt.localeCompare(a.RaisedAt)));
@@ -100,7 +101,9 @@ function grantTemporary(token, studentId, until, reason) {
   try {
     lock.waitLock(20000);
     const u = who_(token, 'admin'), id = String(studentId || ''), hit = findStudent_(id), tz = Session.getScriptTimeZone();
+    const scope = studentSearchScope_(u);
     if (!hit) throw new Error('Learner not found.');
+    assertStudentScope_(scope, hit.o);
     const row = hit.o, was = row.EnrollStatus, d = String(until || '').trim(), why = String(reason || '').trim().slice(0, 200);
     if (['Enrolled', 'Temporary', 'Cancelled', 'Transferred Out'].includes(was)) throw new Error('Temporary enrollment can only be granted to a learner who is not yet enrolled.');
     if (!holdsOf_(id).length) throw new Error('This learner has no active hold. Mark the learner Enrolled instead.');
@@ -122,9 +125,9 @@ function grantTemporary(token, studentId, until, reason) {
 function holdsOverview(token) {
   try {
     const fu = flagUser_(token), owner = isFull_(fu.u), rows = flagRows_(), lite = {}, act = {};
-    studentsLite_().forEach(s => lite[s.StudentID] = s);
+    studentsLite_().filter(s => studentWithinSearchScope_(fu.scope, s)).forEach(s => lite[s.StudentID] = s);
     rows.forEach(f => { if (f.Status === 'Active') (act[f.StudentID] || (act[f.StudentID] = [])).push(f.Office); });
-    const flags = rows.filter(f => f.Status === 'Active' && (!fu.office || f.Office === fu.office)).map(f => { const s = lite[f.StudentID] || {};
+    const flags = rows.filter(f => f.Status === 'Active' && lite[f.StudentID] && (!fu.office || f.Office === fu.office)).map(f => { const s = lite[f.StudentID] || {};
       return { FlagID:f.FlagID, StudentID:f.StudentID, FullName:s.FullName || f.StudentID, GradeLevel:s.GradeLevel || '', Section:s.Section || '', Office:f.Office,
         Instruction:f.Instruction, RaisedBy:f.RaisedBy, RaisedAt:f.RaisedAt, Reason:(owner || fu.office === f.Office) ? f.Reason : '' }; })
       .sort((a, b) => b.RaisedAt.localeCompare(a.RaisedAt)).slice(0, 500);
