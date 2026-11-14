@@ -85,6 +85,15 @@ function runSecurityAcceptanceTests() {
     return 'Approved-folder membership required; missing configuration and outside files fail closed.';
   });
 
+  record('M3-03', 'Logo MIME validation is consistent between upload and public retrieval', () => {
+    ['image/png','image/jpeg','image/webp','image/gif'].forEach(mime =>
+      assert(logoMimeAllowed_(mime), 'Supported logo MIME type was rejected: ' + mime));
+    ['image/svg+xml','image/bmp','text/html','application/octet-stream',''].forEach(mime =>
+      assert(!logoMimeAllowed_(mime), 'Unsupported logo MIME type was accepted: ' + mime));
+    assert(logoMimeAllowed_('IMAGE/GIF'), 'MIME validation should normalize case.');
+    return 'PNG, JPEG, WebP and GIF are accepted consistently; SVG and non-image types are rejected.';
+  });
+
   record('M4-01', 'Student scope filters grade and section combinations', () => {
     const scope = { grades:['Grade 1'], sections:{'Grade 1':['A']} };
     assert(studentWithinSearchScope_(scope, { GradeLevel:'Grade 1', Section:'A' }), 'Assigned student was rejected.');
