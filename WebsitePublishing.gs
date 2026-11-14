@@ -56,6 +56,8 @@ function websitePublishingPreflight(token) {
     const eventsSheet = ss.getSheetByName('Events');
 
     if (!contentSheet) throw new Error('The existing Content sheet was not found. Preflight stopped without creating it.');
+    const contentHeaders = contentSheet.getRange(1, 1, 1, 2).getDisplayValues()[0];
+    const contentHeaderValid = contentHeaders[0] === 'Key' && contentHeaders[1] === 'Value';
 
     const contentRows = contentSheet.getLastRow() > 1
       ? contentSheet.getRange(2, 1, contentSheet.getLastRow() - 1, 2).getDisplayValues()
@@ -67,6 +69,11 @@ function websitePublishingPreflight(token) {
     contentRows.forEach(row => { keyCounts[row[0]] = (keyCounts[row[0]] || 0) + 1; });
     const duplicateKeys = Object.keys(keyCounts).filter(key => keyCounts[key] > 1).sort();
 
+    const eventHeaderCount = eventsSheet ? Math.min(eventsSheet.getLastColumn(), EVCOLS.length) : 0;
+    const eventHeaders = eventsSheet && eventHeaderCount > 0
+      ? eventsSheet.getRange(1, 1, 1, eventHeaderCount).getDisplayValues()[0]
+      : [];
+    const eventHeaderValid = !!eventsSheet && eventHeaderCount >= 8 && EVCOLS.slice(0, eventHeaderCount).every((header, index) => eventHeaders[index] === header);
     const eventRows = eventsSheet && eventsSheet.getLastRow() > 1
       ? eventsSheet.getRange(2, 1, eventsSheet.getLastRow() - 1, Math.min(eventsSheet.getLastColumn(), EVCOLS.length)).getDisplayValues()
           .filter(row => row.some(cell => wpText_(cell).trim() !== ''))
@@ -126,6 +133,7 @@ function websitePublishingPreflight(token) {
     const eventJson = JSON.stringify(eventRows);
     const galleryJson = JSON.stringify(galleries);
     const missingOrTrashed = driveFiles.filter(file => !file.exists || file.trashed);
+    const invalidMediaTypes = driveFiles.filter(file => file.exists && !/^image\\/(png|jpeg|webp|gif)$/i.test(file.mimeType || ''));
     const oversizedContentCells = contentRows
       .map(row => ({ key:row[0], chars:row[1].length }))
       .filter(row => row.chars > 45000)
@@ -138,14 +146,15 @@ function websitePublishingPreflight(token) {
       generatedBy:actor.Username,
       spreadsheetId:ss.getId(),
       sources:{
-        content:{ sheetFound:true, rowCount:contentRows.length, uniqueKeyCount:Object.keys(keyCounts).length, duplicateKeys:duplicateKeys, sha256:wpHash_(contentJson) },
-        events:{ sheetFound:!!eventsSheet, rowCount:eventRows.length, sha256:wpHash_(eventJson) },
+        content:{ sheetFound:true, headerValid:contentHeaderValid, rowCount:contentRows.length, uniqueKeyCount:Object.keys(keyCounts).length, duplicateKeys:duplicateKeys, sha256:wpHash_(contentJson) },
+        events:{ sheetFound:!!eventsSheet, headerValid:eventHeaderValid, headerColumns:eventHeaderCount, rowCount:eventRows.length, sha256:wpHash_(eventJson) },
         galleries:{ pageCount:Object.keys(galleries).length, photoReferenceCount:Object.keys(allGalleryIds).length, duplicateIds:duplicateGalleryIds, sha256:wpHash_(galleryJson) }
       },
       media:{
         referenceCount:driveIds.length,
         files:driveFiles,
-        missingOrTrashed:missingOrTrashed
+        missingOrTrashed:missingOrTrashed,
+        invalidMediaTypes:invalidMediaTypes
       },
       candidatePayload:{
         serializedChars:payloadJson.length,
@@ -158,15 +167,18 @@ function websitePublishingPreflight(token) {
         oversizedExistingContentCells:oversizedContentCells
       },
       readiness:{
-        readyForBaselineSeed:!!eventsSheet && duplicateKeys.length === 0 && duplicateGalleryIds.length === 0 && missingOrTrashed.length === 0 && oversizedContentCells.length === 0,
+        readyForBaselineSeed:contentHeaderValid && eventHeaderValid && duplicateKeys.length === 0 && duplicateGalleryIds.length === 0 && missingOrTrashed.length === 0 && invalidMediaTypes.length === 0 && oversizedContentCells.length === 0,
         blockers:[]
       }
     };
 
+    if (!contentHeaderValid) report.readiness.blockers.push('Content sheet headers must be Key and Value in columns A and B.');
     if (!eventsSheet) report.readiness.blockers.push('Events sheet is absent; confirm whether the public event feed is intentionally empty before seeding.');
+    else if (!eventHeaderValid) report.readiness.blockers.push('Events sheet headers do not match the existing event schema.');
     if (duplicateKeys.length) report.readiness.blockers.push('Duplicate Content keys must be reconciled before a deterministic snapshot can be seeded.');
     if (duplicateGalleryIds.length) report.readiness.blockers.push('Duplicate gallery file references were found within a page.');
     if (missingOrTrashed.length) report.readiness.blockers.push('One or more referenced Drive files are missing or trashed.');
+    if (invalidMediaTypes.length) report.readiness.blockers.push('One or more referenced Drive files are not supported image types.');
     if (oversizedContentCells.length) report.readiness.blockers.push('One or more existing Content values exceed the conservative single-cell limit.');
     if (payloadJson.length > 45000) report.candidatePayload.chunkedStorageRequired = true;
 
