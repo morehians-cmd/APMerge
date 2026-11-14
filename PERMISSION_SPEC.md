@@ -476,3 +476,12 @@ A non-destructive Apps Script acceptance harness has been added as `AcceptanceTe
 The detailed manual endpoint and role matrix is in `docs/security-acceptance-runbook.md`. It defines required execution evidence for M1–M7, including all role types, direct endpoint invocation, mixed-scope mutations, report/drill/export paths, logo folder trust, trigger identity and failure alerts, and the complete versioned website workflow.
 
 The harness and runbook are **test assets, not proof that tests have passed**. They have not been executed in the bound Apps Script development copy. M1–M7 remain open until runtime evidence is recorded. In particular, M3 approved-folder validation, full M4 endpoint coverage, M5 role/dashboard tests, M6 report execution tests, and M7 public-reader/media cutover acceptance are not certified. `WP_PUBLISH_CUTOVER_READY_` remains false; no production deployment is authorized.
+
+
+### Acceptance harness extension — 2026-11-14
+
+The non-destructive runSecurityAcceptanceTests() suite now includes:
+- M5-01: invalid-session direct-call rejection for dashboard, dashboardExtra, and dashboardDemo.
+- M6-01: invalid-session direct-call rejection for report home, analytics, drill, logging, preferences, favorites, saved-report create/delete, and history endpoints.
+
+The updated AcceptanceTests.gs passed a JavaScript syntax parse after this change. The checks have **not** been executed in Apps Script; no runtime pass is claimed. They test unauthenticated rejection only and do not close M5 or M6. The authenticated role matrix, endpoint coverage, exports, field minimization, and data-scope checks remain mandatory. Production deployment and website publishing cutover remain unauthorized; WP_PUBLISH_CUTOVER_READY_ must remain false.
