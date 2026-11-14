@@ -111,6 +111,42 @@ function runSecurityAcceptanceTests() {
     return 'Legacy live writers remain available only in the pre-cutover state; publish and rollback remain gated.';
   });
 
+  record('M5-01', 'Dashboard endpoints reject unauthenticated direct invocation', () => {
+    const calls = [
+      ['dashboard', () => dashboard('invalid-acceptance-token')],
+      ['dashboardExtra', () => dashboardExtra('invalid-acceptance-token')],
+      ['dashboardDemo', () => dashboardDemo('invalid-acceptance-token')]
+    ];
+    calls.forEach(([name, call]) => {
+      let denied = false;
+      try { const result = call(); denied = !!result && result.success === false; }
+      catch (_) { denied = true; }
+      assert(denied, name + ' did not reject an unauthenticated direct call.');
+    });
+    return calls.length + ' dashboard endpoints rejected an invalid session token.';
+  });
+
+  record('M6-01', 'Report endpoints reject unauthenticated direct invocation', () => {
+    const calls = [
+      ['reportsHome', () => reportsHome('invalid-acceptance-token')],
+      ['reportsAnalytics', () => reportsAnalytics('invalid-acceptance-token')],
+      ['reportsDrill', () => reportsDrill('invalid-acceptance-token')],
+      ['reportLog', () => reportLog('invalid-acceptance-token', 'daily', 'Preview')],
+      ['reportsPrefs', () => reportsPrefs('invalid-acceptance-token')],
+      ['saveFavorites', () => saveFavorites('invalid-acceptance-token', [])],
+      ['saveReportConfig', () => saveReportConfig('invalid-acceptance-token', {})],
+      ['deleteReportConfig', () => deleteReportConfig('invalid-acceptance-token', 'acceptance-invalid-id')],
+      ['reportHistory', () => reportHistory('invalid-acceptance-token')]
+    ];
+    calls.forEach(([name, call]) => {
+      let denied = false;
+      try { const result = call(); denied = !!result && result.success === false; }
+      catch (_) { denied = true; }
+      assert(denied, name + ' did not reject an unauthenticated direct call.');
+    });
+    return calls.length + ' report endpoints rejected an invalid session token; mutations were denied before data writes.';
+  });
+
   const passed = results.filter(x => x.passed).length;
   const failed = results.length - passed;
   const report = {
