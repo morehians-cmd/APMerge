@@ -131,22 +131,24 @@ Run the full sequence only after M7 implementation is synchronized to the dispos
 
 ## 3. Apps Script runtime acceptance evidence
 
-**Execution:** 2026-11-14T10:57:45.037Z  
+### Latest execution — updated 19-check suite
+
+**Execution:** 2026-11-14T11:09:32.497Z  
 **Environment:** Non-production development copy  
 **Suite:** Moreh Academy security acceptance checks  
-**Result:** 18 passed, 0 failed, 18 total
+**Result:** 19 passed, 0 failed, 19 total
 
-The user-provided Apps Script execution result confirms all 18 automated checks passed in the Apps Script runtime:
+The user-provided Apps Script execution result confirms all 19 automated checks passed in the Apps Script runtime. This run includes M3-04, added after the earlier 18-check execution.
 
 - M1-01–M1-02: student self-edit allow-list acceptance and rejection.
 - M2-01–M2-02: direct invocation rejection for daily backup and monthly retention without installed trigger identity.
-- M3-01–M3-04: malformed logo ID rejection, approved-folder membership enforcement, consistent logo MIME allowlist, and rejection of publicly shared logo files.
+- M3-01–M3-04: malformed logo ID rejection, approved-folder membership enforcement, consistent logo MIME allowlist, and rejection of publicly shared logo files. M3-04 reports private and domain-restricted files accepted and Anyone/Anyone-with-link files rejected.
 - M4-01–M4-02: grade/section scope filtering and fail-closed handling of missing, malformed and empty scope properties.
 - M5-01–M5-02: invalid-session rejection for 3 dashboard endpoints and 9 additional administrative/event/student-career endpoints.
 - M6-01: invalid-session rejection for 10 report endpoints, with mutations denied before data writes.
 - M7-01–M7-06: cutover gate, Unicode-safe chunking, duplicate content-key rejection, gallery asset validation, public-schema allowlist boundaries, and all six section-card groups' link/text validation.
 
-The execution output also explicitly retains these manual evidence items as open:
+The execution output explicitly retains these manual evidence items as open:
 
 1. **M3:** Confirm real approved branding folder membership and test valid logo content and cache invalidation.
 2. **M4:** Exercise every scoped endpoint with real Encoder accounts and mixed in/out-of-scope IDs.
@@ -154,7 +156,15 @@ The execution output also explicitly retains these manual evidence items as open
 4. **M6:** Run every report, drill-down, export and history endpoint for every role.
 5. **M7:** Complete editor/public-reader/media cutover and draft/review/publish/rollback browser acceptance.
 
-The recorded 18/18 execution occurred before M3-04 was added. It remains valid evidence for the then-current 18 checks, but it does not execute or validate the new public-sharing check. Re-run `runSecurityAcceptanceTests()` on the updated branch and attach the new result before treating the current automated suite as fully passed. The prior 18/18 result does not close the remaining manual evidence, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain both returned JSON results and Apps Script execution logs with the release evidence.
+This 19/19 result closes the automated execution gap for M3-04. It does not close the five manual evidence gates, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
+
+### Historical execution — original 18-check suite
+
+**Execution:** 2026-11-14T10:57:45.037Z  
+**Environment:** Non-production development copy  
+**Result:** 18 passed, 0 failed, 18 total
+
+This earlier user-provided result remains historical evidence for the then-current suite. It predates M3-04 and is superseded for current automated-suite status by the 19/19 execution above. Do not count the two executions as 37 distinct checks.
 
 ## 4. Source-level verification evidence
 
