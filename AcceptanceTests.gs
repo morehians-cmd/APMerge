@@ -373,7 +373,13 @@ function runSecurityAcceptanceTests() {
     const duplicate = wpPendingMediaRecovery_([rows[1], rows[1]], {});
     assert(duplicate.pending.length === 0 && duplicate.conflicts.length === 1,
       'Duplicate media metadata was not blocked from recovery.');
-    return 'Promoting and RecoveryRequired assets are retry candidates; staged assets are ignored; published references and duplicate metadata are blocked.';
+    const mixedStateDuplicate = wpPendingMediaRecovery_([
+      rows[1],
+      ['asset-moving-0002','duplicate.jpg','image/jpeg','123','editor@example.test','2026-01-01T00:00:00Z','Staged']
+    ], {});
+    assert(mixedStateDuplicate.pending.length === 0 && mixedStateDuplicate.conflicts.length === 1,
+      'Duplicate metadata spanning a recovery and non-recovery state was not blocked.');
+    return 'Promoting and RecoveryRequired assets are retry candidates; staged assets are ignored; published references and duplicate metadata—including mixed-state duplicates—are blocked.';
   });
 
   const passed = results.filter(x => x.passed).length;
