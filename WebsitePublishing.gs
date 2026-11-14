@@ -807,6 +807,9 @@ function wpPromoteDraftAssets_(payload, creator) {
         file.getSize() !== Number(row[3])) throw new Error('Staged asset metadata no longer matches Drive: ' + id);
     if (state === 'Published') {
       if (!inPhotoFolder_(id)) throw new Error('A previously published asset is no longer in the approved photo folder: ' + id);
+      if (file.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK) {
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      }
       return;
     }
     if (state !== 'Staged' || !folderId ||
@@ -822,6 +825,10 @@ function wpPromoteDraftAssets_(payload, creator) {
     if (!inStagingFolder) throw new Error('A staged asset is outside the private staging folder: ' + id);
     file.moveTo(photoFolder);
     if (!inPhotoFolder_(id)) throw new Error('Drive did not place the staged asset in the approved photo folder: ' + id);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    if (file.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK) {
+      throw new Error('Drive did not apply public-view access to the published website image: ' + id);
+    }
     sheet.getRange(entry.sheetRow, 7).setValue('Published');
   });
 }
@@ -1079,6 +1086,65 @@ function publishWebsiteVersion(token, versionId) {
       publishedBy:actor.Username, publishedAt:now.toISOString(),
       mediaPromoted:true, publishedPointerUpdated:true
     }, 'Website version published.');
+  } catch (error) {
+    return fail(error);
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
+}
+
+/**
+ * Restores an earlier published website version without rewriting its immutable payload.
+ * The previous current version is archived after the pointer has moved successfully.
+ */
+function rollbackWebsiteVersion(token, targetVersionId, reason) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const actor = wpRequirePermission_(token, 'website.content.rollback');
+    const targetId = String(targetVersionId || '').trim();
+    const target = wpReadVersion_(targetId);
+    if (!['Archived','Published'].includes(wpText_(target.meta[2]))) {
+      throw new Error('Rollback is limited to a previously published or archived website version.');
+    }
+
+    const creator = wpText_(target.meta[3]);
+    wpValidateDraftAssets_(target.payload, { Username:creator });
+    const config = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Publishing Config');
+    const audit = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Publishing Audit');
+    if (!config || !audit) throw new Error('Website publishing stores have not been prepared.');
+    const cfg = wpConfigMap_(config);
+    const currentId = wpText_(cfg.published_version_id);
+    if (!currentId) throw new Error('There is no current published website version to roll back from.');
+    if (currentId === targetId) throw new Error('The selected version is already published.');
+    const current = wpReadVersion_(currentId);
+    if (wpText_(current.meta[2]) !== 'Published') {
+      throw new Error('The current published pointer is inconsistent; rollback stopped.');
+    }
+
+    const now = new Date();
+    wpUpdateVersionStatus_(target, {
+      Status:'Published', PublishedBy:actor.Username, PublishedAt:now,
+      UpdatedBy:actor.Username, UpdatedAt:now
+    });
+    wpSetConfigValue_(config, 'migration_state', 'ROLLING_BACK');
+    wpSetConfigValue_(config, 'published_version_id', targetId);
+    const refreshedCurrent = wpReadVersion_(currentId);
+    wpUpdateVersionStatus_(refreshedCurrent, {
+      Status:'Archived', UpdatedBy:actor.Username, UpdatedAt:now
+    });
+    wpSetConfigValue_(config, 'migration_state', 'PUBLISHED');
+    const note = String(reason || '').trim().slice(0, 2000);
+    audit.appendRow([
+      Utilities.getUuid(), targetId, 'version.rollback', actor.Username, now,
+      'Restored version ' + targetId + ' from ' + currentId + (note ? ': ' + note : ''),
+      target.hash
+    ]);
+    if (typeof invalidatePublicContentCache_ === 'function') invalidatePublicContentCache_();
+    return ok({
+      versionId:targetId, previousVersionId:currentId, status:'Published',
+      rolledBackBy:actor.Username, rolledBackAt:now.toISOString()
+    }, 'Website rollback completed.');
   } catch (error) {
     return fail(error);
   } finally {
