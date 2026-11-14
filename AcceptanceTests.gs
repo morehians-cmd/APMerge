@@ -128,6 +128,7 @@ function runSecurityAcceptanceTests() {
 
   record('M6-01', 'Report endpoints reject unauthenticated direct invocation', () => {
     const calls = [
+      ['report', () => report('invalid-acceptance-token', 'daily')],
       ['reportsHome', () => reportsHome('invalid-acceptance-token')],
       ['reportsAnalytics', () => reportsAnalytics('invalid-acceptance-token')],
       ['reportsDrill', () => reportsDrill('invalid-acceptance-token')],
