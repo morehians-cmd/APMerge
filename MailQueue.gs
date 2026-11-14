@@ -83,7 +83,7 @@ function queueMailMany_(items) {
 /** Admin / Encoder. MANUAL send: queues the current-status e-mail for the chosen learners (max 100 per click, within today's quota). */
 function emailStatus(token, ids) {
   try {
-    const u = who_(token, 'admin'), scope = studentSearchScope_(u);
+    const u = assertAdminConsoleRole_(who_(token, 'admin')), scope = studentSearchScope_(u);
     ids = Array.isArray(ids) ? ids.map(String).slice(0, 100) : [];
     if (!ids.length) throw new Error('Select at least one learner.');
     const want = {}; ids.forEach(i => want[i] = 1);
