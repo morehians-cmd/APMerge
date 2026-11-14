@@ -165,7 +165,7 @@ On 2026-11-14, the branch source was re-fetched and checked independently of App
 - A local V8 schema harness confirmed 32 public block keys, 31 page-block mappings, six section-card groups, and 43 permitted content keys, with portal/internal keys excluded (M7-05).
 - A local V8 sanitizer harness passed defaults, unsafe-link rejection, and title/description length limits for all six section-card groups (M7-06).
 
-These local harnesses evaluate extracted pure helper functions; they do not execute runSecurityAcceptanceTests() inside Apps Script and do not verify Apps Script services, Drive ACLs, spreadsheet writes, authentication sessions, triggers, browser behavior, or deployment. The full runtime evidence in Sections 1–2 is still mandatory.
+These local harnesses evaluate extracted pure helper functions; they do not execute runSecurityAcceptanceTests() inside Apps Script and do not verify Apps Script services, Drive ACLs, spreadsheet writes, authentication sessions, triggers, browser behavior, or deployment. The Apps Script runtime result is recorded in Section 3; the manual execution evidence described in Sections 2 and 3 remains mandatory for the release gates that are not covered by the automated suite.
 
 ## 5. Release gate
 
