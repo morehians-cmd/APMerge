@@ -671,6 +671,16 @@ function validateWebsitePublishingBaseline(token) {
 
 
 const WP_PUBLISH_CUTOVER_READY_ = false;
+
+/**
+ * Prevents a legacy live editor from bypassing immutable versions after cutover.
+ * Before cutover, existing editor behavior remains available for migration work.
+ */
+function wpAssertLegacyWriterOpen_() {
+  if (WP_PUBLISH_CUTOVER_READY_) {
+    throw new Error('This legacy website editor is disabled after publishing cutover. Use the Website Publishing draft workspace instead.');
+  }
+}
 const WP_PUBLISH_CUTOVER_BLOCKERS_ = [
   'Content.gs saveAbout() still writes about_data directly to the live Content sheet.',
   'Content.gs saveBlock() still writes public text blocks directly to the live Content sheet.',
