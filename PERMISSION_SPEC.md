@@ -160,6 +160,46 @@ Source inspection also confirms:
 - setLogoFile() has no browser caller found in Index.html and remains an editor-run utility, but does not prove approved branding-folder membership.
 - backup/retention source handlers validate installed trigger event UIDs, but live trigger state remains unverified.
 
+## Follow-up source audit — 2026-11-14
+
+This section records source observations from the current `website-pages-fixes` branch. It is not a substitute for execution tests against the bound Apps Script deployment.
+
+### Dashboard and student-data endpoint inventory
+
+| Endpoint / path | Current source gate or filtering | Remaining verification |
+|---|---|---|
+| `searchStudents` | Admin session plus `studentSearchScope_()`; result rows and bulk IDs are scope-filtered | Test each clearance, mixed-scope bulk IDs, and malformed/missing Script Properties |
+| `getStudent` | Student forced to own StudentID; admin-role path applies `studentSearchScope_()`; other staff paths retain their existing restrictions | Direct-call negative tests for cross-student IDs |
+| `saveStudent` | Student writes use `stuCan_()`; admin-role writes validate both existing and resulting grade/section scope | Attempt forbidden identity, academic, status, requirement, audit, and certificate fields |
+| `dashboard` / `dashboardExtra` | Admin-role gate; student aggregates filtered by scope; Encoder demographic/category panels minimized | Verify payload fields for Full, Manager, Encoder and confirm office/academic denial behavior |
+| `dashboardDemo` | Explicitly denies Encoder, office clearances and academic roles | Verify no alternate demographic endpoint bypasses this gate |
+| `getNotifications` | Academic roles receive an empty result; admin-role student counts are scope-filtered; Encoder consent count is suppressed | Verify office-role behavior and notification deep links against actual UI navigation |
+| `getScholarships` | Admin-role applicant counts are scope-filtered; non-admin paths retain their existing behavior | Verify returned scholarship metadata and counts by role |
+| Holds, ID-card, bulk status and re-enrollment paths | Scope checks are present in the relevant backend paths and documented in the M4 implementation note | Exercise each mutation/read path with both in-scope and out-of-scope IDs |
+| College dashboard/roster/program paths | Encoder is denied; legacy Full/Manager read behavior is retained; edit path is Full-only | Verify each endpoint and the College UI independently |
+
+### Report endpoint inventory
+
+- `report()`, `reportsHome()`, `reportsAnalytics()`, `reportsDrill()`, `reportLog()`, `reportsPrefs()`, `saveFavorites()`, `saveReportConfig()`, `deleteReportConfig()`, and `reportHistory()` all require an authenticated admin-role session through `who_(token, 'admin')` directly or via `rpUser_()`.
+- The actual report-data entry points reject Encoder clearance. `report()` additionally obtains `studentSearchScope_()`; the current resolver allows only Full/Manager unrestricted access or Encoder scope, and denies other clearances. Report endpoints therefore do not grant office or academic roles a student-report dataset.
+- Report preferences/history are metadata and configuration endpoints, not report-data endpoints. They remain available to non-Encoder admin-role accounts under `rpUser_()`; report history is limited to the caller except Full, which can view all history. Saved report configurations are caller-owned or shared; only Full can modify/delete another user's saved configuration.
+- `reportsSelfCheck()` is an editor-run diagnostic, not evidence of a completed test run. Its existence does not close M6.
+
+### Website content write-path finding
+
+The live public renderer currently reads the existing content stores directly. The following write endpoints still persist immediately to those live stores under legacy `owner_(token)` authorization: `saveBlock`, `saveAbout`, `saveHomepageContent`, `savePageIntro`, `savePageBanner`, `saveHomepageHero`, and `saveSectionCards` (including the `saveAboutCards` alias). This confirms M7 is a data-model and migration change, not a role-check-only patch. A safe migration must snapshot every affected key and media reference, add draft/review/published version storage, switch public readers only after the published baseline is seeded, and preserve an explicit rollback path. No live content was changed in this source audit.
+
+### Release-gate status
+
+- M1: allow-list exists; negative field-tampering tests are not evidenced.
+- M2: source trigger-UID checks exist; installed trigger ownership and event-UID behavior have not been verified in the live script.
+- M3: `setLogoFile()` is editor-only and validates ID syntax, trash state, MIME type and size; approved branding-folder membership is not established.
+- M4: broad source-level scope checks are present; endpoint-by-endpoint negative tests remain outstanding.
+- M5: primary dashboards have role gates and scoped/minimized payloads; complete UI-to-endpoint testing and helper-endpoint review remain outstanding.
+- M6: Encoder report-data access is consistently denied in the inspected report entry points; role-by-role execution tests and UI/export verification remain outstanding.
+- M7: draft/review/publish separation is not implemented; existing live content writes remain in place.
+- Part 5 / deployment: source files can be reviewed on this branch, but no production deployment, live Apps Script execution test, or production approval has occurred. This gate cannot be marked complete from repository inspection alone.
+
 ## Acceptance checklist
 
 - [ ] Legacy Manager access snapshot captured and preserved exactly.
