@@ -50,8 +50,9 @@ Do not manually change production trigger properties to perform these tests.
 | M3.3 | Configure the approved folder with `setApprovedBrandingFolder(folderId)` as script owner, then supply an image outside that folder | Rejected |
 | M3.4 | Supply a valid image in the approved branding folder | Accepted only from the editor-owner path |
 | M3.5 | Load the login page after changing the logo | New logo appears; stale logo cache is not served |
+| M3.6 | Select a logo file shared with Anyone or Anyone with the link | Rejected before `LOGO_FILE_ID` or cache is changed |
 
-Before M3.3, identify and record the actual approved branding folder, then run `setApprovedBrandingFolder(folderId)` from the Apps Script editor as the script owner. The function rejects malformed, trashed or publicly shared folders. `setLogoFile(id)` now fails closed until this property is configured and accepts only files directly contained in that folder. Do not assume PHOTO_FOLDER_ID is the branding folder. M3-02 in `runSecurityAcceptanceTests()` checks the folder-membership helper with synthetic parent iterators; it does not verify real Drive ACLs or folder membership. M3-03 verifies the shared MIME allowlist accepts PNG, JPEG, WebP and GIF and rejects SVG and non-image types; it does not replace real Drive file tests.
+Before M3.3, identify and record the actual approved branding folder, then run `setApprovedBrandingFolder(folderId)` from the Apps Script editor as the script owner. The function rejects malformed, trashed or publicly shared folders. `setLogoFile(id)` now fails closed until this property is configured and accepts only files directly contained in that folder. Do not assume PHOTO_FOLDER_ID is the branding folder. M3-02 in `runSecurityAcceptanceTests()` checks the folder-membership helper with synthetic parent iterators; it does not verify real Drive ACLs or folder membership. M3-03 verifies the shared MIME allowlist accepts PNG, JPEG, WebP and GIF and rejects SVG and non-image types; M3-04 verifies the sharing-access helper allows private/domain-restricted files and rejects Anyone/Anyone-with-link access. These helper checks do not replace real Drive file tests.
 
 ### M4 — Encoder grade/section scope
 
@@ -139,7 +140,7 @@ The user-provided Apps Script execution result confirms all 18 automated checks 
 
 - M1-01–M1-02: student self-edit allow-list acceptance and rejection.
 - M2-01–M2-02: direct invocation rejection for daily backup and monthly retention without installed trigger identity.
-- M3-01–M3-03: malformed logo ID rejection, approved-folder membership enforcement, and consistent logo MIME allowlist.
+- M3-01–M3-04: malformed logo ID rejection, approved-folder membership enforcement, consistent logo MIME allowlist, and rejection of publicly shared logo files.
 - M4-01–M4-02: grade/section scope filtering and fail-closed handling of missing, malformed and empty scope properties.
 - M5-01–M5-02: invalid-session rejection for 3 dashboard endpoints and 9 additional administrative/event/student-career endpoints.
 - M6-01: invalid-session rejection for 10 report endpoints, with mutations denied before data writes.
@@ -153,7 +154,7 @@ The execution output also explicitly retains these manual evidence items as open
 4. **M6:** Run every report, drill-down, export and history endpoint for every role.
 5. **M7:** Complete editor/public-reader/media cutover and draft/review/publish/rollback browser acceptance.
 
-The 18/18 result closes the automated checks listed above only. It does not close the remaining manual evidence, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
+The recorded 18/18 execution occurred before M3-04 was added. It remains valid evidence for the then-current 18 checks, but it does not execute or validate the new public-sharing check. Re-run `runSecurityAcceptanceTests()` on the updated branch and attach the new result before treating the current automated suite as fully passed. The prior 18/18 result does not close the remaining manual evidence, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain both returned JSON results and Apps Script execution logs with the release evidence.
 
 ## 4. Source-level verification evidence
 
