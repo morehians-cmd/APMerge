@@ -85,8 +85,9 @@ function wpUiRender(){
   if(WPUI.about)wpUiLoadPhotos();
 }
 function wpUiTextHasUnsaved_(kind){
-  const content=$('wpContentValue'),gallery=$('wpGalleryValue');
+  const content=$('wpContentValue'),gallery=$('wpGalleryValue'),stagedUrl=$('wpContentImageUrl');
   if((kind==='all'||kind==='content')&&content&&content.value!==WPUI.contentSavedValue)return true;
+  if((kind==='all'||kind==='content')&&stagedUrl&&stagedUrl.value)return true;
   if((kind==='all'||kind==='gallery')&&gallery&&gallery.value!==WPUI.gallerySavedValue)return true;
   return false;
 }
@@ -140,7 +141,7 @@ function wpUiContentHint_(key){
 }
 function wpUiContentEditor(){
   const options=wpUiContentKeys_().map(key=>'<option value="'+esc(key)+'" '+(key===WPUI.contentKey?'selected':'')+'>'+esc(key)+'</option>').join('');
-  return '<div class="card"><h3>Website content blocks and page settings</h3><p class="wp-muted">Edit a captured public website value in this draft only. The original live Content sheet is not changed.</p><div class="wp-field"><label>Content key</label><select id="wpContentKey">'+options+'</select></div><p class="wp-muted" id="wpContentHint">'+esc(wpUiContentHint_(WPUI.contentKey))+'</p><div class="wp-field"><label>Stage a photo for this draft</label><input id="wpContentImageFile" type="file" accept="image/jpeg,image/png,image/webp"><p class="wp-muted">The image is uploaded privately. Copy its thumbnail URL into the appropriate image field in the JSON or HTML below. It will not become public until this approved draft is published.</p><input id="wpContentImageUrl" readonly value="" aria-label="Staged image thumbnail URL"></div><div class="wp-field" style="margin-top:10px"><label>Draft value</label><textarea id="wpContentValue" rows="12" style="font-family:monospace">'+esc(WPUI.contentValue)+'</textarea></div><div class="wp-actions"><button class="btn" data-act="wpcontentsave">Save content revision</button></div></div>';
+  return '<div class="card"><h3>Website content blocks and page settings</h3><p class="wp-muted">Edit a captured public website value in this draft only. The original live Content sheet is not changed.</p><div class="wp-field"><label>Content key</label><select id="wpContentKey">'+options+'</select></div><p class="wp-muted" id="wpContentHint">'+esc(wpUiContentHint_(WPUI.contentKey))+'</p><div class="wp-field"><label>Stage a photo for this draft</label><input id="wpContentImageFile" type="file" accept="image/jpeg,image/png,image/webp"><p class="wp-muted">The image is uploaded privately. Copy its thumbnail URL into the appropriate image field in the JSON or HTML below. It will not become public until this approved draft is published.</p><input id="wpContentImageUrl" readonly value="" aria-label="Staged image thumbnail URL" onclick="this.select()"></div><div class="wp-field" style="margin-top:10px"><label>Draft value</label><textarea id="wpContentValue" rows="12" style="font-family:monospace">'+esc(WPUI.contentValue)+'</textarea></div><div class="wp-actions"><button class="btn" data-act="wpcontentsave">Save content revision</button></div></div>';
 }
 function wpUiGalleryEditor(){
   const pages=WPUI.payload&&WPUI.payload.galleries?Object.keys(WPUI.payload.galleries):[];
