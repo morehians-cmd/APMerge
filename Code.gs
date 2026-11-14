@@ -174,7 +174,7 @@ function doGet(e) {
   t.page = isPublicPage ? page : 'home';
   const pageTitles = PAGE_TITLES_;
   t.pageTitle = pageTitles[page] || 'Moreh Academy';
-  if (!portal && !isPublicPage) {
+  if (!portal && !isPublicPage && !docsPage) {
     t.hc = homepageContent_();
     t.updatesLive = !(t.hc.updatesItems || []).length;
     t.updatesHtml = homeUpdatesHtml_(t.hc.updatesItems);
