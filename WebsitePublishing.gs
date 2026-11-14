@@ -1368,9 +1368,13 @@ function saveWebsiteDraftContent(token, parentVersionId, contentKey, contentValu
     if (wpText_(parent.meta[3]).toLowerCase() !== actor.Username.toLowerCase()) throw new Error('Only the draft creator can edit this version.');
     const key = wpText_(contentKey).trim();
     const defaults = parent.payload.defaults || {};
+    const sectionCardGroups = defaults.sectionCards && typeof defaults.sectionCards === 'object' ? defaults.sectionCards : {};
+    const sectionCardKeys = Object.keys(sectionCardGroups).map(group => sectionCardGroups[group] && sectionCardGroups[group].key).filter(Boolean);
+    const pageBlockKeys = Object.values(defaults.pageBlockKeys && typeof defaults.pageBlockKeys === 'object' ? defaults.pageBlockKeys : {});
     const allowed = new Set([
       ...(Array.isArray(defaults.publicBlockKeys) ? defaults.publicBlockKeys : []),
-      ...Object.values(defaults.pageBlockKeys && typeof defaults.pageBlockKeys === 'object' ? defaults.pageBlockKeys : {}),
+      ...pageBlockKeys,
+      ...sectionCardKeys,
       'about_data', PUBLIC_CONTENT_KEY_, PUBLIC_HERO_KEY_, PAGE_INTRO_KEY_, PAGE_BANNERS_KEY_
     ]);
     if (!key || !allowed.has(key)) throw new Error('This Content key is not part of the website publishing schema.');
@@ -1405,8 +1409,16 @@ function saveWebsiteDraftContent(token, parentVersionId, contentKey, contentValu
       const clean = {};
       Object.keys(parsed).forEach(slug => { if (PAGE_BANNER_SLUGS_.includes(slug)) clean[slug] = pageBannerClean_(parsed[slug], slug); });
       value = JSON.stringify(clean);
-    } else if (BLOCKS.includes(key) || (Array.isArray(defaults.pageBlockKeys) && defaults.pageBlockKeys.includes(key)) || (Array.isArray(defaults.publicBlockKeys) && defaults.publicBlockKeys.includes(key))) {
-      value = cleanPolicy_(value);
+    } else {
+      const sectionGroup = Object.keys(sectionCardGroups).find(group => sectionCardGroups[group] && sectionCardGroups[group].key === key);
+      if (sectionGroup) {
+        let parsed;
+        try { parsed = JSON.parse(value || '[]'); } catch (_) { throw new Error('Section cards must be valid JSON.'); }
+        if (!Array.isArray(parsed)) throw new Error('Section cards must be a JSON array.');
+        value = JSON.stringify(sectionCardsClean_(sectionGroup, parsed));
+      } else if (BLOCKS.includes(key) || pageBlockKeys.includes(key) || (Array.isArray(defaults.publicBlockKeys) && defaults.publicBlockKeys.includes(key))) {
+        value = cleanPolicy_(value);
+      }
     }
     const payload = JSON.parse(JSON.stringify(parent.payload));
     const rows = payload.contentRows, matches = [];
