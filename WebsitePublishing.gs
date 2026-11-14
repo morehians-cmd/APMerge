@@ -1113,7 +1113,7 @@ function reviewWebsiteDraft(token, versionId, decision, notes) {
  * Previously published assets are never made private or moved by this recovery path.
  */
 function wpRestoreUncommittedPromotions_(assetIds) {
-  if (!assetIds || !assetIds.length) return;
+  if (!assetIds || !assetIds.length) return { restored:[], failed:[] };
   const folderId = PropertiesService.getScriptProperties().getProperty(WP_MEDIA_FOLDER_PROPERTY_);
   if (!folderId) throw new Error('Draft-media staging folder is not configured; promoted media requires manual recovery.');
   const stagingFolder = DriveApp.getFolderById(folderId);
@@ -1123,25 +1123,102 @@ function wpRestoreUncommittedPromotions_(assetIds) {
   }
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Draft Media');
   if (!sheet) throw new Error('Website Draft Media store is missing; promoted media requires manual recovery.');
-  const rows = sheet.getLastRow() > 1
-    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, WP_MEDIA_HEADERS_.length).getDisplayValues()
-    : [];
+  const restored = [];
+  const failed = [];
   assetIds.slice().reverse().forEach(id => {
-    const matches = rows.map((row, index) => ({ row:row, sheetRow:index + 2 }))
-      .filter(entry => wpText_(entry.row[0]) === id);
-    if (matches.length !== 1) throw new Error('Draft-media metadata is missing or duplicated for recovery: ' + id);
-    const file = DriveApp.getFileById(id);
-    if (file.isTrashed()) throw new Error('Promoted media was trashed before recovery: ' + id);
-    file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.VIEW);
-    file.moveTo(stagingFolder);
-    const parents = file.getParents();
-    let restored = false;
-    while (parents.hasNext()) if (parents.next().getId() === folderId) restored = true;
-    if (!restored || [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) {
-      throw new Error('Promoted media could not be restored to private staging: ' + id);
+    try {
+      const last = sheet.getLastRow();
+      const rows = last > 1
+        ? sheet.getRange(2, 1, last - 1, WP_MEDIA_HEADERS_.length).getDisplayValues()
+        : [];
+      const matches = rows.map((row, index) => ({ row:row, sheetRow:index + 2 }))
+        .filter(entry => wpText_(entry.row[0]) === id);
+      if (matches.length !== 1) throw new Error('Draft-media metadata is missing or duplicated for recovery.');
+      const file = DriveApp.getFileById(id);
+      if (file.isTrashed()) throw new Error('Promoted media was trashed before recovery.');
+      sheet.getRange(matches[0].sheetRow, 7).setValue('RecoveryRequired');
+      file.setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.VIEW);
+      file.moveTo(stagingFolder);
+      const parents = file.getParents();
+      let inStaging = false;
+      while (parents.hasNext()) if (parents.next().getId() === folderId) inStaging = true;
+      if (!inStaging ||
+          [DriveApp.Access.ANYONE, DriveApp.Access.ANYONE_WITH_LINK].includes(file.getSharingAccess())) {
+        throw new Error('Drive did not verify private staging restoration.');
+      }
+      sheet.getRange(matches[0].sheetRow, 7).setValue('Staged');
+      restored.push(id);
+    } catch (error) {
+      failed.push({ assetId:id, error:String(error && error.message || error) });
+      try {
+        const last = sheet.getLastRow();
+        if (last > 1) {
+          const rows = sheet.getRange(2, 1, last - 1, 1).getDisplayValues();
+          const matches = [];
+          rows.forEach((row, index) => { if (wpText_(row[0]) === id) matches.push(index + 2); });
+          if (matches.length === 1) sheet.getRange(matches[0], 7).setValue('RecoveryRequired');
+        }
+      } catch (_) {}
     }
-    sheet.getRange(matches[0].sheetRow, 7).setValue('Staged');
   });
+  return { restored:restored, failed:failed };
+}
+
+/**
+ * Owner recovery for interrupted media promotions. It is safe to retry: assets still
+ * referenced by the current published payload are never made private or moved.
+ */
+function recoverWebsiteMediaPromotions(token) {
+  const lock = LockService.getScriptLock();
+  try {
+    const actor = wpActor_(token);
+    lock.waitLock(20000);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const media = ss.getSheetByName('Website Draft Media');
+    const config = ss.getSheetByName('Website Publishing Config');
+    const audit = ss.getSheetByName('Website Publishing Audit');
+    if (!media || !config || !audit) throw new Error('Website publishing stores are not prepared.');
+    const cfg = wpConfigMap_(config);
+    const publishedId = wpText_(cfg.published_version_id);
+    const publishedIds = {};
+    if (publishedId) {
+      const published = wpReadVersion_(publishedId);
+      if (wpText_(published.meta[2]) !== 'Published') {
+        throw new Error('Published pointer is inconsistent; media recovery is blocked.');
+      }
+      wpReferencedDriveIds_(published.payload.contentRows || [], published.payload.galleries || {}, published.payload.defaults || {})
+        .forEach(id => { publishedIds[id] = true; });
+    }
+    const rows = media.getLastRow() > 1
+      ? media.getRange(2, 1, media.getLastRow() - 1, WP_MEDIA_HEADERS_.length).getDisplayValues()
+      : [];
+    const pending = [];
+    rows.forEach(row => {
+      const id = wpText_(row[0]);
+      const state = wpText_(row[6]);
+      if (id && ['Promoting','RecoveryRequired'].includes(state)) {
+        if (publishedIds[id]) throw new Error('A pending-recovery asset is referenced by the published version; reconcile its metadata without privatizing it: ' + id);
+        pending.push(id);
+      }
+    });
+    const result = wpRestoreUncommittedPromotions_(pending);
+    audit.appendRow([
+      Utilities.getUuid(), publishedId, 'media.recovery', actor.Username, new Date(),
+      'Interrupted promotion recovery attempted. Restored: ' + result.restored.length +
+        '; unresolved: ' + result.failed.length + '.',
+      ''
+    ]);
+    if (result.failed.length) {
+      throw new Error('Some assets remain in RecoveryRequired state and need owner attention: ' +
+        result.failed.map(item => item.assetId + ' (' + item.error + ')').join('; '));
+    }
+    return ok({ restoredAssetIds:result.restored, unresolvedAssetIds:[] },
+      'Interrupted website media promotions were restored to private staging.');
+  } catch (error) {
+    return fail(error);
+  } finally {
+    try { lock.releaseLock(); } catch (_) {}
+  }
 }
 
 /**
