@@ -158,6 +158,36 @@ Run the full sequence only after M7 implementation is synchronized to the dispos
 
 ## 3. Apps Script runtime acceptance evidence
 
+### Latest execution — 22-check suite
+
+**Execution:** 2026-11-14T13:16:35.178Z  
+**Environment:** Non-production development copy  
+**Suite:** Moreh Academy security acceptance checks  
+**Result:** 22 passed, 0 failed, 22 total
+
+The user-provided Apps Script execution confirms all 22 checks passed in the Apps Script runtime. This is the first supplied runtime result that includes M5-03 and therefore exercises the dashboardSpec() Encoder grade/section scope remediation through its controlled endpoint harness.
+
+- M1-01–M1-02: student self-edit allow-list acceptance and protected-field rejection.
+- M2-01–M2-02: direct invocation rejection for daily backup and monthly retention without installed trigger identity.
+- M3-01–M3-04: malformed logo ID rejection, approved-folder membership enforcement, MIME allowlist consistency, and public-sharing rejection.
+- M4-01–M4-03: grade/section scope filtering, fail-closed handling of missing/malformed/empty scope properties, and account property-key collision rejection.
+- M5-01–M5-03: unauthenticated rejection for dashboard endpoints, unauthenticated rejection for additional administrative endpoints, and authenticated endpoint-harness verification that Encoder dashboard aggregates/recent registrations/charts are restricted to assigned grade/section while College figures are withheld and Full/Manager behavior is preserved.
+- M6-01: invalid-session rejection for report endpoints, with mutations denied before writes.
+- M7-01–M7-07: cutover gate, Unicode-safe chunking, duplicate content-key rejection, gallery asset validation, public-schema allowlist boundaries, section-card validation, and media-recovery candidate selection.
+
+The M5-03 result uses stubbed authentication/data dependencies and synthetic fixtures. It is not a substitute for real Encoder account tests against the development spreadsheet. Likewise, M3 helper checks do not prove real Drive folder membership, ACLs or cache invalidation; M4 does not replace live mixed-ID endpoint tests; M5/M6 do not close authenticated role-by-role, helper-endpoint, export or data-minimization tests; and M7-07 does not prove Drive side effects or end-to-end publishing recovery.
+
+The execution output retains all five manual evidence gates as open:
+
+1. **M3:** Confirm real approved branding folder membership and test valid logo content/cache invalidation.
+2. **M4:** Exercise every scoped endpoint with real Encoder accounts and mixed in/out-of-scope IDs.
+3. **M5:** Run the role-by-role dashboard, direct-call, helper-endpoint and field-minimization matrix.
+4. **M6:** Run every report, drill-down, export and history endpoint for every role.
+5. **M7:** Complete editor/public-reader/media cutover and draft/review/publish/rollback browser acceptance.
+
+The 22/22 result supersedes the 21/21 execution at 12:33:47 for the current automated suite. Earlier 20/21 and 20/20 results remain historical evidence only. Do not combine counts across runs. Keep `WP_PUBLISH_CUTOVER_READY_ = false`; the automated suite does not authorize publishing cutover or production deployment.
+
+
 ### Latest execution — updated 20-check suite
 
 **Execution:** 2026-11-14T11:48:36.921Z  
@@ -211,7 +241,7 @@ The defect has been corrected on `website-pages-fixes`:
 
 **Commits:** `DashboardSpec.gs` — `e31d73c45fa96dbd0fc17534aaead83815c56695`; `AcceptanceTests.gs` — `346d1eeae3dbce10ca4ce0b02895fe549ef1bbc3`.
 
-**Runtime status:** The user-provided 21/21 execution at 12:33:47 predates this remediation and does not cover M5-03. The acceptance suite now contains 22 checks. Synchronize the latest `DashboardSpec.gs` and `AcceptanceTests.gs` to the disposable Apps Script development copy and rerun `runSecurityAcceptanceTests()`. Do not count M5-03 as runtime-passed until its result appears in the Apps Script output. The authenticated M5 manual matrix must still exercise `dashboardSpec` using real synthetic Encoder accounts and confirm response-level data minimization.
+**Runtime status:** The user-provided Apps Script execution at `2026-11-14T13:16:35.178Z` is **22 passed, 0 failed, 22 total** in the non-production development copy. It includes M5-03, whose result confirms that the endpoint harness restricted totals, recent registrations and charts to the assigned grade/section, withheld College figures from Encoder, and preserved Full/Manager scope-helper behavior. This is the first supplied runtime result for the dashboard-scope remediation. It verifies the controlled endpoint harness, not a real authenticated Encoder account against live spreadsheet records; the authenticated M5 manual matrix must still exercise `dashboardSpec` and confirm response-level data minimization.
 
 ### Historical execution — previous 20-check suite
 
