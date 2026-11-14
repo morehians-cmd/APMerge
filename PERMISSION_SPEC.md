@@ -353,7 +353,7 @@ The public `getLogo()` endpoint reads that property and returns a bounded image 
 
 `WebsitePublishing.gs` now also provides `setupWebsitePublishingStores(token)`.
 
-- Requires the Full administrator session and uses `LockService`.
+- Accepts a Full administrator session token or a no-argument run by the bound script owner, and uses `LockService`.
 - Creates or verifies four additive tabs: `Website Versions`, `Website Version Chunks`, `Website Publishing Config`, and `Website Publishing Audit`.
 - Verifies exact header names before writing; it refuses to overwrite a conflicting existing header schema.
 - Initializes missing config keys only: `schema_version`, `migration_state=PREPARED`, blank `published_version_id`, blank `baseline_version_id`, and `legacy_fallback_enabled=true`.
@@ -367,7 +367,7 @@ This function is source-complete but has not been run in the live bound Apps Scr
 
 `WebsitePublishing.gs` now provides `seedWebsitePublishingBaseline(token)`.
 
-- Requires the Full administrator session, an existing `PREPARED` config, all four additive publishing sheets, and a clean current preflight.
+- Accepts a Full administrator session token or a no-argument run by the bound script owner, and requires an existing `PREPARED` config, all four additive publishing sheets, and a clean current preflight.
 - Re-reads the live source data and compares the full payload hash to the preflight hash; if the content changed between the two reads, seeding stops.
 - Writes the immutable payload in 40,000-character chunks, stores a SHA-256 hash per chunk, rebuilds the payload from the stored chunks, and verifies the full payload hash before writing version metadata.
 - Records one immutable `Published` migration-baseline version (representing the currently live public site, not a newly reviewed draft), its hash/size/chunk count, the `baseline_version_id`, and `migration_state=BASELINE_SEEDED`.
