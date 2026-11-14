@@ -100,7 +100,7 @@ function grantTemporary(token, studentId, until, reason) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
-    const u = who_(token, 'admin'), id = String(studentId || ''), hit = findStudent_(id), tz = Session.getScriptTimeZone();
+    const u = assertAdminConsoleRole_(who_(token, 'admin')), id = String(studentId || ''), hit = findStudent_(id), tz = Session.getScriptTimeZone();
     const scope = studentSearchScope_(u);
     if (!hit) throw new Error('Learner not found.');
     assertStudentScope_(scope, hit.o);
