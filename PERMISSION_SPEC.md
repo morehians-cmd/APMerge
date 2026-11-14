@@ -273,3 +273,56 @@ The source audit has completed the inventory and migration contract only. It has
 - [ ] Backup and retention trigger authorization verified in the live script.
 - [ ] Non-production endpoint tests pass.
 - [ ] Production deployment approved separately by the user.
+
+
+### M7 source implementation audit — editor, media, and public-reader paths
+
+The follow-up audit inspected the current branch copies of `Content.gs`, `Public.gs`, `Gallery.gs`, `Index.html`, `PublicHome.html`, `PublicPage.html`, `WebsitePages.html`, `HomepageHero.html`, `HomepageSections.html`, and `PageBanners.html`. This is a repository source audit, not a live Apps Script execution test.
+
+#### Current editor write paths
+
+| Content domain | Current server mutation | Current UI caller | Cutover requirement |
+|---|---|---|---|
+| HTML blocks, including legacy About and public page blocks | `saveBlock(token,key,html)` in `Content.gs` | `Index.html` guide/page editors and About legacy-text clear; `WebsitePages.html` page editor | Convert all keys to draft payload mutations; preserve sanitizer and allow-lists |
+| Structured About page | `saveAbout(token,data)` in `Content.gs` | `Index.html` About editor | Draft JSON only; do not trash old live photos on save |
+| About leader photo upload | `setAboutPhoto(token,dataUrl)` in `Content.gs` | `Index.html` About editor | Upload to private staging storage; attach asset reference to draft; no public exposure before publish |
+| Homepage section text/cards | `saveHomepageContent`, `saveSectionCards` in `Public.gs` | `HomepageSections.html`, `WebsitePages.html`, and page editor integrations | Draft mutations; keep group-key validation and existing defaults |
+| Interior page intro | `savePageIntro`, `resetPageIntro` in `Public.gs` | `PageBanners.html` | Save/reset draft values, not the live Content key |
+| Interior page banner | `savePageBanner`, `resetPageBanner` in `Public.gs` | `PageBanners.html` | Save/reset draft values, not the live Content key |
+| Homepage hero | `saveHomepageHero` in `Public.gs` | `HomepageHero.html` | Draft mutation; validate and stage referenced images |
+| Homepage hero/About image upload | `uploadHomepagePhoto` in `Public.gs` | `HomepageHero.html` | Current implementation sets `ANYONE_WITH_LINK` immediately; replace with private staging and publish-time promotion |
+| Gallery items | `addGalleryPhoto`, `setGalleryCaption`, `removeGalleryPhoto` in `Gallery.gs` | `Index.html` and `WebsitePages.html` | Gallery list changes must be versioned; remove/trash must be deferred until no published version references the asset |
+
+The editor is distributed across the integrated `Index.html` and included HTML partials. There is no separate `Admin.html` in this architecture. The actual UI integrations include the About editor, page-block editor, homepage hero/sections editors, page intro/banner editor, and gallery editor. The M7 cutover must cover every caller, including aliases retained for old browser copies.
+
+#### Media side effects that make a naive draft conversion unsafe
+
+1. `uploadHomepagePhoto` creates a file in `PHOTO_FOLDER_ID`, applies `DriveApp.Access.ANYONE_WITH_LINK`, probes its thumbnail URL, and deletes the file on failure. A draft upload is therefore publicly shareable before review.
+2. `setAboutPhoto` creates a Drive file in `PHOTO_FOLDER_ID`. The file is immediately returned to the editor, and the subsequent `saveAbout` stores the reference. The folder's inherited sharing and the public photo-serving path must be verified before defining staging ACLs.
+3. `saveAbout` compares old and new leader-photo IDs and calls `setTrashed(true)` on old IDs no longer present. This is incompatible with immutable published versions: an older published version or rollback could still require that photo.
+4. `addGalleryPhoto` immediately appends the file ID to the live `gal_<page>` Content key. Public facilities/history/page-photo endpoints read those live lists, so an uploaded gallery image can become public before review.
+5. `removeGalleryPhoto` first removes the ID from the live gallery list and then trashes the Drive file. A published page can lose its image immediately, and a prior version cannot restore it from the trash reliably.
+6. `saveBlock`, homepage section/hero saves, page intro/banner saves, and section-card saves currently write directly to the live Content key/value store. They are not draft-aware.
+7. Cache invalidation is incomplete as a publication mechanism: `saveBlock` invalidates the daily public feed cache, while About save removes `puba_v1`; other website writes do not provide one centralized version-pointer/cache invalidation path. Individual photo caches use separate keys. The publish transaction must invalidate all affected keys after the pointer update.
+
+#### Public read surfaces that must switch together
+
+- `PublicHome.html` reads `getPublicContent`, `getHomepageHero`, and public HTML blocks.
+- `PublicPage.html` reads `getPublicBlock`, page intro/banner data, section cards, About content/photos, history/facilities galleries, and public page photos.
+- `Public.gs` contains the anonymous public data/photo endpoints, including `getPublicContent`, `getPublicAbout`, `getPublicBlock`, `getPublicFacilities`, `getPublicHistoryGallery`, and the associated public photo handlers.
+- `WebsitePages.html`, `HomepageHero.html`, `HomepageSections.html`, and `PageBanners.html` contain the corresponding staff editor integrations.
+- Events are read from the existing Events store via `evRows_()`; they remain operational records and should be referenced in the website snapshot only where a page's content configuration explicitly pins or selects them.
+- Gallery records are stored as JSON under `gal_<page>` keys in the existing Content sheet. The gallery page aliases and the single-photo page limits must be preserved during migration.
+
+#### Required media lifecycle for the versioned implementation
+
+- A draft upload must create a private staged asset and an immutable asset record; it must not change any published gallery list, public URL, or sharing permission.
+- A draft may reference an existing live asset without copying it. Existing assets must remain intact while any Published or rollback-retained version references them.
+- Publishing must validate every referenced file, expected MIME type, size, folder ownership, and accessibility; only then may it make the required public assets available and atomically switch the published version pointer.
+- Removing an asset from a draft must only remove that draft reference. Physical deletion/trashing must be a separate retention job after a reference scan proves that no published, approved, draft, or rollback-retained version needs it.
+- Rollback must restore the previous version's exact references without depending on trashed files or mutable gallery lists.
+- The preflight must inventory Drive IDs and URLs without changing permissions, moving files, or trashing anything.
+
+#### M7 implementation decision after this audit
+
+Do not yet add the version sheets or redirect editor writes. The remaining prerequisite is a complete, executable payload/asset schema and a read-only preflight that measures actual Content/Events/Gallery data and Drive references against Apps Script/Sheets storage limits. In particular, the source audit confirms that a version-only text snapshot is insufficient: media staging, publication ACL transitions, reference retention, and rollback-safe deletion must be designed as one coherent lifecycle. Existing public content and current editor behavior remain untouched until that complete implementation can be tested as one release unit.
