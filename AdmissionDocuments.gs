@@ -164,6 +164,7 @@ function searchAdmissionDocuments(token, query, status) {
 /** Staff marks a submission verified or rejected. Rejections require a useful reason. */
 function reviewAdmissionDocument(token, documentId, decision, remarks) {
   const lock = LockService.getScriptLock();
+  let mail = null, result = null;
   try {
     const u = who_(token,'admin');
     const action = String(decision || '');
@@ -175,17 +176,17 @@ function reviewAdmissionDocument(token, documentId, decision, remarks) {
     if (i<0) throw new Error('Document not found.');
     const student = admissionDocStudent_(u,rows[i].StudentID);
     const now = Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm:ss');
-    const values = [action==='Verified'?'Verified':'Rejected',now,u.Username,note];
+    const values = [action,now,u.Username,note];
     sh.getRange(i+2,8,1,4).setNumberFormat('@').setValues([values]);
     audit_(u,'admission.document.review',rows[i].StudentID,rows[i].RequirementKey+' / '+action);
     const email = String(student.Email || '').trim();
-    if (email && EMAIL_RE.test(email)) {
-      try { MailApp.sendEmail({to:email,name:'Moreh Academy Admissions',subject:'Moreh Academy: admission document '+action.toLowerCase(),
-        body:'Your '+rows[i].RequirementLabel+' submission has been marked '+action.toUpperCase()+'.'+(note?'\\n\\nRegistrar remarks: '+note:'')+'\\n\\nSign in to your Moreh Academy portal to view the updated status.'}); } catch(_) {}
-    }
-    return ok({documentId:String(documentId),status:action},'Document '+action.toLowerCase()+'.');
+    if (email && EMAIL_RE.test(email)) mail = {to:email,subject:'Moreh Academy: admission document '+action.toLowerCase(),
+      body:'Your '+rows[i].RequirementLabel+' submission has been marked '+action.toUpperCase()+'.'+(note?'\\n\\nRegistrar remarks: '+note:'')+'\\n\\nSign in to your Moreh Academy portal to view the updated status.'};
+    result = {documentId:String(documentId),status:action};
   } catch(e) { return fail(e); }
   finally { try { lock.releaseLock(); } catch(_) {} }
+  if (mail) { try { MailApp.sendEmail({to:mail.to,name:'Moreh Academy Admissions',subject:mail.subject,body:mail.body}); } catch(_) {} }
+  return ok(result,'Document '+result.status.toLowerCase()+'.');
 }
 
 /** Staff-only document URL lookup rechecks the student scope before returning the Drive URL. */
