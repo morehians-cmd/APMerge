@@ -585,3 +585,17 @@ The following observations were verified against the current `Code.gs`, `Securit
 - The branch constant remains disabled. Any test that needs it enabled must occur in a separate disposable clone, never in this branch or a production deployment.
 
 These source notes were added to make the manual evidence reviewer more precise; they do not change the OPEN status of M3–M7.
+
+
+### Additional M4/M5 endpoint coverage identified during module audit
+
+The module-by-module source inventory also identified the following student-bearing endpoints that must be included in manual evidence:
+
+- **Holds / Flags (`Flags.gs`):** `flagSearch`, `flagList`, `holdsOverview`, and the Encoder-capable `grantTemporary`. Verify Encoder search/list/overview results are restricted to assigned students and that `grantTemporary` denies an out-of-scope ID without changing the Students or Status Log sheets. The office-specific Holds Desk is a separate narrow workflow: Guidance/Accounting/Academic users may search minimal learner identifiers and operate only their office's hold records; they must not receive unrestricted full student records through `getStudent` or admissions dashboard routes.
+- **ID cards (`IdCard.gs`):** `idCardData`, `saveIdNumber`, and `saveIdPhoto` enforce the per-student scope after resolving the target record. Test each with assigned and unassigned IDs; denied writes must leave ID number, photo ID and Drive files unchanged.
+- **Mail queue (`MailQueue.gs`):** `emailStatus` resolves selected student rows and asserts scope for every selected row. Submit mixed assigned/unassigned IDs; the request must fail without queueing or sending any message. Verify no partial send occurred.
+- **Account reset (`MailSwitch.gs`):** `resetStudentAccount` must deny an out-of-scope target before reading the Users sheet, as covered by M4-04 automated harness and to be confirmed with actual development records.
+- **Dashboard specification (`DashboardSpec.gs`):** `dashboardSpec` must aggregate only rows in the Encoder's assigned scope, including recent-registration and chart series. Confirm College figures are absent for Encoder.
+- **Admissions reports (`Report.gs`):** Encoder is denied report access; Full/Manager retain report access. Verify direct calls and exports independently.
+
+The office Holds Desk is not a blanket exception to the admin-console boundary. Its permitted narrow functions must be tested separately from the prohibited full-record, admissions dashboard, College and reports endpoints.
