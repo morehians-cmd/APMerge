@@ -66,7 +66,23 @@ function wpUiRender(){
   $('view').innerHTML='<div class="wp-wrap">'+setupPanel+publishGate+versionCard+actionCard+editor+contentEditor+galleryEditor+'</div>';
   if(WPUI.about)wpUiLoadPhotos();
 }
-function wpUiSelect(id){WPUI.selected=id;WPUI.about=null;wpUiRender();if(id)wpUiLoad(id)}
+function wpUiTextHasUnsaved_(kind){
+  const content=$('wpContentValue'),gallery=$('wpGalleryValue');
+  if((kind==='all'||kind==='content')&&content&&content.value!==WPUI.contentValue)return true;
+  if((kind==='all'||kind==='gallery')&&gallery&&gallery.value!==WPUI.galleryValue)return true;
+  return false;
+}
+function wpUiConfirmDiscard_(kind){
+  if(!wpUiTextHasUnsaved_(kind))return true;
+  return confirm('You have unsaved draft editor text. Discard those unsaved changes and continue?');
+}
+function wpUiSelect(id){
+  if(id!==WPUI.selected&&!wpUiConfirmDiscard_('all')){
+    const select=$('wpVersionSelect');if(select)select.value=WPUI.selected;
+    return;
+  }
+  WPUI.selected=id;WPUI.about=null;wpUiRender();if(id)wpUiLoad(id)
+}
 function wpUiLoad(id){
   call('getWebsiteDraftAbout',[T(),id],r=>{
     if(WPUI.selected!==id)return;
@@ -232,8 +248,14 @@ document.addEventListener('change',e=>{
     };
     objectUrl=URL.createObjectURL(file);image.src=objectUrl;return;
   }
-  if(e.target.id==='wpContentKey'){WPUI.contentKey=e.target.value;const row=(WPUI.payload.contentRows||[]).find(x=>x[0]===WPUI.contentKey);WPUI.contentValue=row?String(row[1]||''):'';const el=$('wpContentValue');if(el)el.value=WPUI.contentValue;return}
-  if(e.target.id==='wpGalleryPage'){WPUI.galleryPage=e.target.value;const items=WPUI.payload.galleries[WPUI.galleryPage]||[];WPUI.galleryValue=JSON.stringify(items,null,2);const el=$('wpGalleryValue');if(el)el.value=WPUI.galleryValue;return}
+  if(e.target.id==='wpContentKey'){
+    if(!wpUiConfirmDiscard_('content')){e.target.value=WPUI.contentKey;return}
+    WPUI.contentKey=e.target.value;const row=(WPUI.payload.contentRows||[]).find(x=>x[0]===WPUI.contentKey);WPUI.contentValue=row?String(row[1]||''):'';const el=$('wpContentValue');if(el)el.value=WPUI.contentValue;return
+  }
+  if(e.target.id==='wpGalleryPage'){
+    if(!wpUiConfirmDiscard_('gallery')){e.target.value=WPUI.galleryPage;return}
+    WPUI.galleryPage=e.target.value;const items=WPUI.payload.galleries[WPUI.galleryPage]||[];WPUI.galleryValue=JSON.stringify(items,null,2);const el=$('wpGalleryValue');if(el)el.value=WPUI.galleryValue;return
+  }
   if(e.target.id==='wpVersionSelect'){wpUiSelect(e.target.value);return}
   if(e.target.id!=='wpPhotoFile')return;
   const file=e.target.files&&e.target.files[0];e.target.value='';
