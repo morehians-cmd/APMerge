@@ -1495,7 +1495,7 @@ function websitePublishingSelfCheck(token) {
     const baselineId = config.baseline_version_id || '';
     if (baselineId) {
       const baseline = wpReadVersion_(baselineId);
-      check('Baseline metadata and payload integrity', wpText_(baseline.meta[2]) === 'Baseline', 'Baseline version: ' + baselineId);
+      check('Baseline metadata and payload integrity', wpText_(baseline.meta[2]) === 'Baseline' && Array.isArray(baseline.payload.eventFeed.rows), Array.isArray(baseline.payload.eventFeed.rows) ? 'Complete baseline version: ' + baselineId : 'The existing baseline predates immutable event rows; rerun seedWebsitePublishingBaseline(token) to refresh it.');
     } else {
       check('Baseline metadata and payload integrity', false, 'No baseline has been seeded yet.');
     }
