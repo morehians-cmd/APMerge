@@ -56,5 +56,6 @@ The `WebsitePublishing.gs` functions are migration tools, not part of the normal
 1. `websitePublishingPreflight(token)` performs a read-only inventory of Content, Events, gallery references, and Drive media.
 2. `setupWebsitePublishingStores(token)` creates/verifies the four additive versioning tabs.
 3. `seedWebsitePublishingBaseline(token)` stores and verifies an immutable chunked snapshot after a clean preflight.
+4. `validateWebsitePublishingBaseline(token)` verifies chunk integrity and detects live-content drift after seeding.
 
-All three accept a Full administrator session token when called from the portal, or can be run without arguments from the bound Apps Script editor by the script owner. The setup and seed functions make spreadsheet changes, so run them only in the bound non-production copy after reviewing the migration plan. Baseline seeding leaves the published pointer blank. The current public website and editors continue using the existing live stores; no production deployment or public-reader cutover is implied.
+All four accept a Full administrator session token when called from the portal, or can be run without arguments from the bound Apps Script editor by the script owner. The setup and seed functions make spreadsheet changes, so run them only in the bound non-production copy after reviewing the migration plan. Baseline seeding leaves the published pointer blank. The current public website and editors continue using the existing live stores; no production deployment or public-reader cutover is implied.
