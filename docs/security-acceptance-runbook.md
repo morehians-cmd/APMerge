@@ -203,6 +203,7 @@ This earlier user-provided result remains historical evidence for the then-curre
 On 2026-11-14, the branch source was re-fetched and checked independently of Apps Script:
 
 - JavaScript syntax parsing passed for Code.gs, AcceptanceTests.gs, WebsitePublishing.gs, Public.gs, Report.gs, Content.gs, Gallery.gs, Protection.gs, Retention.gs, and Security.gs.
+- `WebsitePublishing.gs` was re-fetched after the media-promotion recovery changes and passed a V8 syntax parse. Source inspection confirms newly moved staged assets are journaled; pre-pointer failures attempt to restore those assets to private staging, restore a failed version's `Approved` metadata and prior migration state, and write a compensation audit row. Post-pointer failures do not privatize media and instead return an explicit reconciliation warning. This is source-level verification only; Drive service behavior, partial-failure recovery, and publication sequencing remain untested in Apps Script.
 - A local V8 helper harness passed the approved-folder membership and shared logo-MIME checks (M3-02/M3-03).
 - A local V8 helper harness passed Unicode chunk reconstruction, duplicate content-key rejection, and gallery asset validation (M7-02/M7-03/M7-04).
 - A local V8 schema harness confirmed 32 public block keys, 31 page-block mappings, six section-card groups, and 43 permitted content keys, with portal/internal keys excluded (M7-05).
