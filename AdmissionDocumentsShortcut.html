@@ -8,7 +8,7 @@
     b.innerHTML='<span aria-hidden="true">▣</span><span>Admission Documents</span>';
     b.addEventListener('click',function(){
       if(typeof S==='undefined'||!S.token){alert('Please sign in to the portal first.');return;}
-      const url='<?= appUrl ?>?page=admission-documents#'+encodeURIComponent(S.token);
+      const url=location.href.split('?')[0]+'?page=admission-documents#'+encodeURIComponent(S.token);
       window.open(url,'_blank','noopener');
     });
     nav.appendChild(b);
