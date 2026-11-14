@@ -105,6 +105,12 @@ function runSecurityAcceptanceTests() {
     }
   });
 
+  record('M7-01', 'Website publishing cutover remains disabled until acceptance gates close', () => {
+    assert(WP_PUBLISH_CUTOVER_READY_ === false, 'Publishing cutover must remain disabled.');
+    wpAssertLegacyWriterOpen_();
+    return 'Legacy live writers remain available only in the pre-cutover state; publish and rollback remain gated.';
+  });
+
   const passed = results.filter(x => x.passed).length;
   const failed = results.length - passed;
   const report = {
