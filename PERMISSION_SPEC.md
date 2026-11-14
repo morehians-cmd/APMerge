@@ -419,3 +419,17 @@ The current branch now adds the following server functions in `WebsitePublishing
 Each draft revision stores chunked payload data with per-chunk and full-payload hashes. The metadata records creator, parent version, state, reviewer, review timestamp, notes, and payload integrity data. Review and permission changes are appended to the Website Publishing Audit sheet.
 
 This is a backend foundation only. The existing Index.html editor forms still call their legacy live-write endpoints; those paths have not been redirected to draft storage. The publish endpoint is deliberately blocked, so an Approved draft cannot yet affect the public site. Do not assign live publishing permissions or treat M7 as complete until editor UI integration, staged asset lifecycle, all anonymous readers, cache invalidation, publish/rollback, and runtime acceptance tests are complete.
+
+
+### Read-only publishing self-check
+
+`websitePublishingSelfCheck(token)` has been added as a diagnostic entry point. It checks:
+
+- Unicode-safe chunk round-trip behavior using a synthetic emoji at a chunk boundary.
+- Uniqueness of version, chunk, config, audit, and permission-catalog keys.
+- Existence and exact headers of the four additive publishing stores.
+- Readability and uniqueness of publishing configuration keys.
+- That the public-version pointer is still blank.
+- If a baseline exists, the integrity of its version metadata and reconstructed chunked payload.
+
+It returns check results and store row counts, not draft payloads or user permission maps. It is read-only. A missing/unseeded baseline is reported as a failed readiness check, not silently treated as a pass. This diagnostic still needs to be run in the bound non-production Apps Script runtime; a repository syntax parse is not an execution test.
