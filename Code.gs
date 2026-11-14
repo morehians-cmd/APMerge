@@ -427,7 +427,8 @@ function saveStudent(token, rec) {
 
 function dashboard(token) {
   try {
-    who_(token,'admin'); const all = studentsLite_().filter(inSY_), s = all.filter(r=>r.EnrollStatus==='Enrolled');
+    const u = who_(token,'admin'), scope = studentSearchScope_(u);
+    const all = studentsLite_().filter(inSY_).filter(r => studentWithinSearchScope_(scope, r)), s = all.filter(r=>r.EnrollStatus==='Enrolled');
     const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
     const byG = a => a.map(g=>[g, s.filter(r=>r.GradeLevel===g).length]);
     const byC = g => Object.keys(CL).map(c=>[c, s.filter(r=>r.GradeLevel===g && r.Cluster===CL[c]).length]);
