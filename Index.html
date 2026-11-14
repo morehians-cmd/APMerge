@@ -2632,6 +2632,8 @@ act.out=()=>{_outKeep();if(!S.token){try{sessionStorage.removeItem('mrh_t')}catc
 
 // On page load: if a token is stored, resume that session instead of showing the login form.
 (function(){let t=null;try{t=sessionStorage.getItem('mrh_t')}catch(e){}
+ if(!t&&location.hash){try{t=decodeURIComponent(location.hash.slice(1));if(t)sessionStorage.setItem('mrh_t',t)}catch(e){t=null}}
+ if(location.hash)history.replaceState(null,'',location.pathname+location.search);
  if(!t)return;
  $('login').classList.add('hidden');$('load').classList.remove('hidden');
  google.script.run
