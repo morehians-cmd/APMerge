@@ -39,7 +39,7 @@ function homepageHeroPage() {
     .withFailureHandler(function (e) {
       $('view').innerHTML = '<div class="card"><div class="aemp">' + esc(e.message || 'Could not load the homepage settings.') + '</div></div>';
     })
-    .getHomepageHero();
+    .getHomepageHeroForEditor(T());
 }
 
 function hhField(id, label, value, max, wide, hint, upload) {
