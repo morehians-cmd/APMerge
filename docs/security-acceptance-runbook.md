@@ -397,3 +397,34 @@ The 2026-11-14T14:02:29.427Z execution again failed M4-04. Inspection of the har
 **Commit:** `AcceptanceTests.gs` — `6b2d75eff27d94ab18a765e7b1d579f6b9366bd4`.
 
 **Runtime status:** This is a test-harness correction after the 25/26 execution. It has not yet been run in Apps Script. Synchronize the latest `AcceptanceTests.gs` and run the full suite again. The prior 25/26 result remains the latest runtime evidence until a new JSON execution is supplied.
+
+
+## 10. Latest automated execution — 26/26; M4-04 confirmed
+
+**Execution:** 2026-11-14T14:09:09.850Z  
+**Environment:** non-production development copy  
+**Result:** 26 passed, 0 failed, 26 total.
+
+The user-provided Apps Script runtime JSON confirms the complete current automated suite passed. M4-04 now reports: "Authenticated synthetic Encoder reached the real student-scope guard; the out-of-scope reset was denied before the user-account sheet was read." This closes the previously failing M4-04 automated check and confirms the authentication-harness correction reached the Apps Script runtime.
+
+The execution also confirms:
+- M1-01–M1-02: student self-edit allow-list acceptance and protected-field rejection.
+- M2-01–M2-02: direct backup/retention invocation rejected without installed trigger identity.
+- M3-01–M3-04: logo ID, approved-folder helper, MIME and sharing-access helper checks.
+- M4-01–M4-04: grade/section scope, fail-closed scope properties, account property-key collision checks and reset endpoint scope enforcement.
+- M5-01–M5-06: invalid-session endpoint rejection and the specified controlled role/scope harnesses.
+- M6-01: unauthenticated report endpoint rejection and mutation denial.
+- M7-01–M7-07: cutover gate, payload chunking, duplicate-key rejection, gallery validation, public schema allowlist, section-card validation and media-recovery candidate selection.
+
+This 26/26 execution supersedes the earlier 25/26 execution at 2026-11-14T13:52:08.771Z as the current automated-suite result. The earlier failure remains historical evidence of the M4-04 test-harness defect and its correction; do not combine results across executions.
+
+**Important coverage boundary:** M4-04 uses a controlled endpoint harness with synthetic authentication, scope and student lookup dependencies. It verifies the real `assertStudentScope_()` implementation and that the Users row reader is not reached for the out-of-scope fixture. It does not replace testing with real synthetic Encoder accounts and actual development-sheet records. Similarly, M3 helper tests do not prove actual Drive folder membership, ACLs or cache invalidation; M5/M6 helper and invalid-token tests do not close the authenticated role-by-role, direct-call, export and data-minimization matrix; M7 helper tests do not prove browser workflows or Drive failure/recovery side effects.
+
+**Current release status:** Automated acceptance is green at 26/26. The five manual evidence gates below remain OPEN and mandatory:
+1. **M3:** Verify the real approved branding folder, valid image selection and login-page cache invalidation using development Drive objects.
+2. **M4:** Exercise every scoped endpoint using real synthetic Encoder accounts, including mixed in-scope/out-of-scope IDs and before/after row evidence.
+3. **M5:** Complete the authenticated role-by-role dashboard, College, student-care, direct-call, helper-endpoint and field-minimization matrix.
+4. **M6:** Exercise every report, analytics, drill-down, export, history and saved-configuration endpoint for each applicable role.
+5. **M7:** Complete browser editor/public-reader/media acceptance, including draft/review/publish/rollback and controlled Drive failure/recovery tests.
+
+Do not mark M1–M7 fully closed solely on the strength of the 26/26 automated suite. Keep `WP_PUBLISH_CUTOVER_READY_ = false`. Do not change production triggers, deploy, publish, roll back production content, or enable the cutover without the remaining evidence and explicit owner approval.
