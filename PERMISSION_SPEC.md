@@ -325,7 +325,7 @@ The editor is distributed across the integrated `Index.html` and included HTML p
 
 #### M7 implementation decision after this audit
 
-Do not yet add the version sheets or redirect editor writes. The remaining prerequisite is a complete, executable payload/asset schema and a read-only preflight that measures actual Content/Events/Gallery data and Drive references against Apps Script/Sheets storage limits. In particular, the source audit confirms that a version-only text snapshot is insufficient: media staging, publication ACL transitions, reference retention, and rollback-safe deletion must be designed as one coherent lifecycle. Existing public content and current editor behavior remain untouched until that complete implementation can be tested as one release unit.
+The version-store preparation, baseline snapshot, and an initial permission-gated draft/review backend have now been added. The public-reader cutover and media staging/ACL/retention lifecycle remain intentionally unimplemented. Existing public content and current editor behavior remain untouched until the complete implementation can be tested as one release unit.
 
 
 #### Read-only preflight implementation added
@@ -401,3 +401,21 @@ The Events sheet is validated and separately fingerprinted for audit, but event 
 
 
 The chunk writer also preserves UTF-16 surrogate pairs at chunk boundaries. A synthetic Unicode boundary test (emoji placed exactly across the nominal 40,000-character boundary) passed: concatenating the generated chunks reproduced the original string exactly and no surrogate pair was split.
+
+
+### M7 — permission-gated draft and independent review backend
+
+The current branch now adds the following server functions in `WebsitePublishing.gs`:
+
+- `setWebsiteUserPermissions(token, username, permissions)`: Full administrator only. Writes explicit per-user permission overrides to Script Properties under `WP_PERMS_<username>`. Supported permissions are `website.content.edit`, `website.content.review`, `website.content.publish`, and `website.content.rollback`. Unspecified permissions are false; no role or clearance inherits publishing rights.
+- `getMyWebsitePermissions(token)`: returns only the caller's explicit permission map.
+- `createWebsiteDraft(token)`: creates a new Draft from the immutable migration baseline.
+- `saveWebsiteDraft(token, parentVersionId, payload)`: creates a new immutable Draft revision; it never overwrites the prior payload. It validates content key uniqueness, per-cell size, gallery page names, duplicate gallery IDs, and referenced image existence/MIME/trash state.
+- `submitWebsiteDraftForReview(token, versionId)`: only the draft creator may submit.
+- `reviewWebsiteDraft(token, versionId, decision, notes)`: requires explicit review permission; a creator cannot review their own version; requesting changes requires notes.
+- `listWebsiteVersions(token)` and `getWebsiteVersion(token, versionId)`: permission-filtered version metadata and payload retrieval. Users with review permission can inspect versions awaiting review; editors without review permission see only their own private drafts plus baseline/published/archive metadata.
+- `publishWebsiteVersion(token, versionId)`: currently fails closed, even for a user with publish permission, until the anonymous public-reader cutover and media publication lifecycle are implemented and verified.
+
+Each draft revision stores chunked payload data with per-chunk and full-payload hashes. The metadata records creator, parent version, state, reviewer, review timestamp, notes, and payload integrity data. Review and permission changes are appended to the Website Publishing Audit sheet.
+
+This is a backend foundation only. The existing Index.html editor forms still call their legacy live-write endpoints; those paths have not been redirected to draft storage. The publish endpoint is deliberately blocked, so an Approved draft cannot yet affect the public site. Do not assign live publishing permissions or treat M7 as complete until editor UI integration, staged asset lifecycle, all anonymous readers, cache invalidation, publish/rollback, and runtime acceptance tests are complete.
