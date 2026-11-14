@@ -175,7 +175,13 @@ function rpDetail_(a) {
   let section = '';
   if (rawSection === '*') section = 'All sections';
   else if (rawSection === '(none)') section = 'Unassigned';
-  else if (/^[A-Za-z0-9 _-]{1,30}$/.test(rawSection)) section = rawSection;
+  else if (rawSection) {
+    const keys = Object.keys(SEC).filter(key => key === grade || key.indexOf(grade + '|') === 0);
+    const allowed = [].concat.apply([], keys.map(key => SEC[key] || []));
+    const match = allowed.find(value => String(value).toUpperCase() === rawSection.toUpperCase());
+    if (!match) return '';
+    section = match;
+  }
   return [grade, section].filter(Boolean).join(' / ').slice(0, 80);
 }
 /** Appends one history row. Never throws. Keeps the sheet to about 5,000 rows. */
