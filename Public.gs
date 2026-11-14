@@ -26,10 +26,15 @@ function getPublicContent() {
     const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'), ck = 'pubc_v1_' + today;
     const hit = cache.get(ck); if (hit) return JSON.parse(hit);
 
-    const gb = blockRow_('guide');
-    const guide = gb.row ? cleanPolicy_(String(gb.sh.getRange(gb.row, 2).getValue() || '')) : '';
+    const snapshot = wpPublishedPayload_();
+    const guide = snapshot
+      ? cleanPolicy_(wpPublicContentValue_(snapshot, 'guide'))
+      : (() => {
+          const gb = blockRow_('guide');
+          return gb.row ? cleanPolicy_(String(gb.sh.getRange(gb.row, 2).getValue() || '')) : '';
+        })();
 
-    const posts = evRows_();
+    const posts = snapshot ? snapshot.eventFeed.rows : evRows_();
     const announcements = posts
       .filter(e => e.Category === 'Announcement' && e.EventDate >= today)
       .sort((a, b) => b.EventDate.localeCompare(a.EventDate))
@@ -41,40 +46,43 @@ function getPublicContent() {
       .slice(0, PUB_EVENTS_MAX)
       .map(e => ({ t:e.Title, d:e.EventDate, tm:e.EventTime, v:e.Venue, x:e.Details, category:e.Category }));
 
-    const gallery = galRead_(PUB_GALLERY_PAGE).list.slice(0, PUB_GALLERY_MAX).map(p => ({ id: p.id, cap: p.cap }));
+    const galleryItems = snapshot
+      ? wpPublicGallery_(snapshot, PUB_GALLERY_PAGE)
+      : galRead_(PUB_GALLERY_PAGE).list;
+    const gallery = galleryItems.slice(0, PUB_GALLERY_MAX).map(p => ({ id:p.id, cap:p.cap }));
 
-    const out = ok({ sy: activeSY_(), portal: ScriptApp.getService().getUrl() + '?page=portal', guide: guide, announcements:announcements, events:events, gallery:gallery });
+    const out = ok({ sy: activeSY_(), portal: ScriptApp.getService().getUrl() + '?page=portal', guide:guide, announcements:announcements, events:events, gallery:gallery });
     try { cache.put(ck, JSON.stringify(out), 300); } catch (_) {}
     return out;
   } catch (e) { return fail(e); }
 }
 
-/** PUBLIC. One campus photo as a data URI. Serves ONLY photos shown on the homepage, so it cannot read other Drive files. */
 function getPublicPhoto(id) {
   try {
     id = String(id || '');
-    if (!galRead_(PUB_GALLERY_PAGE).list.slice(0, PUB_GALLERY_MAX).some(x => x.id === id)) throw new Error('Photo not found.');
+    const snapshot = wpPublishedPayload_();
+    const items = snapshot ? wpPublicGallery_(snapshot, PUB_GALLERY_PAGE) : galRead_(PUB_GALLERY_PAGE).list;
+    if (!items.some(x => x.id === id)) throw new Error('Photo not found.');
     const cache = CacheService.getScriptCache(), k = 'pubp_' + id, hit = cache.get(k);
     if (hit) return ok(hit);
     const uri = photo_(id);
-    if (uri && uri.length < 95000) { try { cache.put(k, uri, 21600); } catch (_) {} }   // cache entries are limited to 100 KB
+    if (uri && uri.length < 95000) { try { cache.put(k, uri, 21600); } catch (_) {} }
     return ok(uri);
   } catch (e) { return fail(e); }
 }
 
-/** PUBLIC. Vision, mission, core values and history. Leaders (names, emails, phones, photos) are NOT returned. */
 function getPublicAbout() {
   try {
     const cache = CacheService.getScriptCache(), hit = cache.get('puba_v1');
     if (hit) return JSON.parse(hit);
-    const a = aboutRead_();
-    const out = ok({ vision: a.vision, mission: a.mission, values: a.values, timeline: a.timeline, leaders: a.leaders.map(l => ({ name:l.name, title:l.title, photo:l.photo })) });
+    const snapshot = wpPublishedPayload_();
+    const a = snapshot ? wpPublicAbout_(snapshot) : aboutRead_();
+    const out = ok({ vision:a.vision, mission:a.mission, values:a.values, timeline:a.timeline, leaders:a.leaders.map(l => ({ name:l.name, title:l.title, photo:l.photo })) });
     try { cache.put('puba_v1', JSON.stringify(out), 600); } catch (_) {}
     return out;
   } catch (e) { return fail(e); }
 }
 
-/** PUBLIC. URL of the public homepage (used by the sign-in page's "Back to homepage" link). */
 function getHomeUrl() { return ScriptApp.getService().getUrl(); }
 
 /** PUBLIC. Returns only approved, sanitized public-page HTML blocks. */
@@ -83,34 +91,35 @@ function getPublicBlock(key) {
   try {
     key = String(key || '');
     if (!PUBLIC_BLOCK_KEYS.includes(key)) throw new Error('Unknown public page.');
-    const b = blockRow_(key);
-    const saved = b.row ? String(b.sh.getRange(b.row, 2).getValue() || '') : '';
+    const snapshot = wpPublishedPayload_();
+    let saved = '';
+    if (snapshot) saved = wpPublicContentValue_(snapshot, key);
+    else {
+      const b = blockRow_(key);
+      saved = b.row ? String(b.sh.getRange(b.row, 2).getValue() || '') : '';
+    }
     let html = saved ? cleanPolicy_(saved) : '';
-    // Admin's initial editor placeholders contain headings and generic "to be added" text.
-    // Do not let those placeholders replace the complete public-page template.
     const visible = html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, '').trim();
-    // Any saved words are shown. Staff often type plain lines, <br> lists or bold labels rather than <p>
-    // paragraphs, and those were being thrown away. Only the old editor's generic placeholder is ignored,
-    // so a leftover stub cannot blank out a complete public page.
     const isPlaceholder = /Content to be added by the Administrator/i.test(html);
     if (!visible || isPlaceholder) html = '';
-    return ok({ html: html });
+    return ok({ html:html });
   } catch (e) { return fail(e); }
 }
 
-
-/** PUBLIC. Read only the approved facilities gallery and its captions. */
 function getPublicFacilities() {
   try {
-    const list = galRead_('facilities').list.map(p => ({ id:p.id, cap:p.cap }));
-    return ok({ items:list });
+    const snapshot = wpPublishedPayload_();
+    const list = snapshot ? wpPublicGallery_(snapshot, 'facilities') : galRead_('facilities').list;
+    return ok({ items:list.map(p => ({ id:p.id, cap:p.cap })) });
   } catch (e) { return fail(e); }
 }
-/** PUBLIC. Serves only an image already listed in the Facilities & Campus Tour gallery. */
+
 function getPublicFacilityPhoto(id) {
   try {
     id = String(id || '');
-    if (!galRead_('facilities').list.some(x => x.id === id)) throw new Error('Photo not found.');
+    const snapshot = wpPublishedPayload_();
+    const list = snapshot ? wpPublicGallery_(snapshot, 'facilities') : galRead_('facilities').list;
+    if (!list.some(x => x.id === id)) throw new Error('Photo not found.');
     const cache = CacheService.getScriptCache(), key = 'pubfacility_' + id, hit = cache.get(key);
     if (hit) return ok(hit);
     const uri = photo_(id);
@@ -118,13 +127,15 @@ function getPublicFacilityPhoto(id) {
     return ok(uri);
   } catch (e) { return fail(e); }
 }
-/** PUBLIC. Serves only the one approved photo assigned to a public subsection page. */
+
 function getPublicPagePhoto(page) {
   try {
     page = String(page || '');
     const allowed = ["about-values","about-history","about-leadership","admissions-enrollment","admissions-requirements","admissions-scholarships","admissions-faq","academics-kindergarten","academics-elementary","academics-junior-high","academics-senior-high","academics-college","campus-organizations","campus-events","campus-sports","campus-clubs","campus-facilities","forms-tlc-application","forms-consent","news-announcements","news-latest","news-events","news-enrollment","news-achievements"];
     if (!allowed.includes(page)) throw new Error('Unknown public page.');
-    const item = galRead_(page).list[0];
+    const snapshot = wpPublishedPayload_();
+    const items = snapshot ? wpPublicGallery_(snapshot, page) : galRead_(page).list;
+    const item = items[0];
     if (!item) return ok({ photo:'' });
     const cache = CacheService.getScriptCache(), key = 'pubpagephoto_' + page + '_' + item.id, hit = cache.get(key);
     if (hit) return ok({ photo:hit });
@@ -134,11 +145,12 @@ function getPublicPagePhoto(page) {
   } catch (e) { return fail(e); }
 }
 
-/** PUBLIC. Serves only a current School Leadership photo, never private contact details. */
 function getPublicLeaderPhoto(id) {
   try {
     id = String(id || '');
-    if (!aboutRead_().leaders.some(x => x.photo === id)) throw new Error('Photo not found.');
+    const snapshot = wpPublishedPayload_();
+    const about = snapshot ? wpPublicAbout_(snapshot) : aboutRead_();
+    if (!about.leaders.some(x => x.photo === id)) throw new Error('Photo not found.');
     const cache = CacheService.getScriptCache(), key = 'publeader_' + id, hit = cache.get(key);
     if (hit) return ok(hit);
     const uri = photo_(id);
@@ -147,16 +159,20 @@ function getPublicLeaderPhoto(id) {
   } catch (e) { return fail(e); }
 }
 
-
-/** PUBLIC. Approved historical photo highlights for the About Us page. */
 function getPublicHistoryGallery() {
-  try { return ok({ items:galRead_('history').list }); }
-  catch (e) { return fail(e); }
+  try {
+    const snapshot = wpPublishedPayload_();
+    const list = snapshot ? wpPublicGallery_(snapshot, 'history') : galRead_('history').list;
+    return ok({ items:list });
+  } catch (e) { return fail(e); }
 }
+
 function getPublicHistoryPhoto(id) {
   try {
     id = String(id || '');
-    if (!galRead_('history').list.some(x => x.id === id)) throw new Error('Photo not found.');
+    const snapshot = wpPublishedPayload_();
+    const list = snapshot ? wpPublicGallery_(snapshot, 'history') : galRead_('history').list;
+    if (!list.some(x => x.id === id)) throw new Error('Photo not found.');
     const cache = CacheService.getScriptCache(), key = 'pubhistory_' + id, hit = cache.get(key);
     if (hit) return ok(hit);
     const uri = photo_(id);
@@ -165,11 +181,6 @@ function getPublicHistoryPhoto(id) {
   } catch (e) { return fail(e); }
 }
 
-/* ---------- Uploaded homepage photos ---------- */
-
-const HOME_PHOTO_MAX_B64 = 2200000;               // about 1.5 MB of image data after base64
-
-/** OWNER ONLY. Stores a browser-resized JPEG in the school photos folder and returns a public link. */
 function uploadHomepagePhoto(token, dataUrl) {
   const lock = LockService.getScriptLock(); let fid = '';
   try {
