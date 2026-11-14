@@ -46,8 +46,9 @@ function idHighest_(year) {
 /** Admin / Encoder. The learner's ID photo and the hint for the number field. */
 function idCardData(token, studentId) {
   try {
-    who_(token, 'admin');
+    const u = who_(token, 'admin'), scope = studentSearchScope_(u);
     const hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
+    assertStudentScope_(scope, hit.o);
     return ok({ photo:photo_(hit.o.IDPhotoID), last:idHighest_(activeSY_().slice(0, 4)) });
   } catch (e) { return fail(e); }
 }
@@ -57,7 +58,8 @@ function saveIdNumber(token, studentId, number) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
-    const u = who_(token, 'admin'), hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
+    const u = who_(token, 'admin'), scope = studentSearchScope_(u), hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
+    assertStudentScope_(scope, hit.o);
     if (!ID_CATS.includes(hit.o.Category)) throw new Error('ID cards are for TLC scholars only.');
     const n = String(number || '').trim().toUpperCase();
     if (!ID_RE.test(n)) throw new Error('The Student ID number must look like TLC2027-0001 (TLC, school year, 4 digits).');
@@ -76,7 +78,8 @@ function saveIdPhoto(token, studentId, dataUrl) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
-    const u = who_(token, 'admin'), hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
+    const u = who_(token, 'admin'), scope = studentSearchScope_(u), hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
+    assertStudentScope_(scope, hit.o);
     const bytes = jpegBytes_(dataUrl, 1024 * 1024), old = hit.o.IDPhotoID;
     const f = DriveApp.getFolderById(PHOTO_FOLDER_ID).createFile(Utilities.newBlob(bytes, 'image/jpeg', hit.o.StudentID + '_idphoto.jpg'));
     put_(sh_('S'), hit.r, COLS.indexOf('IDPhotoID') + 1, [[f.getId()]]);          // save the new id first

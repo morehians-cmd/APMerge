@@ -16,8 +16,8 @@ All data lives in the Google Spreadsheet the script is attached to. Website word
 | `Security.gs`, `Protection.gs`, `Hardening.gs`, `SignInGuard.gs`, `MailSwitch.gs`, `MailQueue.gs`, `StaffControl.gs` | Sign-in, sessions, hashing, audit, backups, mail, staff control. |
 | `Academic.gs`, `CollegeModule.gs`, `Report.gs`, `ReEnroll.gs`, `Retention.gs`, `IdCard.gs`, `Cor.gs`, `Speed.gs`, `Housekeeping.gs`, `Contact.gs`, `Flags.gs`, `DashboardSpec.gs`, `DashboardAudit.gs` | Feature modules (academics, College roster, reports, ID cards, scheduled jobs). |
 | `Public.gs`, `Gallery.gs`, `Content.gs` | Public site data: homepage content, page banners and intros, page text, photo galleries, uploads. |
+| `WebsitePublishing.gs` | Additive M7 migration preflight, empty version-store preparation, and immutable chunked baseline seeding. Does not switch public readers or redirect editor writes. |
 | `Index.html` | Dashboard shell. |
-| `College.html`, `ActivityLog.html`, `HomepageHero.html`, `HomepageSections.html`, `PageBanners.html`, `WebsitePages.html` | Dashboard screens, pulled in by `include()` at the end of `Index.html`. |
 | `PublicHome.html`, `PublicPage.html` | The public homepage and interior-page templates. |
 | `Script.html` | Legacy client bundle kept for reference — not loaded by any page. |
 
@@ -44,5 +44,17 @@ The script must be **bound to the school's spreadsheet**: the code reads and wri
 
 - The College module is `CollegeModule.gs`, not `College.gs`: Apps Script will not hold two project files with the same name, and the dashboard screen is already `College.html`. The file's functions and API are unchanged.
 - New spreadsheet columns must be added at the **end** of `FIELDS` in `Code.gs` — the order matters for existing rows.
-- Photo uploads are resized in the browser before being stored, so staff never need to resize images themselves.
+- Admission requirements are submitted physically to the Admissions Office. Applicants use the portal only to view their checklist and recorded status; authorized school staff update receipt and verification in the student record. There is no applicant document-upload feature.
+- Student/staff profile photo uploads are resized in the browser before being stored, so staff never need to resize images themselves.
 - Keep secrets (`SALT`, `PEPPER`, the photo folder ID) out of screenshots, chats and public copies of this repository.
+
+
+### Website publishing migration (non-production preparation)
+
+The `WebsitePublishing.gs` functions are migration tools, not part of the normal public website request path:
+
+1. `websitePublishingPreflight(token)` performs a read-only inventory of Content, Events, gallery references, and Drive media.
+2. `setupWebsitePublishingStores(token)` creates/verifies the four additive versioning tabs.
+3. `seedWebsitePublishingBaseline(token)` stores and verifies an immutable chunked snapshot after a clean preflight.
+
+All three accept a Full administrator session token when called from the portal, or can be run without arguments from the bound Apps Script editor by the script owner. The setup and seed functions make spreadsheet changes, so run them only in the bound non-production copy after reviewing the migration plan. Baseline seeding leaves the published pointer blank. The current public website and editors continue using the existing live stores; no production deployment or public-reader cutover is implied.

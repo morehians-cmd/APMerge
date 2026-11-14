@@ -131,11 +131,13 @@ function setStatus(token, ids, status) {
   try {
     lock.waitLock(20000);
     u = who_(token, 'admin');
+    const scope = studentSearchScope_(u);
     if (!['Not Enrolled', 'Enrolled'].includes(status))
       throw new Error(status === 'Transferred Out' ? 'Transferred Out needs a reason and a date. Open the learner and set it in Step 5.' : 'Invalid status.');
     ids = Array.isArray(ids) ? ids.slice(0, 500) : [];
     const sh = sh_('S'), all = rows_('S'), logs = [], pos = {}, held = status === 'Enrolled' ? activeFlags_() : {};
     all.forEach((s, i) => { pos[s.StudentID] = i; });
+    ids.forEach(id => { if (pos[id] != null) assertStudentScope_(scope, all[pos[id]]); });
     ids.forEach(id => {
       const i = pos[id]; if (i == null) return;
       const row = all[i];

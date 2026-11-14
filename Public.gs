@@ -89,9 +89,11 @@ function getPublicBlock(key) {
     // Admin's initial editor placeholders contain headings and generic "to be added" text.
     // Do not let those placeholders replace the complete public-page template.
     const visible = html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, '').trim();
-    const hasRealContent = /<(p|li|h[1-4]|details|summary|blockquote)\b/i.test(html) &&
-      !/Content to be added by the Administrator/i.test(html) && !!visible;
-    if (!hasRealContent) html = '';
+    // Any saved words are shown. Staff often type plain lines, <br> lists or bold labels rather than <p>
+    // paragraphs, and those were being thrown away. Only the old editor's generic placeholder is ignored,
+    // so a leftover stub cannot blank out a complete public page.
+    const isPlaceholder = /Content to be added by the Administrator/i.test(html);
+    if (!visible || isPlaceholder) html = '';
     return ok({ html: html });
   } catch (e) { return fail(e); }
 }
@@ -524,3 +526,109 @@ function saveHomepageHero(token, input) {
   finally { try { lock.releaseLock(); } catch(_) {} }
 }
 
+
+/* ---------- Editable section cards on the group landing pages ---------- */
+
+/**
+ * Each Explore page (About Us, Admissions, Academics, Campus Life, Forms, News) keeps a fixed grid of
+ * links to its own subsections. The wording and the target of every card is editable here, one saved
+ * row per page, so staff never touch the template and each page keeps its own cards.
+ * Cleared fields fall back to these defaults.
+ */
+const SECTION_CARDS_ = {
+  about: { key:'pub_about_cards', label:'About Us', defaults:[
+    { title:'Vision, Mission & Core Values', text:'Explore this section for more information.', link:'?page=about-values' },
+    { title:'History', text:'Explore this section for more information.', link:'?page=about-history' },
+    { title:'School Leadership', text:'Explore this section for more information.', link:'?page=about-leadership' }
+  ]},
+  admissions: { key:'pub_admissions_cards', label:'Admissions', defaults:[
+    { title:'Enrollment Procedure', text:'Explore this section for more information.', link:'?page=admissions-enrollment' },
+    { title:'Admission Requirements', text:'Explore this section for more information.', link:'?page=admissions-requirements' },
+    { title:'Scholarships', text:'Explore this section for more information.', link:'?page=admissions-scholarships' },
+    { title:'Frequently Asked Questions', text:'Explore this section for more information.', link:'?page=admissions-faq' }
+  ]},
+  academics: { key:'pub_academics_cards', label:'Academics', defaults:[
+    { title:'Kindergarten', text:'Explore this section for more information.', link:'?page=academics-kindergarten' },
+    { title:'Elementary', text:'Explore this section for more information.', link:'?page=academics-elementary' },
+    { title:'Junior High School', text:'Explore this section for more information.', link:'?page=academics-junior-high' },
+    { title:'Senior High School', text:'Explore this section for more information.', link:'?page=academics-senior-high' },
+    { title:'College Program', text:'Explore this section for more information.', link:'?page=academics-college' }
+  ]},
+  campus: { key:'pub_campus_cards', label:'Campus Life', defaults:[
+    { title:'Student Organizations', text:'Explore this section for more information.', link:'?page=campus-organizations' },
+    { title:'School Activities & Events', text:'Explore this section for more information.', link:'?page=campus-events' },
+    { title:'Sports & Athletics', text:'Explore this section for more information.', link:'?page=campus-sports' },
+    { title:'Clubs & Societies', text:'Explore this section for more information.', link:'?page=campus-clubs' },
+    { title:'Campus Facilities & Tour', text:'Explore this section for more information.', link:'?page=campus-facilities' }
+  ]},
+  forms: { key:'pub_forms_cards', label:'Downloadable Forms', defaults:[
+    { title:'TLC Student Application Form', text:'Explore this section for more information.', link:'?page=forms-tlc-application' },
+    { title:'Consent Form', text:'Explore this section for more information.', link:'?page=forms-consent' }
+  ]},
+  news: { key:'pub_news_cards', label:'News & Updates', defaults:[
+    { title:'School Announcements', text:'Explore this section for more information.', link:'?page=news-announcements' },
+    { title:'Latest News', text:'Explore this section for more information.', link:'?page=news-latest' },
+    { title:'Upcoming Events', text:'Explore this section for more information.', link:'?page=news-events' },
+    { title:'Enrollment Announcements', text:'Explore this section for more information.', link:'?page=news-enrollment' },
+    { title:'School Achievements', text:'Explore this section for more information.', link:'?page=news-achievements' }
+  ]}
+};
+const SECTION_CARDS_GROUP_RE_ = /^[a-z]+$/;
+const SECTION_CARD_LINK_RE_ = /^(?:https:\/\/[A-Za-z0-9-.]+(?::\d+)?(?:\/[^\s"'<>]*)?|\?page=[A-Za-z0-9_-]+)$/;
+/** Resolves a card group, rejecting anything that is not one of the approved pages. */
+function sectionCardsGroup_(group) {
+  const g = String(group == null ? '' : group).trim();
+  if (!SECTION_CARDS_GROUP_RE_.test(g) || !Object.prototype.hasOwnProperty.call(SECTION_CARDS_, g)) {
+    throw new Error('Unknown section card group.');
+  }
+  return SECTION_CARDS_[g];
+}
+/** Validates one group's cards. A blank title or text keeps the approved wording; a link must be https or ?page=. */
+function sectionCardsClean_(group, input) {
+  const cfg = sectionCardsGroup_(group), arr = Array.isArray(input) ? input : [];
+  return cfg.defaults.map((d, i) => {
+    const v = arr[i] && typeof arr[i] === 'object' ? arr[i] : {};
+    const link = String(v.link == null ? d.link : v.link).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 300) || d.link;
+    if (!SECTION_CARD_LINK_RE_.test(link)) {
+      throw new Error('Card ' + (i + 1) + ' (' + cfg.label + ' \u2013 ' + d.title + '): the link must start with https:// or ?page=');
+    }
+    return {
+      title: homeContentText_(v.title, 90, d.title),
+      text:  homeContentText_(v.text, 200, d.text),
+      link:  link
+    };
+  });
+}
+function sectionCardsRead_(group) {
+  const cfg = sectionCardsGroup_(group), b = blockRow_(cfg.key);
+  let raw = null;
+  if (b.row) { try { raw = JSON.parse(String(b.sh.getRange(b.row, 2).getValue() || '')); } catch (_) { raw = null; } }
+  try { return sectionCardsClean_(group, raw); } catch (_) { return sectionCardsClean_(group, null); }
+}
+/** PUBLIC. The wording and links of one page's cards only, so it is safe for the open web. */
+function getPublicSectionCards(group) {
+  try { return ok(sectionCardsRead_(group)); } catch (e) { return fail(e); }
+}
+/** OWNER ONLY. A page's current cards plus the standard wording, for the Website Pages editor. */
+function getSectionCards(token, group) {
+  try {
+    owner_(token);
+    const cfg = sectionCardsGroup_(group);
+    return ok({ saved: sectionCardsRead_(group), defaults: cfg.defaults, label: cfg.label });
+  } catch (e) { return fail(e); }
+}
+/** OWNER ONLY. Saves one page's cards; the other pages are left untouched. */
+function saveSectionCards(token, group, cards) {
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+    const u = owner_(token), cfg = sectionCardsGroup_(group), clean = sectionCardsClean_(group, cards), b = blockRow_(cfg.key);
+    put_(b.sh, b.row || (b.sh.getLastRow() + 1), 1, [[cfg.key, JSON.stringify(clean)]]);
+    audit_(u, 'content.save', cfg.key, cfg.label + ' section cards');
+    return ok(clean, 'Section cards saved.');
+  } catch (e) { return fail(e); } finally { try { lock.releaseLock(); } catch (_) {} }
+}
+/* Kept so a browser still holding an older copy of the public page keeps working after this update. */
+function getPublicAboutCards() { return getPublicSectionCards('about'); }
+function getAboutCards(token) { return getSectionCards(token, 'about'); }
+function saveAboutCards(token, cards) { return saveSectionCards(token, 'about', cards); }

@@ -336,7 +336,7 @@ function reportsSelfCheck() {
   out.push('--- Access: every report function must refuse these accounts ---');
   const users = rows_('U').filter(u => u.Disabled !== '1');
   const probe = (label, u) => {
-    const t = mk(u), calls = [['report', () => report(t, 'section', '')], ['reportsHome', () => reportsHome(t, act)], ['reportsAnalytics', () => reportsAnalytics(t, act, '', '', '')],
+    const t = mk(u), calls = [['report', () => report(t, 'section', '')], ['report daily', () => report(t, 'daily', '')], ['reportsHome', () => reportsHome(t, act)], ['reportsAnalytics', () => reportsAnalytics(t, act, '', '', '')],
       ['reportsDrill', () => reportsDrill(t, act, '', '', '', 'consent', '')], ['reportHistory', () => reportHistory(t)], ['saveFavorites', () => saveFavorites(t, [])]];
     const open = calls.filter(c => { try { const r = c[1](); return r && r.success; } catch (e) { return false; } }).map(c => c[0]);
     open.length ? F('Access ' + label, 'ANSWERED: ' + open.join(', ')) : P('Access ' + label, 'all refused (if the account must change its password, the refusal may be for that reason)');

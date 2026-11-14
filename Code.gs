@@ -143,8 +143,17 @@ function reqsFor_(r) {
   const tf = ru.opt.includes('ReqTransferee') && REQ_TF_CATS.includes(r.Category);
   return { level:lv, req:ru.req, show:REQ_ALL.filter(k => ru.req.includes(k) || (tf && k==='ReqTransferee') || (r[k] && r[k]!=='None')) };
 }
-const STU_SECS = ['prev','personal','family','living','rel','emergency','guard'];
-const stuCan_ = f => STU_SECS.includes(f[0]) || (f[0]==='academic' && !['Section','ReferredBy','Category','Classification'].includes(f[1]));
+const STU_EDIT_KEYS = new Set([
+  'PrevSchool','PrevSY','PrevGrade','PrevCluster','PrevSection','PrevAdviser','PrevScholarship','PrevSchoolID','PrevAddress',
+  'AddressLine1','AddressLine2','Barangay','City','Birthdate','Mobile','SexualOrient','GenderOrient','Religion','ReligionOther','Email','Facebook','BirthPlace',
+  'FatherName','FatherStatus','FatherOccupation','FatherEducation','FatherMobile','FatherReligion','FatherReligionOther','FatherEmail',
+  'MotherName','MotherStatus','MotherOccupation','MotherEducation','MotherMobile','MotherReligion','MotherReligionOther','MotherEmail',
+  'LivingWith',
+  'RelName','RelRelation','RelBirthdate','RelSex','RelGender','RelGenderOther','RelMobile','RelCivil','RelSameAddr','RelAddress','RelSide',
+  'EmName','EmRelation','EmMobile','EmSameAddr','EmAddress',
+  'GuardName','GuardRelation','GuardEmail','GuardMobile'
+]);
+const stuCan_ = f => !!f && STU_EDIT_KEYS.has(String(f[1] || ''));
 const addr_ = r => [r.AddressLine1,r.AddressLine2,r.Barangay,r.City].filter(Boolean).join(', ');
 const ok = (data, message) => ({ success:true, message:message||'', data:data });
 const fail = e => ({ success:false, error:e.message });
@@ -281,13 +290,55 @@ function getPublicHeaderLogos() {
 }
 
 
+/**
+ * Encoder student scope is an owner-managed Script Property named
+ * STUDENT_SCOPE_<NORMALIZED_USERNAME>. Its JSON value is:
+ * {"grades":["Grade 1","Grade 2"],"sections":{"Grade 1":["A","B"],"Grade 2":["C"]}}
+ * A grade omitted from sections is not accessible. An empty section list grants
+ * no access. This deliberately fails closed until an owner explicitly assigns scope.
+ */
+function studentSearchScope_(u) {
+  if (u.Clearance === 'Full' || u.Clearance === 'Manager') return null;
+  if (u.Clearance !== 'Encoder') throw new Error('Not allowed.');
+  const key = 'STUDENT_SCOPE_' + String(u.Username || '').toLowerCase().replace(/[^a-z0-9._-]/g, '_');
+  const raw = PropertiesService.getScriptProperties().getProperty(key);
+  if (!raw) throw new Error('Student search access has not been assigned to this account.');
+  let scope;
+  try { scope = JSON.parse(raw); } catch (_) { throw new Error('The student search scope is invalid. Contact the system administrator.'); }
+  if (!scope || !Array.isArray(scope.grades) || !scope.sections || typeof scope.sections !== 'object') {
+    throw new Error('The student search scope is invalid. Contact the system administrator.');
+  }
+  const grades = [...new Set(scope.grades.filter(g => GRADES.includes(g)))];
+  const sections = {};
+  grades.forEach(g => {
+    const assigned = scope.sections[g];
+    if (Array.isArray(assigned)) sections[g] = [...new Set(assigned.map(v => String(v).trim()).filter(v => v.length <= 80))];
+  });
+  return { grades:grades, sections:sections };
+}
+
+function studentWithinSearchScope_(scope, student) {
+  return !scope || !!student && scope.grades.includes(student.GradeLevel) &&
+    Array.isArray(scope.sections[student.GradeLevel]) &&
+    scope.sections[student.GradeLevel].includes(String(student.Section || ''));
+}
+/** Throws before any read or write when a requested student is outside an account's assigned scope. */
+function assertStudentScope_(scope, student, message) {
+  if (!student || !studentWithinSearchScope_(scope, student)) throw new Error(message || 'Student record not found or outside your assigned scope.');
+  return student;
+}
+
 function searchStudents(token, q, status, limit, grade, sy) {
   try {
-    who_(token, 'admin'); q = String(q || '').toLowerCase();
+    const u = who_(token, 'admin'), scope = studentSearchScope_(u);
+    q = String(q || '').trim().toLowerCase().slice(0, 120);
     limit = Math.max(25, Math.min(parseInt(limit, 10) || 25, 5000));
     grade = GRADES.indexOf(grade) >= 0 ? grade : '';
     sy = /^\d{4}-\d{4}$/.test(sy || '') ? sy : '';
-    const hits = studentsLite_().filter(s => (s.FullName + s.LRN + s.StudentID).toLowerCase().includes(q))
+    if (scope && grade && !scope.grades.includes(grade)) throw new Error('You are not assigned to search this grade level.');
+    const hits = studentsLite_()
+      .filter(s => !scope || (scope.grades.includes(s.GradeLevel) && Array.isArray(scope.sections[s.GradeLevel]) && scope.sections[s.GradeLevel].includes(String(s.Section || ''))))
+      .filter(s => (String(s.FullName || '') + String(s.LRN || '') + String(s.StudentID || '')).toLowerCase().includes(q))
       .filter(s => !status || status === 'All' || (s.EnrollStatus || 'Not Enrolled') === status)
       .filter(s => !grade || s.GradeLevel === grade)
       .filter(s => !sy || s.SchoolYear === sy).reverse();
@@ -303,8 +354,9 @@ function getStudent(token, id) {
   try {
     const u = who_(token); if (u.Role==='student') id = u.StudentID;
     if (OFFICE_CL.indexOf(u.Clearance) >= 0 || ACAD_ROLES.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');   // office accounts never open full records
+    const scope = u.Role === 'admin' ? studentSearchScope_(u) : null;
     const hit = findRow_('S', 'StudentID', id), s = hit && hit.o;
-    if (!s) throw new Error('Student record not found.');
+    if (!s || !studentWithinSearchScope_(scope, s)) throw new Error('Student record not found or outside your assigned scope.');
     if (u.Role === 'admin') auditView_(u, id);
     if (u.Role === 'admin') { const ax = findRow_('U', 'StudentID', id), acc = ax && ax.o.Role === 'student' ? ax.o : null; s.Photo = acc ? photo_(acc.PhotoID) : ''; s.AcctLocked = acc && acc.Locked === '1' ? '1' : ''; }
     s.Age = age_(s.Birthdate); s.RelAge = age_(s.RelBirthdate);decorate_(s, u);
@@ -319,11 +371,13 @@ function saveStudent(token, rec) {
   try {
     u = who_(token);                                   // before the lock: a bad session fails fast
     if (OFFICE_CL.indexOf(u.Clearance) >= 0 || ACAD_ROLES.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
+    const scope = u.Role === 'admin' ? studentSearchScope_(u) : null;
     const sh = sh_('S'), admin = u.Role==='admin';
     lock.waitLock(20000);
     const id = admin ? rec.StudentID : u.StudentID, hit = id ? findStudent_(id) : null, rowNo = hit ? hit.r : 0;
     old = hit ? hit.o : null;
     if (!old && !admin) throw new Error('Not allowed.');
+    if (old && !studentWithinSearchScope_(scope, old)) throw new Error('Not allowed outside your assigned student scope.');
     row = old ? Object.assign({}, old) : {}; oldStatus = old ? old.EnrollStatus : ''; isNew = !old;
     FIELDS.forEach(f => { if (f[3]==='auto'||(!admin&&!stuCan_(f))) return; row[f[1]] = String(rec[f[1]]==null?'':rec[f[1]]).trim(); if (f[3]==='txt' && !/(Email|Facebook)$/.test(f[1])) row[f[1]] = row[f[1]].toUpperCase(); });
     if (!admin && old && old.EnrollStatus === 'Enrolled') IDLOCK.forEach(k => row[k] = old[k]);   // identity lock (Hardening)
@@ -351,6 +405,7 @@ function saveStudent(token, rec) {
       if (!['Grade 11','Grade 12'].includes(row.PrevGrade)) row.PrevCluster = '';
       if (!CERT_CATS.includes(row.Category)) row.CertNo = '';
       if (!admin && old && (row.GradeLevel!==old.GradeLevel || row.Cluster!==old.Cluster)) row.Section = ''; }
+    if (!studentWithinSearchScope_(scope, row)) throw new Error('The resulting student grade and section are outside your assigned scope.');
     if (row.LivingWith!=='Relatives / Legal Guardian') ['RelName','RelRelation','RelBirthdate','RelAge','RelSex','RelGender','RelGenderOther','RelMobile','RelCivil','RelSameAddr','RelAddress','RelSide'].forEach(k => row[k] = '');
     if (row.RelSameAddr==='Yes') row.RelAddress = addr_(row);
     if (row.RelGender!=='Others, specify') row.RelGenderOther = '';
@@ -377,7 +432,8 @@ function saveStudent(token, rec) {
 
 function dashboard(token) {
   try {
-    who_(token,'admin'); const all = studentsLite_().filter(inSY_), s = all.filter(r=>r.EnrollStatus==='Enrolled');
+    const u = who_(token,'admin'), scope = studentSearchScope_(u);
+    const all = studentsLite_().filter(inSY_).filter(r => studentWithinSearchScope_(scope, r)), s = all.filter(r=>r.EnrollStatus==='Enrolled');
     const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
     const byG = a => a.map(g=>[g, s.filter(r=>r.GradeLevel===g).length]);
     const byC = g => Object.keys(CL).map(c=>[c, s.filter(r=>r.GradeLevel===g && r.Cluster===CL[c]).length]);
@@ -393,9 +449,11 @@ const CATS = ['PUB-QVR','TLC','REGULAR','ESC','TLC-OVAP','QVA PASSER','IS'];
 const grpOf_ = g => { const i = GRADES.indexOf(g); return i<0 ? '' : i<3 ? GROUPS[0] : i<9 ? GROUPS[1] : i<13 ? GROUPS[2] : GROUPS[i===13?3:4]; };
 function report(token, type, arg, sy) {
   try {
-    const _u = who_(token,'admin'); if (_u.Clearance==='Encoder' && type!=='daily') throw new Error('Encoders do not have access to reports.');
+    const _u = who_(token,'admin');
+    if (_u.Clearance === 'Encoder') throw new Error('Encoders do not have access to reports.');
+    const scope = studentSearchScope_(_u);
     audit_(_u, 'report.view', type, 'SY ' + reportSY_(sy));
-    const SYX = reportSY_(sy), all = rowsForSY_(SYX), s = all.filter(r=>r.EnrollStatus!=='Cancelled'&&r.EnrollStatus!=='Transferred Out'), to = all.filter(r=>r.EnrollStatus==='Transferred Out'), n = (a,f)=>a.filter(f).length;
+    const SYX = reportSY_(sy), all = rowsForSY_(SYX).filter(r => studentWithinSearchScope_(scope, r)), s = all.filter(r=>r.EnrollStatus!=='Cancelled'&&r.EnrollStatus!=='Transferred Out'), to = all.filter(r=>r.EnrollStatus==='Transferred Out'), n = (a,f)=>a.filter(f).length;
     const asof = 'Data as of '+Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'EEEE, MMMM dd, yyyy  h:mm:ss a');
     const tb = (title,label,rows,fn,num) => { const m={}; rows.forEach(r=>{ const v=fn(r)||'(NONE)'; m[v]=(m[v]||0)+1; });
       let e = Object.entries(m); e = num ? e.sort((a,b)=>String(a[0]).localeCompare(String(b[0]),undefined,{numeric:true})) : e.sort((a,b)=>b[1]-a[1]);
@@ -679,7 +737,8 @@ function getNotifications(token) {
     const u = who_(token), pr = PropertiesService.getScriptProperties(), tz = Session.getScriptTimeZone(),
   prev = u.Role === 'admin' ? (pr.getProperty('pl_'+u.Username)||'') : Utilities.formatDate(new Date(Date.now()-7*864e5), tz, 'yyyy-MM-dd HH:mm:ss');
     const today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd'), wk = Utilities.formatDate(new Date(Date.now()+6*86400000), tz, 'yyyy-MM-dd');
-   const evs = evRows_(), items = [], all = u.Role==='admin' ? studentsLite_() : []
+   const evs = evRows_(), items = [], scope = u.Role === 'admin' ? studentSearchScope_(u) : null;
+   const all = u.Role === 'admin' ? studentsLite_().filter(s => studentWithinSearchScope_(scope, s)) : [];
    if (u.Role==='admin' && ACAD_ROLES.indexOf(u.Clearance) < 0) {
    const nw = prev ? all.filter(s=>s.CreatedAt>prev).length : 0;
       if (nw) items.push({ title:nw+' new registration'+(nw>1?'s':''), text:'Since you last signed in.', go:'newreg' });
@@ -797,7 +856,8 @@ function getScholarships(token) {
     let counts = null;
     if (u.Role==='admin' && ACAD_ROLES.indexOf(u.Clearance) < 0) {
       const MAP = { TLC:['TLC','TLC-OVAP'], ESC:['ESC'], QVR:['PUB-QVR'], QVA:['QVA PASSER'] };
-      const act = rowsSY_().filter(s=>s.EnrollStatus!=='Cancelled' && s.EnrollStatus!=='Transferred Out');
+      const scope = studentSearchScope_(u);
+      const act = rowsSY_().filter(s=>studentWithinSearchScope_(scope, s)).filter(s=>s.EnrollStatus!=='Cancelled' && s.EnrollStatus!=='Transferred Out');
       counts = {};
       SCH_KEYS.forEach(k => { const x = act.filter(s=>MAP[k].includes(s.Category)); counts[k] = { total:x.length, enrolled:x.filter(s=>s.EnrollStatus==='Enrolled').length }; });
     }
@@ -854,12 +914,18 @@ function getLogo() {
 
 /** OWNER ONLY (editor). setLogoFile('<Drive file ID>') */
 function setLogoFile(id) {
-  id = id || '1MyLv_pIxcQOFM3uNz2QttGApcCoLLQbO';
-  ownerOnly_(); id = String(id || '').trim();
+  ownerOnly_();
+  id = String(id || '').trim();
+  if (!/^[A-Za-z0-9_-]{20,}$/.test(id)) throw new Error('Enter a valid Google Drive file ID.');
   const f = DriveApp.getFileById(id);
+  if (f.isTrashed()) throw new Error('The selected logo file is in the Drive trash.');
+  const mime = String(f.getMimeType() || '').toLowerCase();
+  if (!/^image\/(png|jpeg|webp|gif)$/.test(mime)) throw new Error('The logo must be a PNG, JPEG, WebP or GIF image.');
+  const size = f.getSize();
+  if (!size || size > 68000) throw new Error('The logo image must be between 1 byte and 68,000 bytes.');
   PropertiesService.getScriptProperties().setProperty('LOGO_FILE_ID', id);
   CacheService.getScriptCache().remove('logo_v1');
-  Logger.log('Logo set to "' + f.getName() + '" (' + f.getSize() + ' bytes, ' + f.getMimeType() + '). Keep it under 68,000 bytes.');
+  Logger.log('Logo set to "' + f.getName() + '" (' + size + ' bytes, ' + mime + ').');
 }
 
 /** Built-in scholarship text, used until a program is saved from the Scholarships editor. */
@@ -882,9 +948,9 @@ function dashboardExtra(token) {
   try {
     const u = who_(token, 'admin');
     if (OFFICE_CL.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
-    const tz = Session.getScriptTimeZone(), full = u.Clearance !== 'Encoder';
-    const dayKey = n => Utilities.formatDate(new Date(Date.now() - n * 864e5), tz, 'yyyy-MM-dd');
-    const all = rowsSY_();
+    const scope = studentSearchScope_(u), full = u.Clearance !== 'Encoder';
+    const tz = Session.getScriptTimeZone(), dayKey = n => Utilities.formatDate(new Date(Date.now() - n * 864e5), tz, 'yyyy-MM-dd');
+    const all = rowsSY_().filter(r => studentWithinSearchScope_(scope, r));
     const live = all.filter(r => r.EnrollStatus !== 'Cancelled' && r.EnrollStatus !== 'Transferred Out');
 
     // 14-day registration counts, oldest first (index 13 = today)
