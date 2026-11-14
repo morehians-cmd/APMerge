@@ -904,7 +904,7 @@ function getLogo() {
     const c = CacheService.getScriptCache(), hit = c.get('logo_v1'); if (hit) return ok(hit);
     const id = PropertiesService.getScriptProperties().getProperty('LOGO_FILE_ID'); if (!id) return ok('');
     const b = DriveApp.getFileById(id).getBlob(), ct = b.getContentType();
-    if (!/^image\/(png|jpeg|webp)$/.test(ct)) return ok('');
+    if (!logoMimeAllowed_(ct)) return ok('');
     const bytes = b.getBytes(); if (bytes.length > 68000) return ok('');   // must fit in one cache entry (100 KB) once encoded
     const uri = 'data:' + ct + ';base64,' + Utilities.base64Encode(bytes);
     c.put('logo_v1', uri, 21600);
@@ -915,7 +915,7 @@ function getLogo() {
 const APPROVED_BRANDING_FOLDER_PROPERTY_ = 'MA_APPROVED_BRANDING_FOLDER_ID';
 
 function logoMimeAllowed_(mime) {
-  return /^image\\/(png|jpeg|webp|gif)$/.test(String(mime || '').toLowerCase());
+  return /^image\/(png|jpeg|webp|gif)$/.test(String(mime || '').toLowerCase());
 }
 
 /** Returns true only when a Drive file is directly contained in the approved branding folder. */
@@ -961,7 +961,7 @@ function setLogoFile(id) {
     throw new Error('The selected logo must be stored directly in the approved school branding folder.');
   }
   const mime = String(f.getMimeType() || '').toLowerCase();
-  if (!/^image\/(png|jpeg|webp|gif)$/.test(mime)) throw new Error('The logo must be a PNG, JPEG, WebP or GIF image.');
+  if (!logoMimeAllowed_(mime)) throw new Error('The logo must be a PNG, JPEG, WebP or GIF image.');
   const size = f.getSize();
   if (!size || size > 68000) throw new Error('The logo image must be between 1 byte and 68,000 bytes.');
   PropertiesService.getScriptProperties().setProperty('LOGO_FILE_ID', id);
