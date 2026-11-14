@@ -1151,6 +1151,7 @@ function wpRestoreUncommittedPromotions_(assetIds) {
 function publishWebsiteVersion(token, versionId) {
   const lock = LockService.getScriptLock();
   const promotionJournal = [];
+  let publishedPointerCommitted = false;
   try {
     lock.waitLock(20000);
     const actor = wpRequirePermission_(token, 'website.content.publish');
@@ -1181,6 +1182,7 @@ function publishWebsiteVersion(token, versionId) {
     });
     wpSetConfigValue_(config, 'migration_state', 'PUBLISHING');
     wpSetConfigValue_(config, 'published_version_id', versionId);
+    publishedPointerCommitted = true;
 
     if (previousId) {
       const previous = wpReadVersion_(previousId);
@@ -1200,7 +1202,7 @@ function publishWebsiteVersion(token, versionId) {
     }, 'Website version published.');
   } catch (error) {
     let message = String(error && error.message || error);
-    if (promotionJournal.length) {
+    if (promotionJournal.length && !publishedPointerCommitted) {
       try {
         wpRestoreUncommittedPromotions_(promotionJournal);
       } catch (recoveryError) {
