@@ -17,7 +17,7 @@ function jpegBytes_(dataUrl, maxBytes) {
 /** Admin / Encoder. The saved artwork as data URIs ('' when a slot is missing). */
 function getIdArt(token) {
   try {
-    who_(token, 'admin'); const pr = PropertiesService.getScriptProperties(), out = {};
+    assertAdminConsoleRole_(who_(token, 'admin')); const pr = PropertiesService.getScriptProperties(), out = {};
     ID_SLOTS.forEach(s => { const id = pr.getProperty('idart_' + s); out[s] = id ? photo_(id) : ''; });
     return ok(out);
   } catch (e) { return fail(e); }
@@ -46,7 +46,7 @@ function idHighest_(year) {
 /** Admin / Encoder. The learner's ID photo and the hint for the number field. */
 function idCardData(token, studentId) {
   try {
-    const u = who_(token, 'admin'), scope = studentSearchScope_(u);
+    const u = assertAdminConsoleRole_(who_(token, 'admin')), scope = studentSearchScope_(u);
     const hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
     assertStudentScope_(scope, hit.o);
     return ok({ photo:photo_(hit.o.IDPhotoID), last:idHighest_(activeSY_().slice(0, 4)) });
@@ -58,7 +58,7 @@ function saveIdNumber(token, studentId, number) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
-    const u = who_(token, 'admin'), scope = studentSearchScope_(u), hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
+    const u = assertAdminConsoleRole_(who_(token, 'admin')), scope = studentSearchScope_(u), hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
     assertStudentScope_(scope, hit.o);
     if (!ID_CATS.includes(hit.o.Category)) throw new Error('ID cards are for TLC scholars only.');
     const n = String(number || '').trim().toUpperCase();
@@ -78,7 +78,7 @@ function saveIdPhoto(token, studentId, dataUrl) {
   const lock = LockService.getScriptLock();
   try {
     lock.waitLock(20000);
-    const u = who_(token, 'admin'), scope = studentSearchScope_(u), hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
+    const u = assertAdminConsoleRole_(who_(token, 'admin')), scope = studentSearchScope_(u), hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
     assertStudentScope_(scope, hit.o);
     const bytes = jpegBytes_(dataUrl, 1024 * 1024), old = hit.o.IDPhotoID;
     const f = DriveApp.getFolderById(PHOTO_FOLDER_ID).createFile(Utilities.newBlob(bytes, 'image/jpeg', hit.o.StudentID + '_idphoto.jpg'));
