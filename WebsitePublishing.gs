@@ -1013,7 +1013,7 @@ function getWebsiteDraftAboutPhoto(token, versionId, assetId) {
     }
     if (!allowed) throw new Error('The referenced About photo is unavailable or is not approved website media.');
     const uri = photo_(id);
-    if (!uri) throw new Error('The referenced About photo could not be be read.');
+    if (!uri) throw new Error('The referenced About photo could not be read.');
     return ok(uri, 'About photo loaded from the selected website version.');
   } catch (error) {
     return fail(error);
