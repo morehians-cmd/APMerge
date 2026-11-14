@@ -1360,6 +1360,21 @@ function getWebsiteDraftAboutPhoto(token, versionId, assetId) {
  * Creates a draft revision for one supported Content-sheet key.
  * This adapter writes only to immutable draft payloads, never to the live Content sheet.
  */
+function wpWebsiteContentAllowlist_(defaults) {
+  defaults = defaults && typeof defaults === 'object' ? defaults : {};
+  const sectionCardGroups = defaults.sectionCards && typeof defaults.sectionCards === 'object' ? defaults.sectionCards : {};
+  const sectionCardKeys = Object.keys(sectionCardGroups)
+    .map(group => sectionCardGroups[group] && sectionCardGroups[group].key)
+    .filter(Boolean);
+  const pageBlockKeys = Object.values(defaults.pageBlockKeys && typeof defaults.pageBlockKeys === 'object' ? defaults.pageBlockKeys : {});
+  return new Set([
+    ...(Array.isArray(defaults.publicBlockKeys) ? defaults.publicBlockKeys : []),
+    ...pageBlockKeys,
+    ...sectionCardKeys,
+    'about_data', PUBLIC_CONTENT_KEY_, PUBLIC_HERO_KEY_, PAGE_INTRO_KEY_, PAGE_BANNERS_KEY_
+  ]);
+}
+
 function saveWebsiteDraftContent(token, parentVersionId, contentKey, contentValue) {
   try {
     const actor = wpRequirePermission_(token, 'website.content.edit');
@@ -1369,14 +1384,8 @@ function saveWebsiteDraftContent(token, parentVersionId, contentKey, contentValu
     const key = wpText_(contentKey).trim();
     const defaults = parent.payload.defaults || {};
     const sectionCardGroups = defaults.sectionCards && typeof defaults.sectionCards === 'object' ? defaults.sectionCards : {};
-    const sectionCardKeys = Object.keys(sectionCardGroups).map(group => sectionCardGroups[group] && sectionCardGroups[group].key).filter(Boolean);
     const pageBlockKeys = Object.values(defaults.pageBlockKeys && typeof defaults.pageBlockKeys === 'object' ? defaults.pageBlockKeys : {});
-    const allowed = new Set([
-      ...(Array.isArray(defaults.publicBlockKeys) ? defaults.publicBlockKeys : []),
-      ...pageBlockKeys,
-      ...sectionCardKeys,
-      'about_data', PUBLIC_CONTENT_KEY_, PUBLIC_HERO_KEY_, PAGE_INTRO_KEY_, PAGE_BANNERS_KEY_
-    ]);
+    const allowed = wpWebsiteContentAllowlist_(defaults);
     if (!key || !allowed.has(key)) throw new Error('This Content key is not part of the website publishing schema.');
     let value = contentValue == null ? '' : String(contentValue);
     if (value.length > 45000) throw new Error('Website content exceeds the Google Sheets cell limit.');
@@ -1598,6 +1607,23 @@ function websitePublishingSelfCheck(token) {
     check('Config schema has unique headers', new Set(WP_CONFIG_HEADERS_).size === WP_CONFIG_HEADERS_.length);
     check('Audit schema has unique headers', new Set(WP_AUDIT_HEADERS_).size === WP_AUDIT_HEADERS_.length);
     check('Media schema has unique headers', new Set(WP_MEDIA_HEADERS_).size === WP_MEDIA_HEADERS_.length);
+    const websiteDefaults = wpSnapshotDefaults_();
+    const websiteKeys = wpWebsiteContentAllowlist_(websiteDefaults);
+    const cardGroups = Object.keys(websiteDefaults.sectionCards || {});
+    const cardGroupsValid = cardGroups.length === 6 && cardGroups.every(group => {
+      const config = websiteDefaults.sectionCards[group];
+      return !!config && !!config.key && websiteKeys.has(config.key) &&
+        Array.isArray(sectionCardsClean_(group, config.defaults));
+    });
+    check('All six section-card groups are supported by the draft editor', cardGroupsValid,
+      cardGroups.map(group => group + ':' + (websiteDefaults.sectionCards[group].key || 'missing key')).join('; '));
+    const pageKeys = Object.values(websiteDefaults.pageBlockKeys || {});
+    check('All public page-block keys are in the draft allow-list',
+      pageKeys.length > 0 && pageKeys.every(key => websiteKeys.has(key)),
+      pageKeys.length + ' public page-block keys checked.');
+    check('Internal portal-only keys are excluded from website draft editing',
+      !websiteKeys.has('guide') && !websiteKeys.has('about'),
+      'Enrollment guide and legacy About HTML are not exposed as generic website draft keys.');
     check('Explicit website permission catalog is unique',
       new Set(WP_PERMISSION_KEYS_).size === WP_PERMISSION_KEYS_.length &&
       WP_PERMISSION_KEYS_.every(key => /^website\.content\.(edit|review|publish|rollback)$/.test(key)));
