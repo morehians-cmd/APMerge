@@ -87,7 +87,7 @@ function wpUiLoad(id){
   });
 }
 function wpUiContentEditor(){
-  const defaults=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};const allowed=new Set([...(defaults.contentBlockKeys||[]),...(defaults.publicBlockKeys||[]),...(defaults.pageBlockKeys||[]),'about_data','homepage_content','homepage_hero','page_intros','page_banners']);const rows=WPUI.payload&&Array.isArray(WPUI.payload.contentRows)?WPUI.payload.contentRows.filter(row=>Array.isArray(row)&&row[0]!=='about_data'&&allowed.has(row[0])):[];
+  const defaults=WPUI.payload&&WPUI.payload.defaults?WPUI.payload.defaults:{};const allowed=new Set([...(defaults.contentBlockKeys||[]),...(defaults.publicBlockKeys||[]),...(defaults.pageBlockKeys||[]),'about_data','about_data','pubhome_content','pubhome_hero','pubpage_intro','pubpage_banners']);const rows=WPUI.payload&&Array.isArray(WPUI.payload.contentRows)?WPUI.payload.contentRows.filter(row=>Array.isArray(row)&&row[0]!=='about_data'&&allowed.has(row[0])):[];
   const options=rows.map(row=>'<option value="'+esc(row[0])+'" '+(row[0]===WPUI.contentKey?'selected':'')+'>'+esc(row[0])+'</option>').join('');
   return '<div class="card"><h3>Website content blocks and page settings</h3><p class="wp-muted">Edit a captured Content-sheet key in this draft only. JSON-backed settings must remain valid JSON. The original live Content sheet is not changed.</p><div class="wp-field"><label>Content key</label><select id="wpContentKey">'+options+'</select></div><div class="wp-field" style="margin-top:10px"><label>Draft value</label><textarea id="wpContentValue" rows="12" style="font-family:monospace">'+esc(WPUI.contentValue)+'</textarea></div><div class="wp-actions"><button class="btn" data-act="wpcontentsave">Save content revision</button></div></div>';
 }
