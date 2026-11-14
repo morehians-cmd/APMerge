@@ -340,3 +340,10 @@ A new additive server file, `WebsitePublishing.gs`, now provides `websitePublish
 - If the Events sheet is absent, a source has duplicates, a referenced file is missing/trashed, or the payload exceeds the conservative single-cell threshold, baseline readiness is false and the report lists blockers.
 
 This is an additive diagnostic only. It has been committed to the working branch but has **not** been executed in the live Apps Script project. Its runtime result is required before a baseline version can be seeded. The final version-store design must use chunked payload storage when the measured payload exceeds the Sheets cell limit; the preflight does not write any snapshot chunks.
+
+
+### M3 logo mutation caller and trust-boundary follow-up
+
+The current `setLogoFile(id)` implementation is in `Code.gs`. Repository inspection found no browser-side call to this function in `Index.html`; it is documented as a manual Apps Script editor operation. Its guard is `ownerOnly_()`, which compares the active user's email with the effective user, then validates Drive ID syntax, trash state, image MIME type, and a 68,000-byte maximum before writing the `LOGO_FILE_ID` Script Property and clearing `logo_v1`.
+
+The public `getLogo()` endpoint reads that property and returns a bounded image data URI. The current implementation does not establish that the selected file belongs to an approved branding folder. The only known `PHOTO_FOLDER_ID` is explicitly used for student/staff and website photos, so it must not be assumed to be the approved logo folder. M3 therefore remains open: identify or create an approved branding folder under the school's control, inventory the currently configured logo ID and its parent folders, then add folder-membership validation and test the editor-only mutation path. No folder restriction was added because doing so before confirming the current logo location could break the live login page.
