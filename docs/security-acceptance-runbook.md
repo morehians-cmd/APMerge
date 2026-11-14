@@ -70,7 +70,7 @@ Record endpoint, account, requested StudentID(s), response, and before/after sta
 
 ### M5 — Dashboard, role and endpoint matrix
 
-The automated suite includes M5-01 for dashboard, dashboardExtra, and dashboardDemo, plus M5-02 for event, notification, system-settings, school-year, and career-result endpoints. Each is invoked directly with an invalid session token. These checks prove only unauthenticated rejection; they do not replace the role-by-role and data-minimization tests below. This proves only unauthenticated rejection; it does not replace the role-by-role and data-minimization tests below.
+The automated suite includes M5-01 for dashboard, dashboardExtra, and dashboardDemo, plus M5-02 for event, notification, system-settings, school-year, and career-result endpoints. Each is invoked directly with an invalid session token. These checks prove only unauthenticated rejection; they do not replace the role-by-role and data-minimization tests below.
 
 Test both UI navigation and direct `google.script.run` invocation. Hidden buttons do not count as authorization.
 
