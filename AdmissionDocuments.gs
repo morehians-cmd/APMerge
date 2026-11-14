@@ -97,7 +97,7 @@ function admissionDocSafeMeta_(r) {
 
 /** Applicant uploads one requirement. dataUrl is a browser-generated data URL, max 8 MiB. */
 function uploadAdmissionDocument(token, requirementKey, fileName, mimeType, dataUrl) {
-  const lock = LockService.getScriptLock();
+  const lock = LockService.getScriptLock(); let createdFile = null, rowSaved = false;
   try {
     const u = who_(token);
     if (u.Role !== 'student') throw new Error('Only the applicant can upload documents from this screen.');
@@ -119,15 +119,15 @@ function uploadAdmissionDocument(token, requirementKey, fileName, mimeType, data
     if (!lock.tryLock(15000)) throw new Error('The service is busy. Please try again.');
     const now = Utilities.formatDate(new Date(),Session.getScriptTimeZone(),'yyyy-MM-dd HH:mm:ss');
     const blob = Utilities.newBlob(bytes,mime,name);
-    const file = admissionDocsFolder_().createFile(blob);
+    const file = admissionDocsFolder_().createFile(blob); createdFile = file;
     file.setDescription('Applicant: '+student.StudentID+' | Requirement: '+key+' | Uploaded: '+now);
     const id = Utilities.getUuid();
     const row = [id,student.StudentID,key,ADMISSION_DOC_TYPES_[key],name,mime,file.getId(),'Pending',now,u.Username,'','',''];
     const sh = admissionDocsSheet_();
-    sh.getRange(sh.getLastRow()+1,1,1,row.length).setNumberFormat('@').setValues([row]);
+    sh.getRange(sh.getLastRow()+1,1,1,row.length).setNumberFormat('@').setValues([row]); rowSaved = true;
     audit_(u,'admission.document.upload',student.StudentID,key+' / '+name);
     return {success:true,message:'Document uploaded for review.',data:{documentId:id,status:'Pending',fileName:name}};
-  } catch(e) { return fail(e); }
+  } catch(e) { if (createdFile && !rowSaved) { try { createdFile.setTrashed(true); } catch(_) {} } return fail(e); }
   finally { try { lock.releaseLock(); } catch(_) {} }
 }
 
