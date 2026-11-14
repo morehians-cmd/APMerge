@@ -863,12 +863,18 @@ function getLogo() {
 
 /** OWNER ONLY (editor). setLogoFile('<Drive file ID>') */
 function setLogoFile(id) {
-  id = id || '1MyLv_pIxcQOFM3uNz2QttGApcCoLLQbO';
-  ownerOnly_(); id = String(id || '').trim();
+  ownerOnly_();
+  id = String(id || '').trim();
+  if (!/^[A-Za-z0-9_-]{20,}$/.test(id)) throw new Error('Enter a valid Google Drive file ID.');
   const f = DriveApp.getFileById(id);
+  if (f.isTrashed()) throw new Error('The selected logo file is in the Drive trash.');
+  const mime = String(f.getMimeType() || '').toLowerCase();
+  if (!/^image\/(png|jpeg|webp|gif)$/.test(mime)) throw new Error('The logo must be a PNG, JPEG, WebP or GIF image.');
+  const size = f.getSize();
+  if (!size || size > 68000) throw new Error('The logo image must be between 1 byte and 68,000 bytes.');
   PropertiesService.getScriptProperties().setProperty('LOGO_FILE_ID', id);
   CacheService.getScriptCache().remove('logo_v1');
-  Logger.log('Logo set to "' + f.getName() + '" (' + f.getSize() + ' bytes, ' + f.getMimeType() + '). Keep it under 68,000 bytes.');
+  Logger.log('Logo set to "' + f.getName() + '" (' + size + ' bytes, ' + mime + ').');
 }
 
 /** Built-in scholarship text, used until a program is saved from the Scholarships editor. */
