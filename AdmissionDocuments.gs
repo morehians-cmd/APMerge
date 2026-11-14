@@ -70,6 +70,15 @@ function admissionDocsFolder_() {
   if (folder.isTrashed()) throw new Error('Admission document folder is unavailable.');
   return folder;
 }
+function admissionDocFile_(id) {
+  const file = DriveApp.getFileById(String(id || ''));
+  if (file.isTrashed()) throw new Error('Document file is unavailable.');
+  const folderId = admissionDocsFolder_().getId(), parents = file.getParents();
+  let belongs = false;
+  while (parents.hasNext()) if (parents.next().getId() === folderId) { belongs = true; break; }
+  if (!belongs) throw new Error('Document is outside the approved private admission folder.');
+  return file;
+}
 function admissionDocRows_() {
   const sh = admissionDocsSheet_();
   if (sh.getLastRow()<2) return [];
@@ -212,10 +221,9 @@ function getAdmissionDocumentData(token, documentId) {
     const r = admissionDocRows_().find(x=>x.DocumentID===String(documentId || ''));
     if (!r) throw new Error('Document not found.');
     admissionDocStudent_(u,r.StudentID);
-    const file = DriveApp.getFileById(r.DriveFileID);
-    if (file.isTrashed()) throw new Error('Document file is unavailable.');
+    const file = admissionDocFile_(r.DriveFileID);
+    if (file.getMimeType() !== r.MimeType || file.getSize()>ADMISSION_DOC_MAX_BYTES_) throw new Error('The document file failed its integrity check.');
     const blob = file.getBlob(), bytes = blob.getBytes();
-    if (bytes.length>ADMISSION_DOC_MAX_BYTES_) throw new Error('The document exceeds the permitted download size.');
     return ok({fileName:r.FileName,mimeType:r.MimeType,dataUrl:'data:'+r.MimeType+';base64,'+Utilities.base64Encode(bytes)});
   } catch(e) { return fail(e); }
 }
