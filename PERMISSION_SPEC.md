@@ -326,3 +326,17 @@ The editor is distributed across the integrated `Index.html` and included HTML p
 #### M7 implementation decision after this audit
 
 Do not yet add the version sheets or redirect editor writes. The remaining prerequisite is a complete, executable payload/asset schema and a read-only preflight that measures actual Content/Events/Gallery data and Drive references against Apps Script/Sheets storage limits. In particular, the source audit confirms that a version-only text snapshot is insufficient: media staging, publication ACL transitions, reference retention, and rollback-safe deletion must be designed as one coherent lifecycle. Existing public content and current editor behavior remain untouched until that complete implementation can be tested as one release unit.
+
+
+#### Read-only preflight implementation added
+
+A new additive server file, `WebsitePublishing.gs`, now provides `websitePublishingPreflight(token)`.
+
+- Requires the existing Full administrator session through `sysOwner_(token)`; System Manager and all other roles are denied.
+- Reads the existing `Content` and `Events` sheets directly and reads all configured gallery pages through the existing gallery reader.
+- Reports duplicate Content keys, duplicate gallery IDs within a page, missing/trashed referenced Drive files, media metadata and parent folders, per-source SHA-256 hashes, and a combined candidate-payload hash/size.
+- Reports a conservative 40,000-character chunk plan and whether the current candidate fits the conservative single-cell threshold.
+- Does not create sheets, write rows, change Drive permissions, move/trash files, change gallery references, alter public caches, or switch public readers.
+- If the Events sheet is absent, a source has duplicates, a referenced file is missing/trashed, or the payload exceeds the conservative single-cell threshold, baseline readiness is false and the report lists blockers.
+
+This is an additive diagnostic only. It has been committed to the working branch but has **not** been executed in the live Apps Script project. Its runtime result is required before a baseline version can be seeded. The final version-store design must use chunked payload storage when the measured payload exceeds the Sheets cell limit; the preflight does not write any snapshot chunks.
