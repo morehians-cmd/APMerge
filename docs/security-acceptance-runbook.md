@@ -420,7 +420,7 @@ This 26/26 execution supersedes the earlier 25/26 execution at 2026-11-14T13:52:
 
 **Important coverage boundary:** M4-04 uses a controlled endpoint harness with synthetic authentication, scope and student lookup dependencies. It verifies the real `assertStudentScope_()` implementation and that the Users row reader is not reached for the out-of-scope fixture. It does not replace testing with real synthetic Encoder accounts and actual development-sheet records. Similarly, M3 helper tests do not prove actual Drive folder membership, ACLs or cache invalidation; M5/M6 helper and invalid-token tests do not close the authenticated role-by-role, direct-call, export and data-minimization matrix; M7 helper tests do not prove browser workflows or Drive failure/recovery side effects.
 
-**Current release status:** Automated acceptance is green at 26/26. The five manual evidence gates below remain OPEN and mandatory:
+**Last executed runtime status:** 26/26 passed before the M4-05 ID-card category guard and its new automated check were added. The current branch now contains 27 automated checks; the new M4-05 check has not yet been executed in Apps Script. Do not carry forward the earlier 26/26 result as proof of the current 27-check suite. The five manual evidence gates below remain OPEN and mandatory:
 1. **M3:** Verify the real approved branding folder, valid image selection and login-page cache invalidation using development Drive objects.
 2. **M4:** Exercise every scoped endpoint using real synthetic Encoder accounts, including mixed in-scope/out-of-scope IDs and before/after row evidence.
 3. **M5:** Complete the authenticated role-by-role dashboard, College, student-care, direct-call, helper-endpoint and field-minimization matrix.
@@ -554,7 +554,7 @@ Do not mark a gate closed until every applicable case above has an evidence refe
 | M6 | Authenticated report × role matrix including exports, history and saved configurations | OPEN |
 | M7 | Browser end-to-end publishing/media workflow and injected Drive recovery evidence | OPEN |
 
-The current 26/26 automated execution does not change these statuses. `WP_PUBLISH_CUTOVER_READY_ = false` remains mandatory until the five manual gates are closed and the owner explicitly approves release.
+The last executed 26/26 suite predates M4-05. The current branch contains 27 automated checks and requires a fresh Apps Script execution; the five manual evidence gates remain OPEN regardless. `WP_PUBLISH_CUTOVER_READY_ = false` remains mandatory until the five manual gates are closed and the owner explicitly approves release.
 
 
 ## 12. Source-level execution notes for the manual reviewer
