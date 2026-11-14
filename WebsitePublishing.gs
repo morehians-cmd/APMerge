@@ -659,6 +659,25 @@ function validateWebsitePublishingBaseline(token) {
 }
 
 
+const WP_PUBLISH_CUTOVER_READY_ = false;
+const WP_PUBLISH_CUTOVER_BLOCKERS_ = [
+  'The legacy About editor still writes directly to the live Content sheet.',
+  'The legacy public block editor still writes directly to the live Content sheet.',
+  'Homepage hero, homepage sections, page introductions, page banners and section-card editors still write to live Content rows.',
+  'Gallery uploads, captions and removals still write directly to the live Gallery stores.',
+  'Legacy photo upload endpoints still write directly to the approved Drive photo folder.'
+];
+
+function wpPublishingCutoverStatus_() {
+  return {
+    publicReaderCutoverImplemented:true,
+    legacyWriterCutoverImplemented:WP_PUBLISH_CUTOVER_READY_,
+    publishEndpointEnabled:WP_PUBLISH_CUTOVER_READY_,
+    rollbackEndpointEnabled:WP_PUBLISH_CUTOVER_READY_,
+    blockers:WP_PUBLISH_CUTOVER_READY_ ? [] : WP_PUBLISH_CUTOVER_BLOCKERS_.slice()
+  };
+}
+
 const WP_PERMISSION_KEYS_ = [
   'website.content.edit',
   'website.content.review',
@@ -1050,6 +1069,7 @@ function publishWebsiteVersion(token, versionId) {
   try {
     lock.waitLock(20000);
     const actor = wpRequirePermission_(token, 'website.content.publish');
+    if (!WP_PUBLISH_CUTOVER_READY_) throw new Error('Publishing is locked until every legacy website editor and media writer is redirected to immutable draft versions. ' + WP_PUBLISH_CUTOVER_BLOCKERS_.join(' '));
     const version = wpReadVersion_(String(versionId || ''));
     if (wpText_(version.meta[2]) !== 'Approved') throw new Error('Only an independently approved website version can be published.');
     const creator = wpText_(version.meta[3]);
@@ -1109,6 +1129,7 @@ function rollbackWebsiteVersion(token, targetVersionId, reason) {
   try {
     lock.waitLock(20000);
     const actor = wpRequirePermission_(token, 'website.content.rollback');
+    if (!WP_PUBLISH_CUTOVER_READY_) throw new Error('Rollback is locked until every legacy website editor and media writer is redirected to immutable draft versions.');
     const targetId = String(targetVersionId || '').trim();
     const target = wpReadVersion_(targetId);
     if (!['Archived','Published'].includes(wpText_(target.meta[2]))) {
@@ -1162,7 +1183,7 @@ function rollbackWebsiteVersion(token, targetVersionId, reason) {
 function getMyWebsitePermissions(token) {
   try {
     const user = who_(token, 'admin');
-    return ok({ username:user.Username, permissions:wpPermissionMap_(user.Username), available:WP_PERMISSION_KEYS_.slice() });
+    return ok({ username:user.Username, permissions:wpPermissionMap_(user.Username), available:WP_PERMISSION_KEYS_.slice(), publishing:wpPublishingCutoverStatus_() });
   } catch (error) {
     return fail(error);
   }
@@ -1471,7 +1492,7 @@ function websitePublishingSelfCheck(token) {
       migrationState:config.migration_state || 'UNPREPARED',
       baselineVersionId:baselineId, publishedVersionId:config.published_version_id || '',
       draftMediaFolderPrivate:mediaFolderPrivate,
-      publicReaderCutoverImplemented:true, publishEndpointEnabled:true, rollbackEndpointEnabled:true
+      publicReaderCutoverImplemented:true, legacyWriterCutoverImplemented:WP_PUBLISH_CUTOVER_READY_, publishEndpointEnabled:WP_PUBLISH_CUTOVER_READY_, rollbackEndpointEnabled:WP_PUBLISH_CUTOVER_READY_, publishingBlockers:WP_PUBLISH_CUTOVER_BLOCKERS_.slice()
     }, failed ? 'Website publishing self-check found issues.' : 'Website publishing self-check passed.');
   } catch (error) {
     return fail(error);
