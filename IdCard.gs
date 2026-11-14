@@ -43,12 +43,19 @@ function idHighest_(year) {
   return best;
 }
 
+/** Restricts the ID-card workflow to its documented TLC scholar categories. */
+function assertIdCardEligible_(student) {
+  if (!student || !ID_CATS.includes(String(student.Category || ''))) throw new Error('ID cards are for TLC scholars only.');
+  return student;
+}
+
 /** Admin / Encoder. The learner's ID photo and the hint for the number field. */
 function idCardData(token, studentId) {
   try {
     const u = assertAdminConsoleRole_(who_(token, 'admin')), scope = studentSearchScope_(u);
     const hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
     assertStudentScope_(scope, hit.o);
+    assertIdCardEligible_(hit.o);
     return ok({ photo:photo_(hit.o.IDPhotoID), last:idHighest_(activeSY_().slice(0, 4)) });
   } catch (e) { return fail(e); }
 }
@@ -60,7 +67,7 @@ function saveIdNumber(token, studentId, number) {
     lock.waitLock(20000);
     const u = assertAdminConsoleRole_(who_(token, 'admin')), scope = studentSearchScope_(u), hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
     assertStudentScope_(scope, hit.o);
-    if (!ID_CATS.includes(hit.o.Category)) throw new Error('ID cards are for TLC scholars only.');
+    assertIdCardEligible_(hit.o);
     const n = String(number || '').trim().toUpperCase();
     if (!ID_RE.test(n)) throw new Error('The Student ID number must look like TLC2027-0001 (TLC, school year, 4 digits).');
     const yr = parseInt(n.slice(3, 7), 10), top = parseInt(activeSY_().slice(0, 4), 10) + 1;
@@ -80,6 +87,7 @@ function saveIdPhoto(token, studentId, dataUrl) {
     lock.waitLock(20000);
     const u = assertAdminConsoleRole_(who_(token, 'admin')), scope = studentSearchScope_(u), hit = findStudent_(String(studentId || '')); if (!hit) throw new Error('Learner not found.');
     assertStudentScope_(scope, hit.o);
+    assertIdCardEligible_(hit.o);
     const bytes = jpegBytes_(dataUrl, 1024 * 1024), old = hit.o.IDPhotoID;
     const f = DriveApp.getFolderById(PHOTO_FOLDER_ID).createFile(Utilities.newBlob(bytes, 'image/jpeg', hit.o.StudentID + '_idphoto.jpg'));
     put_(sh_('S'), hit.r, COLS.indexOf('IDPhotoID') + 1, [[f.getId()]]);          // save the new id first
