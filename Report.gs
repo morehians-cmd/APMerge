@@ -161,7 +161,7 @@ const PF_COLS = ['Username', 'Favorites', 'UpdatedAt'];
 const HI_COLS = ['When', 'Username', 'FullName', 'ReportID', 'ReportName', 'SchoolYear', 'Format', 'Status', 'Detail'];
 
 function rpUser_(token) {
-  const u = who_(token, 'admin');
+  const u = assertAdminConsoleRole_(who_(token, 'admin'));
   if (u.Clearance === 'Encoder') throw new Error('Encoders do not have access to reports.');
   return u;
 }
