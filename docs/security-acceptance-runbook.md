@@ -420,7 +420,7 @@ This 26/26 execution supersedes the earlier 25/26 execution at 2026-11-14T13:52:
 
 **Important coverage boundary:** M4-04 uses a controlled endpoint harness with synthetic authentication, scope and student lookup dependencies. It verifies the real `assertStudentScope_()` implementation and that the Users row reader is not reached for the out-of-scope fixture. It does not replace testing with real synthetic Encoder accounts and actual development-sheet records. Similarly, M3 helper tests do not prove actual Drive folder membership, ACLs or cache invalidation; M5/M6 helper and invalid-token tests do not close the authenticated role-by-role, direct-call, export and data-minimization matrix; M7 helper tests do not prove browser workflows or Drive failure/recovery side effects.
 
-**Last executed runtime status:** 26/26 passed before the M4-05 ID-card category guard and its new automated check were added. The current branch now contains 28 automated checks, including M4-05 and M6-02; neither new check has yet been executed in Apps Script. Do not carry forward the earlier 26/26 result as proof of the current 27-check suite. The five manual evidence gates below remain OPEN and mandatory:
+**Last executed runtime status:** 26/26 passed before the M4-05 ID-card category guard and its new automated check were added. The current branch now contains 29 automated checks, including M4-05, M5-07 and M6-02; these additions have not yet been executed in Apps Script. Do not carry forward the earlier 26/26 result as proof of the current 27-check suite. The five manual evidence gates below remain OPEN and mandatory:
 1. **M3:** Verify the real approved branding folder, valid image selection and login-page cache invalidation using development Drive objects.
 2. **M4:** Exercise every scoped endpoint using real synthetic Encoder accounts, including mixed in-scope/out-of-scope IDs and before/after row evidence.
 3. **M5:** Complete the authenticated role-by-role dashboard, College, student-care, direct-call, helper-endpoint and field-minimization matrix.
@@ -554,7 +554,7 @@ Do not mark a gate closed until every applicable case above has an evidence refe
 | M6 | Authenticated report × role matrix including exports, history and saved configurations | OPEN |
 | M7 | Browser end-to-end publishing/media workflow and injected Drive recovery evidence | OPEN |
 
-The last executed 26/26 suite predates M4-05. The current branch contains 28 automated checks and requires a fresh Apps Script execution; the five manual evidence gates remain OPEN regardless. `WP_PUBLISH_CUTOVER_READY_ = false` remains mandatory until the five manual gates are closed and the owner explicitly approves release.
+The last executed 26/26 suite predates M4-05. The current branch contains 29 automated checks and requires a fresh Apps Script execution; the five manual evidence gates remain OPEN regardless. `WP_PUBLISH_CUTOVER_READY_ = false` remains mandatory until the five manual gates are closed and the owner explicitly approves release.
 
 
 ## 12. Source-level execution notes for the manual reviewer
@@ -630,4 +630,11 @@ The client-facing `reportLog()` endpoint previously forwarded a client-supplied 
 The automated suite now includes M6-02 for canonical level/grade-section descriptors and representative identifying or arbitrary payloads. Section values must match the configured canonical sections for that grade (including the combined Senior High cluster section lists); free-form section labels are discarded. Run the current suite in the disposable Apps Script copy. The test validates the sanitizer; the manual M6 role matrix must still verify the actual history response for Full, Manager and applicable report users, including that no pre-existing sensitive history rows are inadvertently exposed.
 
 
-**Current suite size after M6-02:** The branch now contains 28 automated acceptance cases. The last supplied runtime result remains 26/26 from before M4-05 and M6-02. Run the full 28-case suite in the disposable Apps Script copy; no result should be inferred from the earlier run.
+**Current suite size after M5-07:** The branch now contains 29 automated acceptance cases. The last supplied runtime result remains 26/26 from before M4-05, M6-02 and M5-07. Run the full 29-case suite in the disposable Apps Script copy; no result should be inferred from the earlier run.
+
+
+### M5-07 — Encoder-only sign-in hours
+
+A source audit found that `staffGate_()` applied the 7:00 AM–6:00 PM sign-in window to every non-Full admin clearance, even though the feature is documented as an Encoder-specific policy. This unintentionally constrained the Manager and Guidance/Accounting/Academic office accounts. The gate now retains the deactivation check for non-Full staff accounts but applies the scheduled-hours/after-hours approval rule only when `Role === 'admin'` and `Clearance === 'Encoder'`. Full remains exempt as before. The helper `staffHoursGateApplies_()` makes the policy boundary explicit, and M5-07 covers Encoder, Full, Manager, office clearances and non-admin accounts.
+
+Run the automated suite, then manually verify a Manager and each office role can sign in outside the Encoder window in the disposable environment, while an Encoder is still denied outside hours unless an owner approval is active. This test does not authorize changing any production account or schedule.
