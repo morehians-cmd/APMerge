@@ -290,13 +290,44 @@ function getPublicHeaderLogos() {
 }
 
 
+/**
+ * Encoder student scope is an owner-managed Script Property named
+ * STUDENT_SCOPE_<NORMALIZED_USERNAME>. Its JSON value is:
+ * {"grades":["Grade 1","Grade 2"],"sections":{"Grade 1":["A","B"],"Grade 2":["C"]}}
+ * A grade omitted from sections is not accessible. An empty section list grants
+ * no access. This deliberately fails closed until an owner explicitly assigns scope.
+ */
+function studentSearchScope_(u) {
+  if (u.Clearance === 'Full' || u.Clearance === 'Manager') return null;
+  if (u.Clearance !== 'Encoder') throw new Error('Not allowed.');
+  const key = 'STUDENT_SCOPE_' + String(u.Username || '').toLowerCase().replace(/[^a-z0-9._-]/g, '_');
+  const raw = PropertiesService.getScriptProperties().getProperty(key);
+  if (!raw) throw new Error('Student search access has not been assigned to this account.');
+  let scope;
+  try { scope = JSON.parse(raw); } catch (_) { throw new Error('The student search scope is invalid. Contact the system administrator.'); }
+  if (!scope || !Array.isArray(scope.grades) || !scope.sections || typeof scope.sections !== 'object') {
+    throw new Error('The student search scope is invalid. Contact the system administrator.');
+  }
+  const grades = [...new Set(scope.grades.filter(g => GRADES.includes(g)))];
+  const sections = {};
+  grades.forEach(g => {
+    const assigned = scope.sections[g];
+    if (Array.isArray(assigned)) sections[g] = [...new Set(assigned.map(v => String(v).trim()).filter(v => v.length <= 80))];
+  });
+  return { grades:grades, sections:sections };
+}
+
 function searchStudents(token, q, status, limit, grade, sy) {
   try {
-    who_(token, 'admin'); q = String(q || '').toLowerCase();
+    const u = who_(token, 'admin'), scope = studentSearchScope_(u);
+    q = String(q || '').trim().toLowerCase().slice(0, 120);
     limit = Math.max(25, Math.min(parseInt(limit, 10) || 25, 5000));
     grade = GRADES.indexOf(grade) >= 0 ? grade : '';
     sy = /^\d{4}-\d{4}$/.test(sy || '') ? sy : '';
-    const hits = studentsLite_().filter(s => (s.FullName + s.LRN + s.StudentID).toLowerCase().includes(q))
+    if (scope && grade && !scope.grades.includes(grade)) throw new Error('You are not assigned to search this grade level.');
+    const hits = studentsLite_()
+      .filter(s => !scope || (scope.grades.includes(s.GradeLevel) && Array.isArray(scope.sections[s.GradeLevel]) && scope.sections[s.GradeLevel].includes(String(s.Section || ''))))
+      .filter(s => (String(s.FullName || '') + String(s.LRN || '') + String(s.StudentID || '')).toLowerCase().includes(q))
       .filter(s => !status || status === 'All' || (s.EnrollStatus || 'Not Enrolled') === status)
       .filter(s => !grade || s.GradeLevel === grade)
       .filter(s => !sy || s.SchoolYear === sy).reverse();
