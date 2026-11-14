@@ -49,6 +49,7 @@ function disposeApplications_(actor) {
     archiveMany_(stale, actor);                                                      // archive BEFORE deleting
     stale.forEach(s => { if (s.IDPhotoID) { try { DriveApp.getFileById(s.IDPhotoID).setTrashed(true); } catch (_) {} } });
     purgeFlags_(stale.map(s => s.StudentID));
+    purgeAdmissionDocuments_(stale.map(s => s.StudentID));
     deleteRowNums_(sh_('S'), sNums);
     const users = rows_('U'), uNums = [];
     users.forEach((u, i) => { if (u.Role === 'student' && ids[u.StudentID]) { uNums.push(i + 2); if (u.PhotoID) { try { DriveApp.getFileById(u.PhotoID).setTrashed(true); } catch (_) {} } } });
