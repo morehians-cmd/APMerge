@@ -3,14 +3,14 @@
 @media(max-width:760px){.wp-grid,.wp-ver{grid-template-columns:1fr}.wp-field.wide{grid-column:auto}}
 </style>
 <script>
-const WPUI={permissions:{},versions:[],selected:'',about:null,photoCache:{},photoLoading:{},photoIndex:-1};
+const WPUI={permissions:{},versions:[],selected:'',username:'',about:null,photoCache:{},photoLoading:{},photoIndex:-1};
 const WP_ICONS=['heart','award','users','bulb','shield','book','star','eye','target'];
 function websitePublishingPage(){
   head('Website Publishing','Prepare, review, publish and restore approved public website content');
   WPUI.permissions={};WPUI.versions=[];WPUI.selected='';WPUI.about=null;
   $('view').innerHTML='<div class="card"><div class="aemp">Loading website publishing permissions…</div></div>';
   call('getMyWebsitePermissions',[T()],r=>{
-    WPUI.permissions=r.data.permissions||{};
+    WPUI.permissions=r.data.permissions||{};WPUI.username=String(r.data.username||'').toLowerCase();
     if(!Object.keys(WPUI.permissions).some(key=>WPUI.permissions[key]===true)){
       $('view').innerHTML='<div class="card"><h3>Website publishing access</h3><p class="wp-muted">This account has not been assigned website publishing permissions. Ask the System Manager to assign the required individual website permissions.</p></div>';
       return;
@@ -58,7 +58,7 @@ function wpUiField(path,label,value,max,wide,area){
   return '<div class="wp-field '+(wide?'wide':'')+'"><label for="'+id+'">'+label+'</label>'+(area?'<textarea id="'+id+'" data-wp="'+path+'" maxlength="'+max+'">'+esc(value||'')+'</textarea>':'<input id="'+id+'" data-wp="'+path+'" maxlength="'+max+'" value="'+esc(value||'')+'">')+'</div>';
 }
 function wpUiAboutEditor(v){
-  const d=WPUI.about,editable=v&&['Draft','ChangesRequested'].includes(v.status)&&wpUiCan('website.content.edit');
+  const d=WPUI.about,editable=v&&['Draft','ChangesRequested'].includes(v.status)&&wpUiCan('website.content.edit')&&String(v.createdBy||'').toLowerCase()===WPUI.username;
   if(!editable)return '<div class="card"><h3>About Moreh Academy</h3><p class="wp-muted">This version is read-only in its current status. The public reader continues using the currently published version until an approved version is published.</p>'+wpUiAboutReadOnly()+'</div>';
   const values=d.values.map((x,i)=>'<div class="wp-item"><div class="wp-itemhead"><b>Core value '+(i+1)+'</b><button class="btn red" data-act="wpremove" data-v="values|'+i+'">Remove</button></div><div class="wp-grid">'+
     '<div class="wp-field"><label>Icon</label><select data-wp="values.'+i+'.icon">'+WP_ICONS.map(k=>'<option value="'+k+'" '+(x.icon===k?'selected':'')+'>'+k+'</option>').join('')+'</select></div>'+
