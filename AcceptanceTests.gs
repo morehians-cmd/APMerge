@@ -146,15 +146,15 @@ function runSecurityAcceptanceTests() {
     }
   });
 
-  record('M4-03', 'Encoder scope property keys reject colliding staff usernames', () => {
-    assert(studentScopeKeySuffix_('desk@moreh') === studentScopeKeySuffix_('desk_moreh'),
+  record('M4-03', 'Account-scoped property keys reject colliding staff usernames', () => {
+    assert(accountPropertyKeySuffix_('desk@moreh') === accountPropertyKeySuffix_('desk_moreh'),
       'Test fixture no longer represents a legacy key collision.');
-    const collisions = studentScopeKeyCollisions_('desk@moreh', ['desk@moreh', 'desk_moreh', 'another.encoder']);
+    const collisions = accountPropertyKeyCollisions_('desk@moreh', ['desk@moreh', 'desk_moreh', 'another.encoder']);
     assert(collisions.length === 1 && collisions[0] === 'desk_moreh',
       'A colliding username was not detected.');
-    assert(studentScopeKeyCollisions_('encoder.one', ['encoder.one', 'encoder-two']).length === 0,
+    assert(accountPropertyKeyCollisions_('encoder.one', ['encoder.one', 'encoder-two']).length === 0,
       'Distinct non-colliding usernames were incorrectly rejected.');
-    return 'Distinct usernames that normalize to the same legacy property suffix are detected; non-colliding usernames remain valid.';
+    return 'Distinct usernames that normalize to the same legacy property suffix are detected; Encoder scope and website permission readers fail closed on collisions.';
   });
 
   record('M7-01', 'Website publishing cutover remains disabled until acceptance gates close', () => {
