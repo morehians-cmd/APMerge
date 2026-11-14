@@ -157,12 +157,12 @@ Run the full sequence only after M7 implementation is synchronized to the dispos
 
 ### Latest execution — updated 20-check suite
 
-**Execution:** 2026-11-14T11:25:43.316Z  
+**Execution:** 2026-11-14T11:48:36.921Z  
 **Environment:** Non-production development copy  
 **Suite:** Moreh Academy security acceptance checks  
 **Result:** 20 passed, 0 failed, 20 total
 
-The user-provided Apps Script execution result confirms all 20 automated checks passed in the Apps Script runtime. This run includes M4-03, added after the 19-check execution.
+The user-provided Apps Script execution result confirms all 20 automated checks passed in the Apps Script runtime. This run explicitly reports that M4-03 detects distinct colliding usernames and that both live property readers reject the collision before reading shared Script Properties. It therefore supersedes the 11:25:43 execution for current automated-suite evidence.
 
 - M1-01–M1-02: student self-edit allow-list acceptance and rejection.
 - M2-01–M2-02: direct invocation rejection for daily backup and monthly retention without installed trigger identity.
@@ -180,7 +180,15 @@ The execution output explicitly retains these manual evidence items as open:
 4. **M6:** Run every report, drill-down, export and history endpoint for every role.
 5. **M7:** Complete editor/public-reader/media cutover and draft/review/publish/rollback browser acceptance.
 
-This 20/20 result records a successful execution of the then-current 20-check suite. Subsequent source commits strengthened M4-03 to invoke both `studentSearchScope_` and `wpPermissionMap_` under a synthetic colliding staff-account table, and hardened the collision helper to detect duplicate case-insensitive usernames as well as distinct usernames that normalize to the same property suffix. Those source and test changes postdate this execution; synchronize the latest `Code.gs` and `AcceptanceTests.gs` and rerun `runSecurityAcceptanceTests()` before treating the expanded M4-03 assertions as runtime-passed. The 20/20 result does not close the five manual evidence gates, prove every role's data-minimization boundary, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
+This 20/20 result is the latest user-provided Apps Script runtime evidence and confirms the strengthened M4-03 behavior described in its result detail. It does not establish the case-insensitive duplicate-account subcase unless that exact assertion is confirmed in the synchronized test source and execution output. It also does not close the five manual evidence gates, prove every role's data-minimization boundary, test the new website-media compensation path in Apps Script, or authorize publishing cutover or production deployment. Retain the returned JSON and Apps Script execution log with the release evidence.
+
+### Historical execution — previous 20-check suite
+
+**Execution:** 2026-11-14T11:25:43.316Z  
+**Environment:** Non-production development copy  
+**Result:** 20 passed, 0 failed, 20 total
+
+This user-provided result is retained as historical evidence. It predates the latest 11:48:36 execution and the subsequent website-publishing media recovery source changes.
 
 ### Historical execution — 19-check suite
 
