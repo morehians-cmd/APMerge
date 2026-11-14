@@ -54,8 +54,7 @@ function dsScopeRows_(rows, scope) {
 
 function dashboardSpec(token, filters) {
   try {
-    const u = who_(token, 'admin');
-    if (OFFICE_CL.indexOf(u.Clearance) >= 0) throw new Error('Not allowed.');
+    const u = assertAdminConsoleRole_(who_(token, 'admin'));
     const scope = studentSearchScope_(u);
     const full = !scope;
     const tz = Session.getScriptTimeZone();
