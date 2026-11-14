@@ -433,3 +433,15 @@ This is a backend foundation only. The existing Index.html editor forms still ca
 - If a baseline exists, the integrity of its version metadata and reconstructed chunked payload.
 
 It returns check results and store row counts, not draft payloads or user permission maps. It is read-only. A missing/unseeded baseline is reported as a failed readiness check, not silently treated as a pass. This diagnostic still needs to be run in the bound non-production Apps Script runtime; a repository syntax parse is not an execution test.
+
+
+### Private draft-media staging
+
+- `setupWebsitePublishingStores(token)` now also creates/verifies the `Website Draft Media` metadata tab and a private Drive folder whose ID is stored in Script Properties as `MA_WEBSITE_DRAFT_MEDIA_FOLDER_ID`.
+- Setup rejects a staging folder that is publicly shared. It does not change sharing on any existing photo or folder.
+- `stageWebsiteMedia(token, dataUrl, fileName)` requires explicit `website.content.edit`, accepts JPEG data URLs only, validates JPEG magic bytes and a 2 MB size ceiling, and stores the image in the private staging folder. It never writes the live Content or Gallery stores and never grants public sharing.
+- `listWebsiteStagedMedia(token)` returns only the calling editor's staged asset metadata.
+- Draft validation recognizes staged IDs only while their metadata state is `Staged`, the file exists, and the file remains inside the configured staging folder. Existing legacy image references continue to be validated as image files.
+- The self-check now includes the media metadata schema and verifies that the configured staging folder exists and is not shared with anyone or anyone-with-link.
+
+This is an isolated backend facility, not yet connected to the existing Index.html photo controls. Existing gallery, About-photo, and homepage-photo endpoints remain legacy live-write paths until the editor migration can be switched as a complete release unit. Staged files are not public and cannot appear on the public site merely by being uploaded.
