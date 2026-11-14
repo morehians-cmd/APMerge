@@ -365,6 +365,75 @@ function wpConfigMap_(sheet) {
   return out;
 }
 
+/**
+ * Returns the currently published immutable website payload.
+ * A blank pointer uses legacy readers only while the explicit fallback flag is enabled.
+ */
+function wpPublishedPayload_() {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Website Publishing Config');
+  if (!sheet) return null;
+  const values = sheet.getLastRow() > 1
+    ? sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getDisplayValues()
+    : [];
+  const config = {};
+  values.forEach(row => {
+    const key = wpText_(row[0]).trim();
+    if (!key) return;
+    if (Object.prototype.hasOwnProperty.call(config, key)) {
+      throw new Error('Duplicate website publishing configuration key: ' + key);
+    }
+    config[key] = wpText_(row[1]).trim();
+  });
+
+  const pointer = config.published_version_id || '';
+  if (!pointer) {
+    if (config.legacy_fallback_enabled === 'true') return null;
+    throw new Error('No published website version is configured and legacy fallback is disabled.');
+  }
+
+  const version = wpReadVersion_(pointer);
+  if (wpText_(version.meta[2]) !== 'Published') {
+    throw new Error('The published website pointer does not reference a Published version.');
+  }
+  return version.payload;
+}
+
+/** Returns one unique Content value from a published payload. */
+function wpPublicContentValue_(payload, key) {
+  if (!payload || !Array.isArray(payload.contentRows)) throw new Error('Published website content is unavailable.');
+  const matches = payload.contentRows.filter(row => Array.isArray(row) && row[0] === key);
+  if (matches.length > 1) throw new Error('Published website content contains a duplicate key: ' + key);
+  return matches.length ? wpText_(matches[0][1]) : '';
+}
+
+/** Returns a validated gallery list from the published payload, or null for legacy mode. */
+function wpPublicGallery_(payload, page) {
+  if (!payload) return null;
+  if (!payload.galleries || !Object.prototype.hasOwnProperty.call(payload.galleries, page)) return [];
+  const items = payload.galleries[page];
+  if (!Array.isArray(items)) throw new Error('Published gallery data is invalid for ' + page + '.');
+  const seen = {};
+  return items.map(item => {
+    const id = wpText_(item && item.id).trim();
+    if (!/^[A-Za-z0-9_-]{10,80}$/.test(id) || seen[id]) {
+      throw new Error('Published gallery contains an invalid or duplicate asset reference for ' + page + '.');
+    }
+    seen[id] = true;
+    return { id:id, cap:wpText_(item.cap) };
+  });
+}
+
+/** Returns the structured About record from a published payload, or null in legacy mode. */
+function wpPublicAbout_(payload) {
+  if (!payload) return null;
+  const raw = wpPublicContentValue_(payload, 'about_data');
+  if (!raw) return aboutClean_(ABOUT_DEFAULT);
+  let parsed;
+  try { parsed = JSON.parse(raw); }
+  catch (_) { throw new Error('Published About data is not valid JSON.'); }
+  return aboutClean_(parsed);
+}
+
 function wpSetConfigValue_(sheet, key, value) {
   if (sheet.getLastRow() > 1) {
     const rows = sheet.getRange(2, 1, sheet.getLastRow() - 1, 2).getDisplayValues();
