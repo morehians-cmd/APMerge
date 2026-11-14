@@ -186,6 +186,7 @@ function getPublicHistoryPhoto(id) {
 function uploadHomepagePhoto(token, dataUrl) {
   const lock = LockService.getScriptLock(); let fid = '';
   try {
+    wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const u = owner_(token);
     const parts = String(dataUrl || '').split(',');
@@ -308,6 +309,7 @@ function getHomepageContentForEditor(token) {
 function saveHomepageContent(token, input) {
   const lock = LockService.getScriptLock();
   try {
+    wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const u = owner_(token), clean = publicContentClean_(input), b = blockRow_(PUBLIC_CONTENT_KEY_);
     put_(b.sh, b.row || (b.sh.getLastRow() + 1), 1, [[PUBLIC_CONTENT_KEY_, JSON.stringify(clean)]]);
@@ -398,6 +400,7 @@ function getSavedPublicBlocks(token) {
 function savePageIntro(token, page, input) {
   const lock = LockService.getScriptLock();
   try {
+    wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const u = owner_(token), clean = pageIntroClean_(input, page), all = pageIntrosRead_();
     all[String(page)] = clean;
@@ -411,6 +414,7 @@ function savePageIntro(token, page, input) {
 function resetPageIntro(token, page) {
   const lock = LockService.getScriptLock();
   try {
+    wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const u = owner_(token), all = pageIntrosRead_();
     page = String(page || '');
@@ -506,6 +510,7 @@ function pageBannerFor_(page) {
 function savePageBanner(token, page, input) {
   const lock = LockService.getScriptLock();
   try {
+    wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const u = owner_(token), clean = pageBannerClean_(input, page), all = pageBannersRead_();
     all[String(page)] = clean;
@@ -521,6 +526,7 @@ function savePageBanner(token, page, input) {
 function resetPageBanner(token, page) {
   const lock = LockService.getScriptLock();
   try {
+    wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const u = owner_(token), all = pageBannersRead_();
     page = String(page || '');
@@ -617,6 +623,7 @@ function getPublishedHomepageHero() {
 function saveHomepageHero(token, input) {
   const lock=LockService.getScriptLock();
   try {
+    wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const u=owner_(token), clean=publicHeroClean_(input), b=blockRow_(PUBLIC_HERO_KEY_);
     put_(b.sh,b.row||(b.sh.getLastRow()+1),1,[[PUBLIC_HERO_KEY_,JSON.stringify(clean)]]);
@@ -732,6 +739,7 @@ function getSectionCards(token, group) {
 function saveSectionCards(token, group, cards) {
   const lock = LockService.getScriptLock();
   try {
+    wpAssertLegacyWriterOpen_();
     lock.waitLock(20000);
     const u = owner_(token), cfg = sectionCardsGroup_(group), clean = sectionCardsClean_(group, cards), b = blockRow_(cfg.key);
     put_(b.sh, b.row || (b.sh.getLastRow() + 1), 1, [[cfg.key, JSON.stringify(clean)]]);
