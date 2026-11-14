@@ -27,7 +27,25 @@ function wpText_(value) {
   return String(value == null ? '' : value);
 }
 
-function wpReferencedDriveIds_(contentRows, galleries) {
+function wpSnapshotDefaults_() {
+  return {
+    about:ABOUT_DEFAULT,
+    homepageContent:PUBLIC_CONTENT_DEFAULTS_,
+    homepageHero:PUBLIC_HERO_DEFAULTS_,
+    pageIntros:PAGE_INTRO_DEFAULTS_,
+    pageBanners:PAGE_BANNER_DEFAULTS_,
+    sectionCards:SECTION_CARDS_,
+    contentBlockKeys:BLOCKS,
+    publicBlockKeys:PUBLIC_BLOCK_KEYS,
+    pageBlockKeys:PAGE_BLOCK_KEYS_,
+    pageIntroSlugs:PAGE_INTRO_SLUGS_,
+    pageBannerSlugs:PAGE_BANNER_SLUGS_,
+    galleryPages:GAL_PAGES,
+    galleryAliases:GAL_ALIAS
+  };
+}
+
+function wpReferencedDriveIds_(contentRows, galleries, defaults) {
   const ids = {};
   const add = id => {
     id = wpText_(id).trim();
@@ -47,6 +65,10 @@ function wpReferencedDriveIds_(contentRows, galleries) {
     }
   });
   Object.keys(galleries).forEach(page => galleries[page].forEach(item => add(item.id)));
+  const defaultText = JSON.stringify(defaults || {});
+  let defaultMatch;
+  const defaultRe = /drive\\.google\\.com\\/(?:thumbnail\\?[^\"'<> ]*?id=|uc\\?[^\"'<> ]*?id=|file\\/d\\/)([A-Za-z0-9_-]{10,80})/gi;
+  while ((defaultMatch = defaultRe.exec(defaultText))) add(defaultMatch[1]);
   return Object.keys(ids).sort();
 }
 
@@ -104,7 +126,8 @@ function websitePublishingPreflight(token) {
       });
     });
 
-    const driveIds = wpReferencedDriveIds_(contentRows, galleries);
+    const defaults = wpSnapshotDefaults_();
+    const driveIds = wpReferencedDriveIds_(contentRows, galleries, defaults);
     const driveFiles = driveIds.map(id => {
       try {
         const file = DriveApp.getFileById(id);
@@ -130,7 +153,8 @@ function websitePublishingPreflight(token) {
     const payload = {
       schemaVersion:WP_PREFLIGHT_SCHEMA_,
       contentRows:contentRows,
-      events:eventRows,
+      defaults:defaults,
+      eventFeed:{ source:'Events', columns:EVCOLS.slice(), announcementLimit:5, eventLimit:PUB_EVENTS_MAX },
       galleries:galleries
     };
     const payloadJson = JSON.stringify(payload);
@@ -374,7 +398,14 @@ function seedWebsitePublishingBaseline(token) {
       galleries[page] = galRead_(page).list.map(item => ({ id:wpText_(item.id), cap:wpText_(item.cap) }));
     });
 
-    const payloadJson = JSON.stringify({ schemaVersion:WP_PREFLIGHT_SCHEMA_, contentRows:contentRows, events:events, galleries:galleries });
+    const defaults = wpSnapshotDefaults_();
+    const payloadJson = JSON.stringify({
+      schemaVersion:WP_PREFLIGHT_SCHEMA_,
+      contentRows:contentRows,
+      defaults:defaults,
+      eventFeed:{ source:'Events', columns:EVCOLS.slice(), announcementLimit:5, eventLimit:PUB_EVENTS_MAX },
+      galleries:galleries
+    });
     const payloadHash = wpHash_(payloadJson);
     if (payloadHash !== preflight.data.candidatePayload.sha256) {
       throw new Error('Live website content changed after preflight. Run the preflight again and retry.');
@@ -487,7 +518,8 @@ function validateWebsitePublishingBaseline(token) {
     try {
       parsed = JSON.parse(payloadJson);
       payloadSchemaValid = !!parsed && parsed.schemaVersion === WP_PREFLIGHT_SCHEMA_ &&
-        Array.isArray(parsed.contentRows) && Array.isArray(parsed.events) &&
+        Array.isArray(parsed.contentRows) && parsed.defaults && typeof parsed.defaults === 'object' &&
+        parsed.eventFeed && parsed.eventFeed.source === 'Events' &&
         parsed.galleries && typeof parsed.galleries === 'object';
     } catch (_) {}
 
