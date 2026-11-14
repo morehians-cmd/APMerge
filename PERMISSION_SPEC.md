@@ -375,3 +375,19 @@ This function is source-complete but has not been run in the live bound Apps Scr
 - Refuses to overwrite an existing baseline or seed when the migration state is not `PREPARED`.
 
 The preflight, store-setup, and baseline-seed functions have passed a JavaScript syntax parse in repository inspection. They have not been executed in Apps Script, and their sheet/Drive behavior remains unverified until run in the bound non-production script. The baseline-seed function must not be run until the source is synchronized and the Full administrator is ready to create the version stores and immutable baseline records.
+
+
+### Repository-only verification performed during this continuation
+
+A source-level assertion pass on the current branch checked 12 conditions and all 12 passed:
+
+- Student save uses the explicit allow-list and binds a Student session to its own StudentID.
+- Student reads bind the requested ID to the session's StudentID.
+- Encoder search filtering includes assigned grade and section.
+- Direct student reads and the primary dashboard aggregates enforce the student scope.
+- The demographic dashboard rejects office and academic clearances.
+- Logo mutation is editor-owner-only and validates Drive ID syntax, trash state, image MIME type, and size.
+- Daily backup and monthly retention call `triggerAuthorized_(handler,e)`.
+- The new website-publishing module passes a JavaScript syntax parse.
+
+The report and analytics module was also inspected: `reportsHome` rejects Encoders, analytics/drill-down use the shared `anCtx_` authorization path, and report preferences/history use `rpUser_`, which rejects Encoders. This remains source inspection only; no user-role execution, Drive permission, spreadsheet mutation, installed-trigger event, browser UI, or Apps Script runtime test was performed.
