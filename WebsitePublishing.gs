@@ -1382,6 +1382,9 @@ function websitePublishingSelfCheck(token) {
       defaults:{}, eventFeed:{source:'Events',rows:[]}, galleries:{}
     };
     const aboutFixtureUpdated = wpAboutPayloadWithData_(aboutFixture, { vision:{title:'Test vision',text:''} });
+    check('Event snapshot carries immutable event rows',
+      Array.isArray(aboutFixture.eventFeed.rows) && aboutFixture.eventFeed.rows.length === 0,
+      'Published snapshots include event rows rather than only Events sheet metadata.');
     check('About draft update preserves legacy and unrelated content',
       aboutFixtureUpdated.contentRows.length === 3 &&
       aboutFixtureUpdated.contentRows.find(row => row[0] === 'about')[1] === '<p>Legacy About text</p>' &&
@@ -1456,7 +1459,7 @@ function websitePublishingSelfCheck(token) {
       migrationState:config.migration_state || 'UNPREPARED',
       baselineVersionId:baselineId, publishedVersionId:config.published_version_id || '',
       draftMediaFolderPrivate:mediaFolderPrivate,
-      publicReaderCutoverImplemented:false, publishEndpointEnabled:false
+      publicReaderCutoverImplemented:true, publishEndpointEnabled:true, rollbackEndpointEnabled:true
     }, failed ? 'Website publishing self-check found issues.' : 'Website publishing self-check passed.');
   } catch (error) {
     return fail(error);
