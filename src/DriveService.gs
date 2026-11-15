@@ -30,8 +30,26 @@ function initializeDriveFoundation() {
   });
 }
 
+function safeFolderName_(value) {
+  const name=String(value || '').trim().replace(/[\\\\/:*?"<>|#%{}~&]/g,'-').replace(/\\s+/g,' ');
+  if (!name) throw new Error('A folder name is required.');
+  return name.slice(0,100);
+}
+
 function getAcademicYearFolder_(schoolYearName) {
   const root = getDriveRoot_();
   const years = ensureChildFolder_(root,'01 - Academic Years');
-  return ensureChildFolder_(years,String(schoolYearName).replace(/[^0-9-]/g,''));
+  return ensureChildFolder_(years,safeFolderName_(schoolYearName));
+}
+
+/** Per-applicant folder for generated forms and approved profile images only. */
+function getApplicantDriveFolder_(schoolYearName, department, gradeLevel, applicantId) {
+  [schoolYearName,department,gradeLevel,applicantId].forEach(v => { if (!String(v || '').trim()) throw new Error('Academic year, department, grade level and ApplicantID are required.'); });
+  const year=getAcademicYearFolder_(schoolYearName);
+  const dept=ensureChildFolder_(year,safeFolderName_(department));
+  const grade=ensureChildFolder_(dept,safeFolderName_(gradeLevel));
+  const applicant=ensureChildFolder_(grade,safeFolderName_(applicantId));
+  ensureChildFolder_(applicant,'01 - Generated Forms');
+  ensureChildFolder_(applicant,'02 - Approved Profile Photo');
+  return {folderId:applicant.getId(),url:applicant.getUrl()};
 }
