@@ -3,19 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<?!= buildTag_() ?>
 <? var site = d.settings, home = d.home; var title = site.orgName + ' | ' + site.motto; var desc = homeDescription_(d); var heroImg = imageUrl_(home.hero.slides[0] && home.hero.slides[0].image, 2048); ?>
-<title><?= esc_(title) ?></title>
-<meta name="description" content="<?= esc_(desc) ?>">
+<title><?!= esc_(title) ?></title>
+<meta name="description" content="<?!= esc_(desc) ?>">
 <meta property="og:type" content="website">
-<meta property="og:title" content="<?= esc_(title) ?>">
-<meta property="og:description" content="<?= esc_(desc) ?>">
-<meta property="og:url" content="<?= esc_(d.base) ?>">
-<? if (heroImg) { ?><meta property="og:image" content="<?= esc_(imageUrl_(home.hero.slides[0].image, 1200)) ?>"><? } ?>
-<? if (site.schools[0] && imageUrl_(site.schools[0].logo, 64)) { ?><link rel="icon" href="<?= esc_(imageUrl_(site.schools[0].logo, 64)) ?>"><? } ?>
+<meta property="og:title" content="<?!= esc_(title) ?>">
+<meta property="og:description" content="<?!= esc_(desc) ?>">
+<meta property="og:url" content="<?!= esc_(d.base) ?>">
+<? if (heroImg) { ?><meta property="og:image" content="<?!= esc_(imageUrl_(home.hero.slides[0].image, 1200)) ?>"><? } ?>
+<? if (site.schools[0] && imageUrl_(site.schools[0].logo, 64)) { ?><link rel="icon" href="<?!= esc_(imageUrl_(site.schools[0].logo, 64)) ?>"><? } ?>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
-<? if (heroImg) { ?><link rel="preload" as="image" href="<?= esc_(heroImg) ?>"><? } ?>
+<? if (heroImg) { ?><link rel="preload" as="image" href="<?!= esc_(heroImg) ?>"><? } ?>
 <?!= include('PublicCss') ?>
 <script type="application/ld+json"><?!= JSON.stringify({
   '@context': 'https://schema.org',
@@ -33,8 +34,8 @@
 
 <? if (home.notice.on && home.notice.text) { ?>
 <div class="notice"><div class="wrap">
-  <span><?= esc_(home.notice.text) ?></span>
-  <? if (home.notice.page) { ?><a href="<?= esc_(hrefFor_(d.base, home.notice.page)) ?>">Learn more</a><? } ?>
+  <span><?!= esc_(home.notice.text) ?></span>
+  <? if (home.notice.page) { ?><a href="<?!= esc_(hrefFor_(d.base, home.notice.page)) ?>">Learn more</a><? } ?>
 </div></div>
 <? } ?>
 
@@ -46,16 +47,16 @@
 <section class="hero" aria-roledescription="carousel" aria-label="Highlights">
   <div class="hero-track" id="heroTrack">
     <? for (var i = 0; i < home.hero.slides.length; i++) { var s = home.hero.slides[i]; var bg = imageUrl_(s.image, 2048); ?>
-    <article class="hero-slide<?= bg ? '' : ' plain' ?>"<? if (bg) { ?> style="background-image:url('<?= esc_(bg) ?>')"<? } ?> aria-label="Slide <?= i + 1 ?> of <?= home.hero.slides.length ?>">
+    <article class="hero-slide<?!= bg ? '' : ' plain' ?>"<? if (bg) { ?> style="background-image:url('<?!= esc_(bg) ?>')"<? } ?> aria-label="Slide <?!= i + 1 ?> of <?!= home.hero.slides.length ?>">
       <div class="wrap"><div class="hero-in">
-        <? if (s.eyebrow) { ?><p class="hero-eyebrow"><?= esc_(s.eyebrow) ?></p><? } ?>
-        <h1><?= esc_(s.title) ?><? if (s.accent) { ?><em><?= esc_(s.accent) ?></em><? } ?></h1>
-        <? if (s.subtitle) { ?><p class="hero-sub"><?= esc_(s.subtitle) ?></p><? } ?>
-        <? if (s.text) { ?><p class="hero-text"><?= esc_(s.text) ?></p><? } ?>
+        <? if (s.eyebrow) { ?><p class="hero-eyebrow"><?!= esc_(s.eyebrow) ?></p><? } ?>
+        <h1><?!= esc_(s.title) ?><? if (s.accent) { ?><em><?!= esc_(s.accent) ?></em><? } ?></h1>
+        <? if (s.subtitle) { ?><p class="hero-sub"><?!= esc_(s.subtitle) ?></p><? } ?>
+        <? if (s.text) { ?><p class="hero-text"><?!= esc_(s.text) ?></p><? } ?>
         <? if (s.primaryLabel || s.secondaryLabel) { ?>
         <div class="actions">
-          <? if (s.primaryLabel) { ?><a class="btn" href="<?= esc_(hrefFor_(d.base, s.primaryPage)) ?>"><?= esc_(s.primaryLabel) ?></a><? } ?>
-          <? if (s.secondaryLabel) { ?><a class="btn ghost" href="<?= esc_(hrefFor_(d.base, s.secondaryPage)) ?>"><?= esc_(s.secondaryLabel) ?></a><? } ?>
+          <? if (s.primaryLabel) { ?><a class="btn" href="<?!= esc_(hrefFor_(d.base, s.primaryPage)) ?>"><?!= esc_(s.primaryLabel) ?></a><? } ?>
+          <? if (s.secondaryLabel) { ?><a class="btn ghost" href="<?!= esc_(hrefFor_(d.base, s.secondaryPage)) ?>"><?!= esc_(s.secondaryLabel) ?></a><? } ?>
         </div>
         <? } ?>
       </div></div>
@@ -67,7 +68,7 @@
   <button class="hero-arrow next" id="heroNext" aria-label="Next slide">›</button>
   <div class="hero-dots" id="heroDots" role="tablist" aria-label="Choose a slide">
     <? for (var j = 0; j < home.hero.slides.length; j++) { ?>
-    <button type="button" role="tab" aria-label="Go to slide <?= j + 1 ?>"<?= j === 0 ? ' aria-current="true"' : '' ?>></button>
+    <button type="button" role="tab" aria-label="Go to slide <?!= j + 1 ?>"<?!= j === 0 ? ' aria-current="true"' : '' ?>></button>
     <? } ?>
   </div>
   <? } ?>
@@ -77,7 +78,7 @@
 <? if (home.values.length) { ?>
 <section class="values" aria-label="What we stand for"><div class="wrap"><div class="value-row">
   <? for (var v = 0; v < home.values.length; v++) { var val = home.values[v]; ?>
-  <div class="value"><i aria-hidden="true"><?= esc_(val.icon) ?></i><span><?= esc_(val.label) ?></span></div>
+  <div class="value"><i aria-hidden="true"><?!= esc_(val.icon) ?></i><span><?!= esc_(val.label) ?></span></div>
   <? } ?>
 </div></div></section>
 <? } ?>
@@ -85,28 +86,28 @@
 <section class="wrap split">
   <div class="about">
     <? var aboutImg = imageUrl_(home.about.image, 2048); if (aboutImg) { ?>
-    <div class="about-photo"><img src="<?= esc_(aboutImg) ?>" alt="<?= esc_(home.about.title) ?>" loading="lazy" decoding="async" width="640" height="480"></div>
+    <div class="about-photo"><img src="<?!= esc_(aboutImg) ?>" alt="<?!= esc_(home.about.title) ?>" loading="lazy" decoding="async" width="640" height="480"></div>
     <? } ?>
     <div>
-      <? if (home.about.eyebrow) { ?><p class="eyebrow"><?= esc_(home.about.eyebrow) ?></p><? } ?>
-      <h2 class="sec"><?= esc_(home.about.title) ?></h2>
-      <? if (home.about.text) { ?><p><?= esc_(home.about.text) ?></p><? } ?>
-      <? if (home.about.ctaLabel) { ?><a class="link-more" href="<?= esc_(hrefFor_(d.base, home.about.ctaPage)) ?>"><?= esc_(home.about.ctaLabel) ?> →</a><? } ?>
+      <? if (home.about.eyebrow) { ?><p class="eyebrow"><?!= esc_(home.about.eyebrow) ?></p><? } ?>
+      <h2 class="sec"><?!= esc_(home.about.title) ?></h2>
+      <? if (home.about.text) { ?><p><?!= esc_(home.about.text) ?></p><? } ?>
+      <? if (home.about.ctaLabel) { ?><a class="link-more" href="<?!= esc_(hrefFor_(d.base, home.about.ctaPage)) ?>"><?!= esc_(home.about.ctaLabel) ?> →</a><? } ?>
     </div>
   </div>
 
   <aside class="updates" aria-labelledby="updatesTitle">
     <div class="updates-head">
-      <h2 id="updatesTitle"><?= esc_(home.updates.title) ?></h2>
-      <? if (home.updates.ctaLabel) { ?><a href="<?= esc_(hrefFor_(d.base, home.updates.ctaPage)) ?>"><?= esc_(home.updates.ctaLabel) ?></a><? } ?>
+      <h2 id="updatesTitle"><?!= esc_(home.updates.title) ?></h2>
+      <? if (home.updates.ctaLabel) { ?><a href="<?!= esc_(hrefFor_(d.base, home.updates.ctaPage)) ?>"><?!= esc_(home.updates.ctaLabel) ?></a><? } ?>
     </div>
     <? if (!d.announcements.length) { ?><p class="empty-upd">No announcements yet. Add one in the Website Manager.</p><? } ?>
     <? for (var a = 0; a < Math.min(3, d.announcements.length); a++) { var an = d.announcements[a]; ?>
     <div class="update">
-      <div class="date"><?= esc_(an.day) ?><b><?= esc_(an.month) ?></b></div>
+      <div class="date"><?!= esc_(an.day) ?><b><?!= esc_(an.month) ?></b></div>
       <div>
-        <h3><?= esc_(an.title) ?></h3>
-        <? if (an.summary) { ?><p><?= esc_(an.summary) ?></p><? } ?>
+        <h3><?!= esc_(an.title) ?></h3>
+        <? if (an.summary) { ?><p><?!= esc_(an.summary) ?></p><? } ?>
       </div>
     </div>
     <? } ?>
@@ -116,10 +117,10 @@
 <? if (home.band.on && (home.band.title || home.band.label)) { ?>
 <section class="band"><div class="wrap band-in">
   <div>
-    <h2><?= esc_(home.band.title) ?></h2>
-    <? if (home.band.text) { ?><p><?= esc_(home.band.text) ?></p><? } ?>
+    <h2><?!= esc_(home.band.title) ?></h2>
+    <? if (home.band.text) { ?><p><?!= esc_(home.band.text) ?></p><? } ?>
   </div>
-  <? if (home.band.label) { ?><a class="btn" href="<?= esc_(hrefFor_(d.base, home.band.page)) ?>"><?= esc_(home.band.label) ?></a><? } ?>
+  <? if (home.band.label) { ?><a class="btn" href="<?!= esc_(hrefFor_(d.base, home.band.page)) ?>"><?!= esc_(home.band.label) ?></a><? } ?>
 </div></section>
 <? } ?>
 
