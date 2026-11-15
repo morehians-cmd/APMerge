@@ -1,6 +1,6 @@
 /** Phase 1 entry points. No production web app deployment is configured. */
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
+  return HtmlService.createTemplateFromFile('Index').evaluate()
     .setTitle(MA_CONFIG.applicationName)
     .addMetaTag('viewport','width=device-width, initial-scale=1');
 }
