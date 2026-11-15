@@ -18,8 +18,8 @@ Apps Script source is under `src/`; configure clasp `rootDir` as `src` in the lo
 3. Import the contents of `src/` using clasp with rootDir `src`, or create the files in Apps Script editor.
 4. If standalone, set Script Property `MA_DB_SPREADSHEET_ID` to the development spreadsheet ID. If bound, the active spreadsheet is used.
 5. Run `initializeFoundation` from the editor and authorize Sheets access.
-6. Run `initializeDriveFoundation` from the editor and authorize Drive access.
-7. Run `getFoundationStatus` and verify the tabs and schema version.
+6. If using the College scope in this phase, create a SECOND blank development spreadsheet, set Script Property `MA_COLLEGE_DB_SPREADSHEET_ID`, then run `initializeCollegeFoundation`. This does not touch the legacy College workbook.\n7. Run `initializeDriveFoundation` from the editor and authorize Drive access.
+8. Run `getFoundationStatus` and verify the tabs and schema version.
 
 ## Safety properties
 - Schema initialization is additive and idempotent.
@@ -27,7 +27,7 @@ Apps Script source is under `src/`; configure clasp `rootDir` as `src` in the lo
 - Reference data is seeded by stable IDs and only missing IDs are added.
 - Writes are plain-text formatted and guarded by a script lock.
 - Applicant requirement files are not uploaded; the Requirements table records physical receipt and verification.
-- College workbook is not modified by K–12 initialization.
+- College uses a separate database workbook and separate schema initializer; K–12 initialization never creates College tabs in its workbook. The legacy College workbook is not modified.
 
 ## Phase 1 acceptance checks
 - [ ] Initialization creates every declared tab.
