@@ -115,3 +115,20 @@ function validateFoundationSchema() {
   checks.push({check:'college-separated',passed:!Object.keys(MA_SCHEMA).some(k=>k.indexOf('College_')===0) && Object.keys(MA_COLLEGE_SCHEMA).some(k=>k.indexOf('College_')===0)});
   return {success:checks.every(c=>c.passed),passed:checks.filter(c=>c.passed).length,failed:checks.filter(c=>!c.passed).length,total:checks.length,checks:checks};
 }
+
+
+/** Pure Phase 1 checks; does not read or modify spreadsheet/Drive data. */
+function runPhase1UnitChecks() {
+  const cases=[
+    {input:'=IMPORTXML("https://example.com","//a")',expected:"'=IMPORTXML(\"https://example.com\",\"//a\")"},
+    {input:'+SUM(1,2)',expected:"'+SUM(1,2)"},
+    {input:'@danger',expected:"'@danger"},
+    {input:'ordinary text',expected:'ordinary text'}
+  ];
+  const checks=cases.map((test,i)=>({check:'formula-neutralization-'+(i+1),passed:safeCellValue_(test.input)===test.expected}));
+  const gradeIds=MA_REFERENCE_DATA.Grade_Levels.map(row=>row[0]);
+  const covered=new Set(MA_REQUIREMENT_RULES.map(row=>row[2]));
+  checks.push({check:'requirement-rules-cover-all-k12-grades',passed:gradeIds.every(id=>covered.has(id))});
+  checks.push({check:'college-schema-separated',passed:Object.keys(MA_COLLEGE_SCHEMA).every(name=>name.indexOf('College_')===0) && !Object.keys(MA_SCHEMA).some(name=>name.indexOf('College_')===0)});
+  return {success:checks.every(c=>c.passed),passed:checks.filter(c=>c.passed).length,failed:checks.filter(c=>!c.passed).length,total:checks.length,checks:checks};
+}
