@@ -227,7 +227,24 @@ function buildPublicData_(settings, homepage, pages, base, announcements) {
 
 /* --------------------------------------------------------------- sanitising */
 
-function text_(value, max) { return String(value == null ? '' : value).trim().slice(0, max); }
+/**
+ * Text saved by the old site (or pasted from another page) arrives HTML-escaped.
+ * Decode it once here so esc_() at render time escapes it exactly once — otherwise
+ * "&amp;" survives to the screen and "&sz=w2048" in an image URL stops resizing.
+ */
+function decodeEntities_(value) {
+  const named = {
+    amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+    ndash: '–', mdash: '—', hellip: '…',
+    lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”'
+  };
+  return String(value == null ? '' : value)
+    .replace(/&#(\d+);/g, (m, d) => String.fromCharCode(Number(d)))
+    .replace(/&#x([0-9a-f]+);/gi, (m, h) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&([a-z]+);/gi, (m, name) => named[name.toLowerCase()] || m);
+}
+
+function text_(value, max) { return decodeEntities_(value).trim().slice(0, max); }
 
 function key_(value) {
   return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
@@ -383,8 +400,8 @@ function announcementRows_() {
   if (last < 2) return [];
   return sh.getRange(2, 1, last - 1, 6).getValues().map(r => ({
     date: isoDate_(r[0]),
-    title: String(r[1] || ''),
-    summary: String(r[2] || ''),
+    title: decodeEntities_(r[1]),
+    summary: decodeEntities_(r[2]),
     link: String(r[3] || ''),
     pinned: yes_(r[4]),
     published: yes_(r[5])
