@@ -1,0 +1,158 @@
+<section class="tab" id="tab-settings" hidden>
+  <div class="tabhead">
+    <div>
+      <h2>Settings</h2>
+      <p>School names and logos, contact details, social links and the main menu. These appear on every page of the site.</p>
+    </div>
+    <div class="tabactions">
+      <button type="button" class="btn" data-preview="">Preview homepage</button>
+      <button type="button" class="btn primary" data-save="settings">Save settings</button>
+    </div>
+  </div>
+  <div id="settingsForm"></div>
+</section>
+
+<script>
+(function () {
+  function schoolBlock(school, index) {
+    var p = 'schools.' + index + '.';
+    return '<div class="rep">' +
+      '<div class="rephead"><strong>School ' + (index + 1) + '</strong><div class="tools">' +
+        '<button type="button" class="btn small" data-act="school-up" data-i="' + index + '" aria-label="Move up">↑</button>' +
+        '<button type="button" class="btn small" data-act="school-down" data-i="' + index + '" aria-label="Move down">↓</button>' +
+        '<button type="button" class="btn small danger" data-act="school-del" data-i="' + index + '">Remove</button>' +
+      '</div></div>' +
+      imageField('Logo', p + 'logo', school.logo) +
+      '<div class="row3">' +
+        field('School name', p + 'name', school.name) +
+        field('Facebook page or website', p + 'link', school.link, 'https://…') +
+      '</div>' +
+    '</div>';
+  }
+
+  function navBlock(item, index) {
+    var p = 'nav.' + index + '.';
+    var subs = (item.children || []).map(function (child, j) {
+      return '<div class="rep" style="background:#fff">' +
+        '<div class="row3">' +
+          field('Sub-link label', p + 'children.' + j + '.label', child.label) +
+          pageSelect('Links to', p + 'children.' + j + '.page', child.page) +
+        '</div>' +
+        '<button type="button" class="btn small danger" data-act="nav-sub-del" data-i="' + index + '" data-j="' + j + '">Remove sub-link</button>' +
+      '</div>';
+    }).join('');
+
+    return '<div class="rep">' +
+      '<div class="rephead"><strong>Menu item ' + (index + 1) + '</strong><div class="tools">' +
+        '<button type="button" class="btn small" data-act="nav-up" data-i="' + index + '" aria-label="Move up">↑</button>' +
+        '<button type="button" class="btn small" data-act="nav-down" data-i="' + index + '" aria-label="Move down">↓</button>' +
+        '<button type="button" class="btn small danger" data-act="nav-del" data-i="' + index + '">Remove</button>' +
+      '</div></div>' +
+      '<div class="row3">' +
+        field('Label', p + 'label', item.label) +
+        pageSelect('Links to', p + 'page', item.page) +
+      '</div>' +
+      '<div style="margin-top:6px">' + subs +
+        '<button type="button" class="btn small" data-act="nav-sub-add" data-i="' + index + '">Add sub-link</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  window.renderSettings = function () {
+    var s = DB.settings;
+    var html = '';
+
+    html += card('Identity',
+      '<div class="row3">' +
+        field('School name', 'orgName', s.orgName) +
+        field('Motto', 'motto', s.motto) +
+      '</div>',
+      'The first school above the menu uses the first logo in the list below.');
+
+    html += card('Schools and logos',
+      (s.schools || []).map(schoolBlock).join('') +
+      '<button type="button" class="btn small" data-act="school-add">Add school</button>',
+      'Three logos are shown side by side on desktop; on phones they stack under the school name.');
+
+    html += card('Contact details',
+      '<div class="row3">' +
+        field('Address', 'contact.address', s.contact.address) +
+        field('Office hours', 'contact.hours', s.contact.hours) +
+      '</div>' +
+      '<div class="row3">' +
+        field('Phone', 'contact.phone', s.contact.phone) +
+        field('Mobile', 'contact.mobile', s.contact.mobile) +
+      '</div>' +
+      field('Email', 'contact.email', s.contact.email));
+
+    html += card('Social links',
+      '<div class="row3">' +
+        field('Facebook URL', 'social.facebook', s.social.facebook) +
+        field('YouTube URL', 'social.youtube', s.social.youtube) +
+      '</div>' +
+      field('Email shown in the header icons', 'social.email', s.social.email));
+
+    html += card('Footer',
+      area('Short description', 'footer.blurb', s.footer.blurb, 2) +
+      field('Copyright name', 'footer.copyright', s.footer.copyright));
+
+    html += card('Main menu',
+      (s.nav || []).map(navBlock).join('') +
+      '<button type="button" class="btn small" data-act="nav-add">Add menu item</button>',
+      'Sub-links open a dropdown on desktop and appear indented in the mobile menu. Keep the top level to eight items or fewer.');
+
+    $('#settingsForm').innerHTML = html;
+  };
+
+  function sync() {
+    DB.settings = collect($('#settingsForm'), DB.settings);
+    return DB.settings;
+  }
+
+  COLLECT.settings = function () { return collect($('#settingsForm'), DB.settings); };
+
+  document.addEventListener('click', function (e) {
+    if ($('#tab-settings').hidden) return;
+    var button = e.target.closest ? e.target.closest('[data-act]') : null;
+    if (!button) return;
+
+    var act = button.dataset.act;
+    var i = Number(button.dataset.i);
+    var s = sync();
+    var moved;
+
+    if (act === 'school-add') {
+      s.schools.push({ name: 'New school', logo: '', link: '' });
+    } else if (act === 'school-del') {
+      s.schools.splice(i, 1);
+    } else if (act === 'school-up' && i > 0) {
+      moved = s.schools.splice(i, 1)[0];
+      s.schools.splice(i - 1, 0, moved);
+    } else if (act === 'school-down' && i < s.schools.length - 1) {
+      moved = s.schools.splice(i, 1)[0];
+      s.schools.splice(i + 1, 0, moved);
+    } else if (act === 'nav-add') {
+      s.nav.push({ label: 'New item', page: '', children: [] });
+    } else if (act === 'nav-del') {
+      s.nav.splice(i, 1);
+    } else if (act === 'nav-up' && i > 0) {
+      moved = s.nav.splice(i, 1)[0];
+      s.nav.splice(i - 1, 0, moved);
+    } else if (act === 'nav-down' && i < s.nav.length - 1) {
+      moved = s.nav.splice(i, 1)[0];
+      s.nav.splice(i + 1, 0, moved);
+    } else if (act === 'nav-sub-add') {
+      s.nav[i].children = s.nav[i].children || [];
+      if (s.nav[i].children.length >= 10) return toast('Ten sub-links is the maximum.', 'err');
+      s.nav[i].children.push({ label: 'New sub-link', page: '' });
+    } else if (act === 'nav-sub-del') {
+      s.nav[i].children.splice(Number(button.dataset.j), 1);
+    } else {
+      return;
+    }
+
+    DIRTY = true;
+    renderSettings();
+  });
+})();
+</script>

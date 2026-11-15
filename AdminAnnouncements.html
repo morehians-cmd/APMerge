@@ -1,0 +1,94 @@
+<section class="tab" id="tab-announcements" hidden>
+  <div class="tabhead">
+    <div>
+      <h2>Announcements</h2>
+      <p>The three most recent live announcements appear on the homepage. Pinned items come first, then the newest date.</p>
+    </div>
+    <div class="tabactions">
+      <button type="button" class="btn" data-act="ann-add">Add announcement</button>
+      <button type="button" class="btn primary" data-save="announcements">Save announcements</button>
+    </div>
+  </div>
+
+  <div class="card"><div class="cardbody">
+    <p class="note">Leave a row unticked under <strong>Live</strong> while you are still writing it. Blank titles and summaries are removed on save.</p>
+    <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th>Date</th><th>Title</th><th>Summary</th><th>Links to</th>
+            <th class="tiny">Pin</th><th class="tiny">Live</th><th class="tiny"></th>
+          </tr>
+        </thead>
+        <tbody id="annRows"></tbody>
+      </table>
+    </div>
+    <div id="annEmpty"></div>
+  </div></div>
+</section>
+
+<script>
+(function () {
+  function today() {
+    var now = new Date();
+    var month = String(now.getMonth() + 1).padStart(2, '0');
+    var day = String(now.getDate()).padStart(2, '0');
+    return now.getFullYear() + '-' + month + '-' + day;
+  }
+
+  function linkSelect(path, value) {
+    var options = ['<option value="">— no link —</option>'].concat((DB.pages || []).map(function (page) {
+      return '<option value="' + esc(page.key) + '"' + (page.key === value ? ' selected' : '') + '>' +
+        esc(page.title || page.key) + '</option>';
+    }));
+    return '<select data-path="' + path + '" aria-label="Links to">' + options.join('') + '</select>';
+  }
+
+  function row(item, index) {
+    return '<tr>' +
+      '<td class="narrow"><input type="date" data-path="' + index + '.date" value="' + esc(item.date) + '" aria-label="Date"></td>' +
+      '<td><input type="text" data-path="' + index + '.title" value="' + esc(item.title) + '" placeholder="Title" aria-label="Title"></td>' +
+      '<td><input type="text" data-path="' + index + '.summary" value="' + esc(item.summary) + '" placeholder="One sentence shown under the title" aria-label="Summary"></td>' +
+      '<td class="narrow">' + linkSelect(index + '.link', item.link) + '</td>' +
+      '<td class="tiny"><input type="checkbox" data-path="' + index + '.pinned"' + (item.pinned ? ' checked' : '') + ' aria-label="Pinned"></td>' +
+      '<td class="tiny"><input type="checkbox" data-path="' + index + '.published"' + (item.published ? ' checked' : '') + ' aria-label="Live"></td>' +
+      '<td class="tiny"><button type="button" class="btn small danger" data-act="ann-del" data-i="' + index + '" aria-label="Remove announcement">×</button></td>' +
+    '</tr>';
+  }
+
+  window.renderAnnouncements = function () {
+    var rows = DB.announcements || [];
+    $('#annRows').innerHTML = rows.map(row).join('');
+    $('#annEmpty').innerHTML = rows.length ? '' : '<div class="emptybox">No announcements yet. Add one to fill the homepage updates panel.</div>';
+  };
+
+  function sync() {
+    DB.announcements = collect($('#annRows'), DB.announcements);
+    return DB.announcements;
+  }
+
+  COLLECT.announcements = function () { return collect($('#annRows'), DB.announcements); };
+
+  document.addEventListener('click', function (e) {
+    if ($('#tab-announcements').hidden) return;
+    var button = e.target.closest ? e.target.closest('[data-act]') : null;
+    if (!button) return;
+
+    if (button.dataset.act === 'ann-add') {
+      var rows = sync();
+      rows.unshift({ date: today(), title: '', summary: '', link: '', pinned: false, published: true });
+      DIRTY = true;
+      renderAnnouncements();
+      var first = $('[data-path="0.title"]');
+      if (first) first.focus();
+    }
+
+    if (button.dataset.act === 'ann-del') {
+      var list = sync();
+      list.splice(Number(button.dataset.i), 1);
+      DIRTY = true;
+      renderAnnouncements();
+    }
+  });
+})();
+</script>
