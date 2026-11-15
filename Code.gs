@@ -214,8 +214,10 @@ function imageUrl_(value, width) {
   return '';
 }
 
+/** Drive stops serving thumbnails above 2048px wide, so cap the request there. */
 function driveThumb_(id, width) {
-  return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w' + (width || 1200);
+  const w = Math.min(Math.round(Number(width) || 1200), 2048);
+  return 'https://drive.google.com/thumbnail?id=' + encodeURIComponent(id) + '&sz=w' + w;
 }
 
 function searchSite_(d, q) {
