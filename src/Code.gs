@@ -91,3 +91,26 @@ function initializeCollegeFoundation() {
     return {success:true,version:MA_SCHEMA_VERSION,spreadsheetId:ss.getId(),spreadsheetName:ss.getName(),createdTabs:created,existingTabs:existing,tabCount:Object.keys(MA_COLLEGE_SCHEMA).length};
   });
 }
+
+
+/** Non-destructive acceptance report for the K–12 database schema. */
+function validateFoundationSchema() {
+  const ss=getDatabase_(), checks=[];
+  Object.keys(MA_SCHEMA).forEach(name => {
+    const sh=ss.getSheetByName(name);
+    const expected=MA_SCHEMA[name];
+    const actual=sh && sh.getLastColumn()
+      ? sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0] : [];
+    checks.push({check:'tab:'+name,passed:!!sh && expected.length===actual.length && expected.every((h,i)=>actual[i]===h)});
+  });
+  ['Grade_Levels','Strands','Scholarship_Categories','RequirementCatalog'].forEach(name => {
+    const sh=ss.getSheetByName(name);
+    if (!sh) { checks.push({check:'reference:'+name,passed:false}); return; }
+    const values=sh.getLastRow()>1 ? sh.getRange(2,1,sh.getLastRow()-1,1).getDisplayValues().flat().filter(Boolean) : [];
+    checks.push({check:'unique-keys:'+name,passed:new Set(values).size===values.length});
+    checks.push({check:'seeded:'+name,passed:values.length>0});
+  });
+  checks.push({check:'physical-requirements-only',passed:!MA_SCHEMA.Requirements.some(h=>/DriveFile|UploadURL/i.test(h))});
+  checks.push({check:'college-separated',passed:!Object.keys(MA_SCHEMA).some(k=>k.indexOf('College_')===0) && Object.keys(MA_COLLEGE_SCHEMA).some(k=>k.indexOf('College_')===0)});
+  return {success:checks.every(c=>c.passed),passed:checks.filter(c=>c.passed).length,failed:checks.filter(c=>!c.passed).length,total:checks.length,checks:checks};
+}
