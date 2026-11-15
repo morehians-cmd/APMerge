@@ -8,6 +8,7 @@ const MA_SCHEMA = Object.freeze({
   Applicant_Guardians: ['GuardianID','ApplicantID','FullName','Relationship','Email','Mobile','Address','IsPrimary','CreatedAt','UpdatedAt'],
   Applicant_EmergencyContacts: ['EmergencyContactID','ApplicantID','FullName','Relationship','Mobile','SameAddress','Address','CreatedAt','UpdatedAt'],
   RequirementCatalog: ['RequirementCode','RequirementName','Description','Department','GradeLevelID','IsMandatory','ApplicableApplicantType','ApplicableScholarship','DisplayOrder','IsActive'],
+  Requirement_Rules: ['RequirementRuleID','RequirementCode','GradeLevelID','ApplicantType','ScholarshipCategoryID','IsRequired','EffectiveFrom','EffectiveTo','IsActive','DisplayOrder'],
   Requirements: ['RequirementRecordID','ApplicantID','RequirementCode','RequirementName','IsRequired','SubmissionStatus','DocumentCondition','DateSubmitted','VerifiedBy','VerifiedAt','Remarks','CreatedAt','UpdatedAt'],
   Sections_Assignments: ['AssignmentID','SchoolYearID','GradeLevelID','StrandID','SectionName','AdviserUserID','Capacity','IsActive','CreatedAt','CreatedBy','UpdatedAt','UpdatedBy'],
   Applicant_Enrollments: ['EnrollmentID','ApplicantID','SchoolYearID','GradeLevelID','StrandID','SectionAssignmentID','EnrollmentStatus','EnrollmentDate','AssignedBy','Remarks','CreatedAt','UpdatedAt'],
@@ -33,6 +34,22 @@ const MA_COLLEGE_SCHEMA = Object.freeze({
   College_ProgramFees: ['ProgramFeeID','ProgramID','FeeID','Amount','AcademicYearID','Term'],
   College_Lists: ['ListType','ListCode','ListLabel','SortOrder','IsActive']
 });
+
+const MA_REQUIREMENT_RULES = (() => {
+  const rows=[];
+  const add=(gradeId,codes,required,category) => codes.forEach((code,index) => rows.push([
+    'RR-'+gradeId+'-'+code+(category?'-COND':''),code,gradeId,'All',category||'',required,'','','true',String(index+1)
+  ]));
+  const preschool=['ReqBirth','ReqPhoto','ReqEnvelope','ReqConsent'];
+  ['GL-PRE-NUR','GL-PRE-K1'].forEach(id=>add(id,preschool,true,''));
+  const standard=['ReqSF9','ReqF137','ReqMoral','ReqBirth','ReqPhoto','ReqEnvelope','ReqConsent'];
+  ['GL-PRE-K2',...Array.from({length:6},(_,i)=>'GL-ELEM-'+(i+1))].forEach(id=>add(id,standard,true,''));
+  [...Array.from({length:4},(_,i)=>'GL-JHS-'+(i+7)),'GL-SHS-11','GL-SHS-12'].forEach(id=>{
+    add(id,standard,true,'');
+    add(id,['ReqTransferee'],false,'TLC;ESC;PUB-QVR;QVA PASSER');
+  });
+  return rows;
+})();
 
 const MA_REFERENCE_DATA = Object.freeze({
   Grade_Levels: [
