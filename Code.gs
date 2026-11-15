@@ -16,6 +16,17 @@ const APP = {
   cacheKey: 'apmerge_public_v1'
 };
 
+/**
+ * Identifies the deployed copy in view-source: every public page prints a
+ * <meta name="build"> and an HTML comment. Bump the stamp with any change to
+ * these files, then confirm the deployed page shows the new one — Apps Script
+ * keeps serving an old deployment until you publish a new version.
+ */
+const BUILD = {
+  stamp: '2026-11-15.4',
+  note: 'force-print scriptlets, entity decode, 2048px images'
+};
+
 /* ------------------------------------------------------------------ routing */
 
 function doGet(e) {
@@ -193,7 +204,7 @@ function msg_(e) {
 }
 
 function plain_(html, max) {
-  const text = String(html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const text = decodeEntities_(String(html || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
   return max && text.length > max ? text.slice(0, max - 1).trim() + '…' : text;
 }
 
