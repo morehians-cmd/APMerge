@@ -58,3 +58,25 @@ function getFoundationStatus() {
   const ss=getDatabase_();
   return {application:MA_CONFIG.applicationName,version:MA_CONFIG.version,schemaVersion:PropertiesService.getScriptProperties().getProperty('MA_SCHEMA_VERSION')||'not initialized',spreadsheet:ss.getName(),tabs:Object.keys(MA_SCHEMA).map(name=>({name:name,exists:!!ss.getSheetByName(name)}))};
 }
+
+
+/** Initialize the separate College workbook only after its development ID is configured. */
+function initializeCollegeFoundation() {
+  assertEditorOwner_();
+  return withScriptLock_(() => {
+    const ss = getCollegeDatabase_(), created = [], existing = [];
+    Object.keys(MA_COLLEGE_SCHEMA).forEach(name => {
+      let sh = ss.getSheetByName(name);
+      if (!sh) { sh = ss.insertSheet(name); created.push(name); }
+      else existing.push(name);
+      const expected = MA_COLLEGE_SCHEMA[name];
+      if (sh.getLastRow() === 0 || sh.getLastColumn() === 0) sh.getRange(1,1,1,expected.length).setValues([expected]);
+      else assertTableHeaders_(sh,expected);
+      sh.getRange(1,1,1,expected.length).setFontWeight('bold').setWrap(true);
+      sh.setFrozenRows(1);
+      sh.setTabColor('#FF9D50');
+    });
+    PropertiesService.getScriptProperties().setProperty('MA_COLLEGE_SCHEMA_VERSION',MA_SCHEMA_VERSION);
+    return {success:true,version:MA_SCHEMA_VERSION,spreadsheetId:ss.getId(),spreadsheetName:ss.getName(),createdTabs:created,existingTabs:existing,tabCount:Object.keys(MA_COLLEGE_SCHEMA).length};
+  });
+}
