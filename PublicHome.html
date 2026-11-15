@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<? var site = d.settings, home = d.home; var title = site.orgName + ' | ' + site.motto; var desc = homeDescription_(d); var heroImg = imageUrl_(home.hero.slides[0] && home.hero.slides[0].image, 2000); ?>
+<? var site = d.settings, home = d.home; var title = site.orgName + ' | ' + site.motto; var desc = homeDescription_(d); var heroImg = imageUrl_(home.hero.slides[0] && home.hero.slides[0].image, 2048); ?>
 <title><?= esc_(title) ?></title>
 <meta name="description" content="<?= esc_(desc) ?>">
 <meta property="og:type" content="website">
@@ -45,7 +45,7 @@
 <? if (home.hero.slides.length) { ?>
 <section class="hero" aria-roledescription="carousel" aria-label="Highlights">
   <div class="hero-track" id="heroTrack">
-    <? for (var i = 0; i < home.hero.slides.length; i++) { var s = home.hero.slides[i]; var bg = imageUrl_(s.image, i === 0 ? 2000 : 1600); ?>
+    <? for (var i = 0; i < home.hero.slides.length; i++) { var s = home.hero.slides[i]; var bg = imageUrl_(s.image, 2048); ?>
     <article class="hero-slide<?= bg ? '' : ' plain' ?>"<? if (bg) { ?> style="background-image:url('<?= esc_(bg) ?>')"<? } ?> aria-label="Slide <?= i + 1 ?> of <?= home.hero.slides.length ?>">
       <div class="wrap"><div class="hero-in">
         <? if (s.eyebrow) { ?><p class="hero-eyebrow"><?= esc_(s.eyebrow) ?></p><? } ?>
