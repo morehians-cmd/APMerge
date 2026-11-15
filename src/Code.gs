@@ -104,7 +104,7 @@ function validateFoundationSchema() {
       ? sh.getRange(1,1,1,sh.getLastColumn()).getDisplayValues()[0] : [];
     checks.push({check:'tab:'+name,passed:!!sh && expected.length===actual.length && expected.every((h,i)=>actual[i]===h)});
   });
-  ['Grade_Levels','Strands','Scholarship_Categories','RequirementCatalog'].forEach(name => {
+  ['Grade_Levels','Strands','Scholarship_Categories','RequirementCatalog','Requirement_Rules'].forEach(name => {
     const sh=ss.getSheetByName(name);
     if (!sh) { checks.push({check:'reference:'+name,passed:false}); return; }
     const values=sh.getLastRow()>1 ? sh.getRange(2,1,sh.getLastRow()-1,1).getDisplayValues().flat().filter(Boolean) : [];
