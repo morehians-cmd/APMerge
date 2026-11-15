@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<?!= buildTag_() ?>
 <? var site = d.settings; var fullTitle = page.title + ' | ' + site.orgName; var desc = plain_(page.intro || page.body, 165); var banner = imageUrl_(page.banner, 2048); ?>
-<title><?= esc_(fullTitle) ?></title>
-<meta name="description" content="<?= esc_(desc) ?>">
+<title><?!= esc_(fullTitle) ?></title>
+<meta name="description" content="<?!= esc_(desc) ?>">
 <meta property="og:type" content="article">
-<meta property="og:title" content="<?= esc_(fullTitle) ?>">
-<meta property="og:description" content="<?= esc_(desc) ?>">
-<meta property="og:url" content="<?= esc_(hrefFor_(d.base, page.key)) ?>">
-<? if (site.schools[0] && imageUrl_(site.schools[0].logo, 64)) { ?><link rel="icon" href="<?= esc_(imageUrl_(site.schools[0].logo, 64)) ?>"><? } ?>
+<meta property="og:title" content="<?!= esc_(fullTitle) ?>">
+<meta property="og:description" content="<?!= esc_(desc) ?>">
+<meta property="og:url" content="<?!= esc_(hrefFor_(d.base, page.key)) ?>">
+<? if (site.schools[0] && imageUrl_(site.schools[0].logo, 64)) { ?><link rel="icon" href="<?!= esc_(imageUrl_(site.schools[0].logo, 64)) ?>"><? } ?>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
@@ -28,10 +29,10 @@
 <?!= navHtml_(d) ?>
 
 <main id="main">
-  <header class="page-banner"<? if (banner) { ?> style="background-image:linear-gradient(100deg,rgba(3,30,72,.94),rgba(6,60,140,.72)),url('<?= esc_(banner) ?>')"<? } ?>>
+  <header class="page-banner"<? if (banner) { ?> style="background-image:linear-gradient(100deg,rgba(3,30,72,.94),rgba(6,60,140,.72)),url('<?!= esc_(banner) ?>')"<? } ?>>
     <div class="wrap">
-      <p class="crumbs"><a href="<?= esc_(d.base) ?>">Home</a> › <?= esc_(page.title) ?></p>
-      <h1><?= esc_(page.title) ?></h1>
+      <p class="crumbs"><a href="<?!= esc_(d.base) ?>">Home</a> › <?!= esc_(page.title) ?></p>
+      <h1><?!= esc_(page.title) ?></h1>
     </div>
   </header>
 
@@ -48,9 +49,9 @@
             <ul class="ann-list" style="margin-top:24px">
               <? for (var a = 0; a < d.announcements.length; a++) { var an = d.announcements[a]; ?>
               <li class="ann">
-                <h3><?= esc_(an.title) ?></h3>
-                <time datetime="<?= esc_(an.date) ?>"><?= esc_(an.date) ?></time>
-                <? if (an.summary) { ?><p><?= esc_(an.summary) ?></p><? } ?>
+                <h3><?!= esc_(an.title) ?></h3>
+                <time datetime="<?!= esc_(an.date) ?>"><?!= esc_(an.date) ?></time>
+                <? if (an.summary) { ?><p><?!= esc_(an.summary) ?></p><? } ?>
               </li>
               <? } ?>
             </ul>
@@ -61,28 +62,28 @@
       <aside class="side">
         <? if (page.key === 'contact') { ?><div class="card">
           <h2>Contact details</h2>
-          <p><?= esc_(site.contact.address) ?></p>
-          <? if (site.contact.phone) { ?><p><strong>Phone:</strong> <?= esc_(site.contact.phone) ?></p><? } ?>
-          <? if (site.contact.mobile) { ?><p><strong>Mobile:</strong> <?= esc_(site.contact.mobile) ?></p><? } ?>
-          <? if (site.contact.email) { ?><p><strong>Email:</strong> <a href="mailto:<?= esc_(site.contact.email) ?>"><?= esc_(site.contact.email) ?></a></p><? } ?>
-          <? if (site.contact.hours) { ?><p><strong>Office hours:</strong> <?= esc_(site.contact.hours) ?></p><? } ?>
+          <p><?!= esc_(site.contact.address) ?></p>
+          <? if (site.contact.phone) { ?><p><strong>Phone:</strong> <?!= esc_(site.contact.phone) ?></p><? } ?>
+          <? if (site.contact.mobile) { ?><p><strong>Mobile:</strong> <?!= esc_(site.contact.mobile) ?></p><? } ?>
+          <? if (site.contact.email) { ?><p><strong>Email:</strong> <a href="mailto:<?!= esc_(site.contact.email) ?>"><?!= esc_(site.contact.email) ?></a></p><? } ?>
+          <? if (site.contact.hours) { ?><p><strong>Office hours:</strong> <?!= esc_(site.contact.hours) ?></p><? } ?>
         </div><? } ?>
 
         <div class="card">
           <h2>Explore</h2>
           <ul>
             <? for (var i = 0; i < d.nav.length; i++) { var item = d.nav[i]; if (item.href === hrefFor_(d.base, page.key)) continue; ?>
-            <li><a href="<?= esc_(item.href) ?>"><?= esc_(item.label) ?></a></li>
+            <li><a href="<?!= esc_(item.href) ?>"><?!= esc_(item.label) ?></a></li>
             <? } ?>
           </ul>
         </div>
 
         <? if (page.key !== 'contact') { ?><div class="card">
           <h2>Talk to us</h2>
-          <? if (site.contact.email) { ?><p><a href="mailto:<?= esc_(site.contact.email) ?>"><?= esc_(site.contact.email) ?></a></p><? } ?>
-          <? if (site.contact.phone) { ?><p><?= esc_(site.contact.phone) ?></p><? } ?>
-          <? if (site.contact.hours) { ?><p><?= esc_(site.contact.hours) ?></p><? } ?>
-          <p><a href="<?= esc_(hrefFor_(d.base, 'contact')) ?>">All contact details →</a></p>
+          <? if (site.contact.email) { ?><p><a href="mailto:<?!= esc_(site.contact.email) ?>"><?!= esc_(site.contact.email) ?></a></p><? } ?>
+          <? if (site.contact.phone) { ?><p><?!= esc_(site.contact.phone) ?></p><? } ?>
+          <? if (site.contact.hours) { ?><p><?!= esc_(site.contact.hours) ?></p><? } ?>
+          <p><a href="<?!= esc_(hrefFor_(d.base, 'contact')) ?>">All contact details →</a></p>
         </div><? } ?>
       </aside>
     </div>
