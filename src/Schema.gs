@@ -16,7 +16,7 @@ const MA_SCHEMA = Object.freeze({
   Academic_Years: ['SchoolYearID','SchoolYearName','StartDate','EndDate','IsCurrent','IsAdmissionOpen','IsActive','CreatedAt','UpdatedAt'],
   Grade_Levels: ['GradeLevelID','GradeLevelName','Department','GradeOrder','IsActive'],
   Strands: ['StrandID','StrandCode','StrandName','IsActive'],
-  Scholarship_Categories: ['ScholarshipCategoryID','CategoryCode','CategoryName','Description','IsActive']
+  Scholarship_Categories: ['ScholarshipCategoryID','CategoryCode','CategoryName','Description','IsActive'],
   Settings: ['SettingKey','SettingValue','Description','UpdatedAt','UpdatedBy'],
   Permission_Catalog: ['PermissionKey','PermissionName','Description','Module','IsActive'],
   Role_Permissions: ['RolePermissionID','Role','PermissionKey','IsAllowed','UpdatedAt','UpdatedBy'],
