@@ -40,7 +40,8 @@ const exposed = [
   'cleanSettings_', 'cleanHomepage_', 'cleanPages_', 'buildPublicData_',
   'publishedAnnouncements_', 'searchSite_',
   'DEFAULT_SETTINGS', 'DEFAULT_HOME', 'DEFAULT_PAGES', 'DEFAULT_ANNOUNCEMENTS',
-  'esc_', 'plain_', 'hrefFor_', 'imageUrl_', 'homeDescription_', 'navHtml_', 'footerHtml_'
+  'esc_', 'plain_', 'hrefFor_', 'imageUrl_', 'homeDescription_', 'navHtml_', 'footerHtml_',
+  'buildTag_'
 ];
 
 /* Publish the helpers as sandbox globals so compiled templates can call them. */
@@ -63,14 +64,22 @@ function include(name) {
 function render(file, variables) {
   const source = fs.readFileSync(path.join(ROOT, file + '.html'), 'utf8');
   const pattern = /<\?(!?=)?([\s\S]*?)\?>/g;
-  let code = 'var __out = [];\n';
+  // Apps Script's <?= ?> printing scriptlet escapes its value contextually and
+  // <?!= ?> force-prints it raw; mirror both here so the preview cannot hide a
+  // double-escaping bug that would only appear once deployed.
+  let code = 'var __out = [];\n' +
+    'var __esc = function (v) {\n' +
+    '  return String(v == null ? \'\' : v)\n' +
+    '    .replace(/&/g, \'&amp;\').replace(/</g, \'&lt;\').replace(/>/g, \'&gt;\')\n' +
+    '    .replace(/"/g, \'&quot;\').replace(/\'/g, \'&#39;\');\n' +
+    '};\n';
   let cursor = 0;
   let match;
 
   while ((match = pattern.exec(source))) {
     const text = source.slice(cursor, match.index);
     if (text) code += '__out.push(' + JSON.stringify(text) + ');\n';
-    if (match[1] === '=') code += '__out.push((' + match[2] + '));\n';
+    if (match[1] === '=') code += '__out.push(__esc(' + match[2] + '));\n';
     else if (match[1] === '!=') code += '__out.push((' + match[2] + ') || "");\n';
     else code += match[2] + '\n';
     cursor = match.index + match[0].length;
