@@ -21,7 +21,8 @@ Apps Script source is under `src/`; configure clasp `rootDir` as `src` in the lo
 6. If using the College scope in this phase, create a SECOND blank development spreadsheet, set Script Property `MA_COLLEGE_DB_SPREADSHEET_ID`, then run `initializeCollegeFoundation`. This does not touch the legacy College workbook.
 7. Run `initializeDriveFoundation` from the editor and authorize Drive access.
 8. Run `getFoundationStatus` and verify the tabs and schema version.
-9. Run `runPhase1UnitChecks` and confirm all pure checks pass.\n10. Run `validateFoundationSchema` and save its JSON result as the Phase 1 schema acceptance evidence.
+9. Run `runPhase1UnitChecks` and confirm all pure checks pass.
+10. Run `validateFoundationSchema` and save its JSON result as the Phase 1 schema acceptance evidence.
 
 ## Safety properties
 - Schema initialization is additive and idempotent.
