@@ -1,0 +1,8 @@
+<script>
+const button=document.getElementById('check'), output=document.getElementById('result');
+button.addEventListener('click',()=>{button.disabled=true;button.textContent='Checking…';output.textContent='Loading database status…';
+  google.script.run.withSuccessHandler(data=>{output.textContent=JSON.stringify(data,null,2);button.disabled=false;button.textContent='Check foundation status';})
+    .withFailureHandler(error=>{output.textContent='Unable to check status: '+(error&&error.message?error.message:String(error));button.disabled=false;button.textContent='Try again';})
+    .getFoundationStatus();
+});
+</script>
