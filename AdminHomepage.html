@@ -1,0 +1,147 @@
+<section class="tab" id="tab-homepage" hidden>
+  <div class="tabhead">
+    <div>
+      <h2>Homepage</h2>
+      <p>The banner slides, values strip, About block, updates panel and closing call to action. Nothing changes on the live site until you save.</p>
+    </div>
+    <div class="tabactions">
+      <button type="button" class="btn" data-preview="">Preview homepage</button>
+      <button type="button" class="btn primary" data-save="homepage">Save homepage</button>
+    </div>
+  </div>
+  <div id="homepageForm"></div>
+</section>
+
+<script>
+(function () {
+  function blankSlide() {
+    return { image: '', eyebrow: '', title: 'New slide', accent: '', subtitle: '', text: '',
+      primaryLabel: '', primaryPage: '', secondaryLabel: '', secondaryPage: '' };
+  }
+
+  function slideBlock(slide, index) {
+    var p = 'hero.slides.' + index;
+    return '<div class="rep">' +
+      '<div class="rephead"><strong>Slide ' + (index + 1) + '</strong><div class="tools">' +
+        '<button type="button" class="btn small" data-act="slide-up" data-i="' + index + '" aria-label="Move slide up">↑</button>' +
+        '<button type="button" class="btn small" data-act="slide-down" data-i="' + index + '" aria-label="Move slide down">↓</button>' +
+        '<button type="button" class="btn small danger" data-act="slide-del" data-i="' + index + '">Remove</button>' +
+      '</div></div>' +
+      imageField('Background image', p + '.image', slide.image) +
+      '<div class="row3">' +
+        field('Small line above the heading', p + '.eyebrow', slide.eyebrow) +
+        field('Heading', p + '.title', slide.title) +
+      '</div>' +
+      '<div class="row3">' +
+        field('Highlighted words', p + '.accent', slide.accent) +
+        field('Subtitle', p + '.subtitle', slide.subtitle) +
+      '</div>' +
+      area('Description', p + '.text', slide.text, 3) +
+      '<div class="row3">' +
+        field('First button label', p + '.primaryLabel', slide.primaryLabel) +
+        pageSelect('First button links to', p + '.primaryPage', slide.primaryPage) +
+      '</div>' +
+      '<div class="row3">' +
+        field('Second button label', p + '.secondaryLabel', slide.secondaryLabel) +
+        pageSelect('Second button links to', p + '.secondaryPage', slide.secondaryPage) +
+      '</div>' +
+    '</div>';
+  }
+
+  window.renderHomepage = function () {
+    var h = DB.homepage;
+    var html = '';
+
+    html += card('Announcement bar',
+      check('Show this bar above the menu', 'notice.on', h.notice.on) +
+      field('Bar text', 'notice.text', h.notice.text) +
+      pageSelect('"Learn more" link', 'notice.page', h.notice.page),
+      'Use it for time-sensitive news such as "Admissions inquiries are open".');
+
+    html += card('Banner slides',
+      (h.hero.slides || []).map(slideBlock).join('') +
+      '<button type="button" class="btn small" data-act="slide-add">Add slide</button>',
+      'Up to five slides. Keep headings short — most visitors only see the first one.');
+
+    html += card('Values strip',
+      '<div class="grid3">' + (h.values || []).map(function (value, i) {
+        return '<div class="rep" style="margin:0">' +
+          field('Symbol', 'values.' + i + '.icon', value.icon) +
+          field('Label', 'values.' + i + '.label', value.label) +
+          '<button type="button" class="btn small danger" data-act="value-del" data-i="' + i + '">Remove</button>' +
+        '</div>';
+      }).join('') + '</div>' +
+      '<div style="margin-top:12px"><button type="button" class="btn small" data-act="value-add">Add value</button></div>',
+      'An emoji or single character (✝ 🏅 🛡 🤝 💡). Five fit neatly across the strip.');
+
+    html += card('About block',
+      imageField('Photo', 'about.image', h.about.image) +
+      field('Small line above the heading', 'about.eyebrow', h.about.eyebrow) +
+      field('Heading', 'about.title', h.about.title) +
+      area('Paragraph', 'about.text', h.about.text, 4) +
+      '<div class="row3">' +
+        field('Link label', 'about.ctaLabel', h.about.ctaLabel) +
+        pageSelect('Link goes to', 'about.ctaPage', h.about.ctaPage) +
+      '</div>');
+
+    html += card('Latest updates panel',
+      field('Panel heading', 'updates.title', h.updates.title) +
+      '<div class="row3">' +
+        field('Link label', 'updates.ctaLabel', h.updates.ctaLabel) +
+        pageSelect('Link goes to', 'updates.ctaPage', h.updates.ctaPage) +
+      '</div>',
+      'The three items themselves come from the Announcements tab.');
+
+    html += card('Closing call to action',
+      check('Show this section', 'band.on', h.band.on) +
+      field('Heading', 'band.title', h.band.title) +
+      area('Paragraph', 'band.text', h.band.text, 2) +
+      '<div class="row3">' +
+        field('Button label', 'band.label', h.band.label) +
+        pageSelect('Button links to', 'band.page', h.band.page) +
+      '</div>');
+
+    $('#homepageForm').innerHTML = html;
+  };
+
+  function sync() {
+    DB.homepage = collect($('#homepageForm'), DB.homepage);
+    return DB.homepage;
+  }
+
+  COLLECT.homepage = function () { return collect($('#homepageForm'), DB.homepage); };
+
+  document.addEventListener('click', function (e) {
+    if ($('#tab-homepage').hidden) return;
+    var button = e.target.closest ? e.target.closest('[data-act]') : null;
+    if (!button) return;
+
+    var act = button.dataset.act;
+    var index = Number(button.dataset.i);
+    var h = sync();
+
+    if (act === 'slide-add') {
+      if (h.hero.slides.length >= 5) return toast('Five slides is the maximum.', 'err');
+      h.hero.slides.push(blankSlide());
+    } else if (act === 'slide-del') {
+      if (h.hero.slides.length < 2) return toast('Keep at least one slide.', 'err');
+      h.hero.slides.splice(index, 1);
+    } else if (act === 'slide-up' && index > 0) {
+      h.hero.slides.splice(index - 1, 0, h.hero.slides.splice(index, 1)[0]);
+    } else if (act === 'slide-down' && index < h.hero.slides.length - 1) {
+      h.hero.slides.splice(index + 1, 0, h.hero.slides.splice(index, 1)[0]);
+    } else if (act === 'value-add') {
+      if (h.values.length >= 5) return toast('Five values is the maximum.', 'err');
+      h.values.push({ icon: '★', label: 'New value' });
+    } else if (act === 'value-del') {
+      if (h.values.length < 2) return toast('Keep at least one value.', 'err');
+      h.values.splice(index, 1);
+    } else {
+      return;
+    }
+
+    DIRTY = true;
+    renderHomepage();
+  });
+})();
+</script>

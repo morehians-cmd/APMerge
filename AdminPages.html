@@ -1,0 +1,110 @@
+<section class="tab" id="tab-pages" hidden>
+  <div class="tabhead">
+    <div>
+      <h2>Pages</h2>
+      <p>Text and banners for the interior pages. Which pages appear in the menu is set on the Settings tab.</p>
+    </div>
+    <div class="tabactions">
+      <button type="button" class="btn" data-act="page-add">Add page</button>
+      <button type="button" class="btn primary" data-save="pages">Save pages</button>
+    </div>
+  </div>
+  <div class="pagegrid">
+    <div class="pagelist" id="pageList" aria-label="Pages"></div>
+    <div id="pageEditor"></div>
+  </div>
+</section>
+
+<script>
+(function () {
+  function sync() {
+    DB.pages = collect($('#pageEditor'), DB.pages);
+    return DB.pages;
+  }
+
+  window.renderPages = function () {
+    if (!DB.pages.length) DB.pages = [{ key: 'about', title: 'About Us', banner: '', intro: '', body: '' }];
+    if (PAGE_INDEX >= DB.pages.length) PAGE_INDEX = 0;
+
+    $('#pageList').innerHTML = DB.pages.map(function (page, i) {
+      return '<button type="button" data-page="' + i + '"' + (i === PAGE_INDEX ? ' class="on"' : '') + '>' +
+        esc(page.title || page.key) + '</button>';
+    }).join('');
+
+    var page = DB.pages[PAGE_INDEX];
+    var p = PAGE_INDEX + '.';
+
+    $('#pageEditor').innerHTML = '<div class="card"><div class="cardhead">' +
+      '<h3>' + esc(page.title || 'Page') + '</h3>' +
+      '<p>Appears at ?page=' + esc(page.key) + '</p></div><div class="cardbody">' +
+      '<div class="row3">' +
+        field('Page title', p + 'title', page.title) +
+        field('Web address key', p + 'key', page.key, 'letters, numbers and dashes') +
+      '</div>' +
+      '<p class="note">Changing the key breaks any menu link, button or announcement that points at the old address. Update those afterwards.</p>' +
+      imageField('Banner image', p + 'banner', page.banner) +
+      area('Introduction', p + 'intro', page.intro, 4, 'Basic HTML allowed: <p>, <strong>, <ul>, <a href="…">') +
+      area('Main text', p + 'body', page.body, 16, 'Basic HTML allowed. Scripts, styles and embedded frames are stripped when saved.') +
+      '<div class="btnrow" style="margin-top:12px">' +
+        '<button type="button" class="btn small" data-preview="' + esc(page.key) + '">Preview this page</button>' +
+        '<button type="button" class="btn small danger" data-act="page-del">Delete this page</button>' +
+      '</div>' +
+    '</div></div>';
+  };
+
+  COLLECT.pages = function () { return collect($('#pageEditor'), DB.pages); };
+
+  document.addEventListener('click', function (e) {
+    if ($('#tab-pages').hidden) return;
+    var target = e.target.closest ? e.target : null;
+
+    var listItem = target && e.target.closest('[data-page]');
+    if (listItem) {
+      sync();
+      PAGE_INDEX = Number(listItem.dataset.page);
+      renderPages();
+      return;
+    }
+
+    var button = target && e.target.closest('[data-act]');
+    if (!button) return;
+
+    if (button.dataset.act === 'page-add') {
+      var pages = sync();
+      var base = 'new-page';
+      var key = base, n = 1;
+      while (pages.some(function (p) { return p.key === key; })) { n++; key = base + '-' + n; }
+      pages.push({ key: key, title: 'New page', banner: '', intro: '', body: '' });
+      PAGE_INDEX = pages.length - 1;
+      DIRTY = true;
+      renderPages();
+      var keyField = $('[data-path="' + PAGE_INDEX + '.key"]');
+      if (keyField) keyField.focus();
+    }
+
+    if (button.dataset.act === 'page-del') {
+      var list = sync();
+      if (list.length < 2) return toast('The site needs at least one page.', 'err');
+      var gone = list[PAGE_INDEX].title;
+      if (!window.confirm('Delete "' + gone + '"? This removes it from the site once you save.')) return;
+      list.splice(PAGE_INDEX, 1);
+      PAGE_INDEX = Math.max(0, PAGE_INDEX - 1);
+      DIRTY = true;
+      renderPages();
+      toast('Removed. Save to apply it to the live site.', 'ok');
+    }
+  });
+
+  document.addEventListener('input', function (e) {
+    if ($('#tab-pages').hidden) return;
+    var field = e.target.closest ? e.target.closest('[data-path]') : null;
+    if (!field) return;
+    if (/\.title$/.test(field.dataset.path)) {
+      var list = $('#pageList');
+      var active = list.querySelector('button.on');
+      if (active) active.textContent = field.value || 'Untitled page';
+    }
+  });
+
+})();
+</script>
