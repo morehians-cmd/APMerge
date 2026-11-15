@@ -4,6 +4,17 @@
  * returns files unevaluated, so scriptlets cannot live in a partial.
  */
 
+/**
+ * Printed into every public page so a deployed copy can be identified from
+ * view-source. Apps Script's printing scriptlet <?= ?> escapes its value (so an
+ * already-escaped value would arrive as &amp;amp;), which is why every template
+ * prints through <?!= ?> instead.
+ */
+function buildTag_() {
+  const label = BUILD.stamp + ' · ' + BUILD.note;
+  return '<!-- build: ' + label + ' -->\n<meta name="build" content="' + esc_(label) + '">';
+}
+
 function navHtml_(d) {
   const base = d.base;
   let html = '<header class="mast"><div class="wrap mastin">' +

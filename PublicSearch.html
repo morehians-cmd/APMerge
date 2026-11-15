@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<?!= buildTag_() ?>
 <? var site = d.settings; var heading = q ? 'Results for “' + q + '”' : 'Search the site'; ?>
-<title><?= esc_(heading + ' | ' + site.orgName) ?></title>
+<title><?!= esc_(heading + ' | ' + site.orgName) ?></title>
 <meta name="robots" content="noindex">
-<? if (site.schools[0] && imageUrl_(site.schools[0].logo, 64)) { ?><link rel="icon" href="<?= esc_(imageUrl_(site.schools[0].logo, 64)) ?>"><? } ?>
+<? if (site.schools[0] && imageUrl_(site.schools[0].logo, 64)) { ?><link rel="icon" href="<?!= esc_(imageUrl_(site.schools[0].logo, 64)) ?>"><? } ?>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
@@ -18,30 +19,30 @@
 
 <main id="main">
   <header class="page-banner"><div class="wrap">
-    <p class="crumbs"><a href="<?= esc_(d.base) ?>">Home</a> › Search</p>
-    <h1><?= esc_(heading) ?></h1>
+    <p class="crumbs"><a href="<?!= esc_(d.base) ?>">Home</a> › Search</p>
+    <h1><?!= esc_(heading) ?></h1>
   </div></header>
 
   <div class="wrap page-body">
     <div class="page-grid">
       <article class="prose">
-        <form class="search" action="<?= esc_(d.base) ?>" method="get" role="search" style="max-width:460px;margin-bottom:24px">
+        <form class="search" action="<?!= esc_(d.base) ?>" method="get" role="search" style="max-width:460px;margin-bottom:24px">
           <input type="hidden" name="page" value="search">
-          <input type="search" name="q" value="<?= esc_(q) ?>" placeholder="Search the site" aria-label="Search the site" style="flex:1;width:auto;border:0;padding:11px 14px">
+          <input type="search" name="q" value="<?!= esc_(q) ?>" placeholder="Search the site" aria-label="Search the site" style="flex:1;width:auto;border:0;padding:11px 14px">
           <button type="submit">Search</button>
         </form>
 
         <? if (!q) { ?>
           <p class="empty">Type a word above to search pages and announcements.</p>
         <? } else if (!results.length) { ?>
-          <p class="empty">Nothing matched “<?= esc_(q) ?>”. Try a shorter word, or <a href="<?= esc_(hrefFor_(d.base, 'contact')) ?>">contact the office</a>.</p>
+          <p class="empty">Nothing matched “<?!= esc_(q) ?>”. Try a shorter word, or <a href="<?!= esc_(hrefFor_(d.base, 'contact')) ?>">contact the office</a>.</p>
         <? } else { ?>
-          <p style="color:#55677f;margin-top:0"><?= results.length ?> result<?= results.length === 1 ? '' : 's' ?></p>
+          <p style="color:#55677f;margin-top:0"><?!= results.length ?> result<?!= results.length === 1 ? '' : 's' ?></p>
           <ul class="results">
             <? for (var i = 0; i < results.length; i++) { var r = results[i]; ?>
             <li>
-              <a href="<?= esc_(r.href) ?>"><?= esc_(r.title) ?></a>
-              <? if (r.text) { ?><p><?= esc_(r.text) ?></p><? } ?>
+              <a href="<?!= esc_(r.href) ?>"><?!= esc_(r.title) ?></a>
+              <? if (r.text) { ?><p><?!= esc_(r.text) ?></p><? } ?>
             </li>
             <? } ?>
           </ul>
@@ -53,7 +54,7 @@
           <h2>Explore</h2>
           <ul>
             <? for (var i = 0; i < d.nav.length; i++) { ?>
-            <li><a href="<?= esc_(d.nav[i].href) ?>"><?= esc_(d.nav[i].label) ?></a></li>
+            <li><a href="<?!= esc_(d.nav[i].href) ?>"><?!= esc_(d.nav[i].label) ?></a></li>
             <? } ?>
           </ul>
         </div>
