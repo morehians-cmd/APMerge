@@ -16,11 +16,15 @@ const MA_SCHEMA = Object.freeze({
   Academic_Years: ['SchoolYearID','SchoolYearName','StartDate','EndDate','IsCurrent','IsAdmissionOpen','IsActive','CreatedAt','UpdatedAt'],
   Grade_Levels: ['GradeLevelID','GradeLevelName','Department','GradeOrder','IsActive'],
   Strands: ['StrandID','StrandCode','StrandName','IsActive'],
-  Scholarship_Categories: ['ScholarshipCategoryID','CategoryCode','CategoryName','Description','IsActive'],
+  Scholarship_Categories: ['ScholarshipCategoryID','CategoryCode','CategoryName','Description','IsActive']
   Settings: ['SettingKey','SettingValue','Description','UpdatedAt','UpdatedBy'],
   Permission_Catalog: ['PermissionKey','PermissionName','Description','Module','IsActive'],
   Role_Permissions: ['RolePermissionID','Role','PermissionKey','IsAllowed','UpdatedAt','UpdatedBy'],
   User_Permission_Overrides: ['OverrideID','UserID','PermissionKey','Decision','Reason','GrantedBy','CreatedAt','UpdatedAt'],
+});
+
+/** Separate workbook schema: never mix College rows into the K–12 admission database. */
+const MA_COLLEGE_SCHEMA = Object.freeze({
   College_Programs: ['ProgramID','ProgramCode','ProgramName','Department','NominalYears','IsActive','CreatedAt','UpdatedAt'],
   College_Students: ['CollegeStudentID','StudentNumber','RegistrationNumber','Surname','FirstName','MiddleName','FullName','BirthDate','LegalSex','ContactNumber','Email','Address','PhotoFileID','ProgramID','Major','CreatedAt','UpdatedAt'],
   College_Enrollments: ['CollegeEnrollmentID','CollegeStudentID','AcademicYearID','Term','YearLevel','Section','Room','FacultyUserID','EnrollmentStatus','RegisteredAt','CreatedAt','UpdatedAt'],
