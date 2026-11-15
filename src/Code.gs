@@ -38,6 +38,17 @@ function initializeFoundation() {
 
 function seedReferenceData_(ss) {
   const definitions = {
+    RequirementCatalog:{headers:['RequirementCode','RequirementName','Description','Department','GradeLevelID','IsMandatory','ApplicableApplicantType','ApplicableScholarship','DisplayOrder','IsActive'],rows:[
+      ['ReqSF9','SF9 / Report Card','Official report card / SF9','All','','false','All','','1','true'],
+      ['ReqF137','Form 137 / SF10','Permanent academic record','All','','false','All','','2','true'],
+      ['ReqBirth','Birth Certificate','PSA / NSO / accepted birth record','All','','true','All','','3','true'],
+      ['ReqMoral','Good Moral Certificate','Certificate of good moral character','All','','false','All','','4','true'],
+      ['ReqJHS','JHS Completion Certificate','Junior High School completion certificate','Senior High School','','false','New','','5','true'],
+      ['ReqPhoto','2x2 ID Photo','Three 2x2 photos with white background and nametag','All','','true','All','','6','true'],
+      ['ReqTransferee','Transferee Certification','Applicable transfer / voucher certification','JHS / SHS','','false','Transferee','TLC;ESC;PUB-QVR;QVA PASSER','7','true'],
+      ['ReqConsent','Parental Consent & Data Privacy Undertaking','Original signed parent / guardian undertaking','All','','true','All','','8','true'],
+      ['ReqEnvelope','Long Brown Expandable Envelope','Clean expandable brown envelope','All','','true','All','','9','true']
+    ]},
     Grade_Levels:{headers:['GradeLevelID','GradeLevelName','Department','GradeOrder','IsActive'],rows:MA_REFERENCE_DATA.Grade_Levels},
     Strands:{headers:['StrandID','StrandCode','StrandName','IsActive'],rows:MA_REFERENCE_DATA.Strands},
     Scholarship_Categories:{headers:['ScholarshipCategoryID','CategoryCode','CategoryName','Description','IsActive'],rows:MA_REFERENCE_DATA.Scholarship_Categories}
