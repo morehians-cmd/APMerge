@@ -1,0 +1,22 @@
+<script>
+const output = document.getElementById('result');
+const buttons = [...document.querySelectorAll('button')];
+
+function runServer(functionName) {
+  buttons.forEach(button => button.disabled = true);
+  output.textContent = 'Working…';
+  const runner = google.script.run
+    .withSuccessHandler(result => {
+      output.textContent = JSON.stringify(result, null, 2);
+      buttons.forEach(button => button.disabled = false);
+    })
+    .withFailureHandler(error => {
+      output.textContent = 'Operation failed: ' + (error && error.message ? error.message : String(error));
+      buttons.forEach(button => button.disabled = false);
+    });
+  runner[functionName]();
+}
+
+document.getElementById('check').addEventListener('click', () => runServer('checkDatabaseConnection'));
+document.getElementById('initialize').addEventListener('click', () => runServer('initializeFoundation'));
+</script>
