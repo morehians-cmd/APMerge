@@ -21,7 +21,7 @@ Apps Script source is under `src/`; configure clasp `rootDir` as `src` in the lo
 6. If using the College scope in this phase, create a SECOND blank development spreadsheet, set Script Property `MA_COLLEGE_DB_SPREADSHEET_ID`, then run `initializeCollegeFoundation`. This does not touch the legacy College workbook.
 7. Run `initializeDriveFoundation` from the editor and authorize Drive access.
 8. Run `getFoundationStatus` and verify the tabs and schema version.
-9. Run `validateFoundationSchema` and save its JSON result as the Phase 1 schema acceptance evidence.
+9. Run `runPhase1UnitChecks` and confirm all pure checks pass.\n10. Run `validateFoundationSchema` and save its JSON result as the Phase 1 schema acceptance evidence.
 
 ## Safety properties
 - Schema initialization is additive and idempotent.
@@ -35,7 +35,7 @@ Apps Script source is under `src/`; configure clasp `rootDir` as `src` in the lo
 - [ ] Initialization creates every declared tab.
 - [ ] A second initialization creates no duplicate tabs or duplicate reference rows.
 - [ ] Header mismatch stops initialization without overwriting the tab.
-- [ ] Formula-like text is neutralized by the database write helper.
+- [ ] Formula-like text is neutralized by the database write helper and pure unit checks pass.
 - [ ] Drive root and six top-level folders are created once.
 - [ ] No public deployment or production data mutation occurs.
 - [ ] College database remains untouched until its separate migration review.
