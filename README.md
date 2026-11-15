@@ -1,48 +1,88 @@
-# Moreh Academy — Portal & Website
+# Moreh — Website & Admission Portal
 
-One Google Apps Script project serving two things from a single web app URL:
+A fresh Google Apps Script project, bound to the school's spreadsheet. This first
+stage is the **public website plus the website manager**. Enrollment, student
+records, reports and fees are not part of this stage yet.
 
-- **The admission portal** (`?page=portal`) — staff dashboard, student records, registration, reports, fees, scholarships, ID cards, College roster and the activity log.
-- **The public school website** — the homepage (no parameters), 31 interior pages (`?page=about`, `?page=admissions`, …) and the account-creation page (`?page=create-account`).
+- Public homepage — the web app URL with no parameters
+- Interior pages — `?page=about`, `?page=admissions`, `?page=academics`, …
+- Site search — `?page=search&q=…`
+- Website manager — `?page=admin` (password protected)
 
-All data lives in the Google Spreadsheet the script is attached to. Website wording and photos are edited from **System Administration → Homepage Hero / Homepage Sections / Page Banners / Website Pages** inside the portal, so no code changes are needed for content. `staff-guide.md` explains those screens for non-technical staff.
+Everything the website shows is edited from the manager; no code changes are
+needed for content.
 
 ## Files
 
 | File | What it is |
 |---|---|
-| `appsscript.json` | Project manifest (Asia/Manila, V8, web app runs as the deploying user, public access). |
-| `Code.gs` | Core: schema, search, dashboard, reports, `doGet` routing, site constants. |
-| `Security.gs`, `Protection.gs`, `Hardening.gs`, `SignInGuard.gs`, `MailSwitch.gs`, `MailQueue.gs`, `StaffControl.gs` | Sign-in, sessions, hashing, audit, backups, mail, staff control. |
-| `Academic.gs`, `CollegeModule.gs`, `Report.gs`, `ReEnroll.gs`, `Retention.gs`, `IdCard.gs`, `Cor.gs`, `Speed.gs`, `Housekeeping.gs`, `Contact.gs`, `Flags.gs`, `DashboardSpec.gs`, `DashboardAudit.gs` | Feature modules (academics, College roster, reports, ID cards, scheduled jobs). |
-| `Public.gs`, `Gallery.gs`, `Content.gs` | Public site data: homepage content, page banners and intros, page text, photo galleries, uploads. |
-| `Index.html` | Dashboard shell. |
-| `College.html`, `ActivityLog.html`, `HomepageHero.html`, `HomepageSections.html`, `PageBanners.html`, `WebsitePages.html` | Dashboard screens, pulled in by `include()` at the end of `Index.html`. |
-| `PublicHome.html`, `PublicPage.html` | The public homepage and interior-page templates. |
-| `Script.html` | Legacy client bundle kept for reference — not loaded by any page. |
+| `appsscript.json` | Manifest — Asia/Manila, V8, web app runs as the deploying user, access Anyone. |
+| `Code.gs` | `doGet` routing, `setup()`, sheet/JSON helpers, image and search helpers. |
+| `Site.gs` | Starter content, reading/sanitising/saving settings, homepage, pages and announcements. |
+| `Auth.gs` | Administrator password (salted SHA-256), sessions, `require_()`. |
+| `Api.gs` | Functions the manager calls with `google.script.run` (load, save, image upload). |
+| `Render.gs` | Shared header/navigation/footer markup for the public templates. |
+| `PublicCss.html` | The one stylesheet shared by every public page. |
+| `PublicHome.html` | The homepage. |
+| `PublicPage.html` | Interior page template. |
+| `PublicSearch.html` | Search results. |
+| `Index.html` | Website manager shell: sign-in, tabs, shared form helpers, uploads. |
+| `AdminHomepage.html`, `AdminPages.html`, `AdminAnnouncements.html`, `AdminSettings.html` | The four manager screens. |
+| `tools/preview.js` | Local preview of the public site (development only, not part of the deployment). |
 
 ## Deploying
 
-The script must be **bound to the school's spreadsheet**: the code reads and writes that file directly, so a standalone project will not work.
+The script must be **bound to the spreadsheet** — `SpreadsheetApp.getActive()` is
+how it reads and writes content, so a standalone project will not work.
 
 1. Open the spreadsheet → **Extensions → Apps Script**.
-2. Recreate the files in the editor, keeping every file name exactly as above (the HTML screens are loaded by name). Turn on **Project Settings → Show "appsscript.json"** and paste the manifest. If you prefer the command line, `clasp clone` / `clasp push` works instead of copy-pasting.
-3. Check the constants at the top of `Code.gs`:
-   - `SALT` — the password salt. **Keep the value a live deployment is already using**, or every password stops working.
-   - `PHOTO_FOLDER_ID` — the Drive folder that stores uploaded photos. Share it as *Anyone with the link* so public pages can display them.
-   - `SCHOOL`, `HEAD_NAME`, `HEAD_TITLE`, `FEE`, `LETTERHEAD_URL` — printed on slips and forms.
-4. Run the function **`setup()`** once and allow the permissions prompt. It creates the sheets, the security pepper and the first administrator; the username and one-time password appear in the execution log. **Back up the `PEPPER` script property**, and change the password at first sign-in.
-5. **Deploy → New deployment → Web app.** Execute as **Me**, who has access **Anyone**, then Deploy and copy the `/exec` URL.
-   - `/exec` → homepage
-   - `/exec?page=portal` → staff dashboard (sign-in required)
-   - `/exec?page=about` (and the other page keys in `doGet`) → interior pages
-6. Optional: run `installBackupTrigger()`, `installMailQueueTrigger()` and `installRetentionTrigger()` once each to enable scheduled backups, mail and data retention.
+2. Create the files above with exactly these names (HTML screens are loaded by
+   name by `include()`), or use `clasp clone` / `clasp push`.
+3. Project Settings → tick **Show "appsscript.json"** and paste the manifest.
+4. Run **`setup()`** once and accept the permissions prompt. It creates the
+   `Content`, `Announcements` and `Log` sheets, writes the starter content, and
+   prints a one-time administrator password in the execution log. Save it.
+   Lost it later? Run `resetAdminPassword()`.
+5. **Deploy → New deployment → Web app** — execute as **Me**, access **Anyone**.
+6. Open the `/exec` URL: homepage at `/exec`, manager at `/exec?page=admin`.
 
-**After any later change**, use **Deploy → Manage deployments → edit → Version: New version**. Editing the code alone does not update the live site.
+After any later edit use **Deploy → Manage deployments → edit → New version**.
+Editing the code alone does not update the live site.
+
+## Editing the site
+
+| Tab | What it controls |
+|---|---|
+| **Homepage** | Announcement bar, up to 5 banner slides, values strip, About block, updates panel heading, closing call to action. |
+| **Pages** | Title, web-address key, banner, introduction and main text for every interior page. |
+| **Announcements** | Rows in the `Announcements` sheet — date, title, summary, link, pin, live. The three newest live items appear on the homepage; pinned items come first. |
+| **Settings** | School names and logos, motto, contact details, social links, footer text and the main menu (with sub-links). |
+
+Photos can be pasted as a Google Drive share link, a Drive file ID, or any image
+URL, or uploaded from the manager. Uploads are resized in the browser, stored in
+a Drive folder called **Moreh Website Media**, and shared as anyone-with-the-link
+so the public pages can show them.
+
+Page text and introductions allow basic HTML (`<p>`, `<strong>`, `<ul>`,
+`<a href="…">`). Scripts, styles, embedded frames and `on…` attributes are
+stripped on save.
+
+## Local preview
+
+```
+node tools/preview.js      # http://localhost:8080
+```
+
+Renders the real public templates with the starter content from `Site.gs` — no
+Apps Script and no deployment needed. It does not read the spreadsheet and does
+not preview the manager screens.
 
 ## Notes
 
-- The College module is `CollegeModule.gs`, not `College.gs`: Apps Script will not hold two project files with the same name, and the dashboard screen is already `College.html`. The file's functions and API are unchanged.
-- New spreadsheet columns must be added at the **end** of `FIELDS` in `Code.gs` — the order matters for existing rows.
-- Photo uploads are resized in the browser before being stored, so staff never need to resize images themselves.
-- Keep secrets (`SALT`, `PEPPER`, the photo folder ID) out of screenshots, chats and public copies of this repository.
+- Sign-in is one administrator password stored as a salted SHA-256 hash in Script
+  Properties. Keep it out of screenshots, chat and public copies of this repo.
+- Sessions last 6 hours; eight wrong passwords lock sign-in for 15 minutes.
+- Public pages are cached for 5 minutes (`APP.cacheSeconds`); saving in the
+  manager clears the cache immediately.
+- New fields added to `cleanSettings_` / `cleanHomepage_` fall back to the
+  defaults, so old saved content keeps working.
