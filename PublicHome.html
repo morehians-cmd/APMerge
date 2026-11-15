@@ -84,8 +84,8 @@
 
 <section class="wrap split">
   <div class="about">
-    <? var aboutImg = imageUrl_(home.about.image, 1200); if (aboutImg) { ?>
-    <div class="about-photo"><img src="<?= esc_(aboutImg) ?>" alt="<?= esc_(home.about.title) ?>" loading="lazy" width="640" height="480"></div>
+    <? var aboutImg = imageUrl_(home.about.image, 2048); if (aboutImg) { ?>
+    <div class="about-photo"><img src="<?= esc_(aboutImg) ?>" alt="<?= esc_(home.about.title) ?>" loading="lazy" decoding="async" width="640" height="480"></div>
     <? } ?>
     <div>
       <? if (home.about.eyebrow) { ?><p class="eyebrow"><?= esc_(home.about.eyebrow) ?></p><? } ?>
