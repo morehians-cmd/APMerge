@@ -56,11 +56,13 @@ function getApplicantDriveFolder_(schoolYearName, department, gradeLevel, applic
   [schoolYearName,department,gradeLevel,applicantId].forEach(v => {
     if (!String(v || '').trim()) throw new Error('Academic year, department, grade level and ApplicantID are required.');
   });
-  const year=getAcademicYearFolder_(schoolYearName);
-  const dept=ensureChildFolder_(year,safeFolderName_(department));
-  const grade=ensureChildFolder_(dept,safeFolderName_(gradeLevel));
-  const applicant=ensureChildFolder_(grade,safeFolderName_(applicantId));
-  ensureChildFolder_(applicant,'01 - Generated Forms');
-  ensureChildFolder_(applicant,'02 - Approved Profile Photo');
-  return {folderId:applicant.getId(),url:applicant.getUrl()};
+  return withScriptLock_(() => {
+    const year=getAcademicYearFolder_(schoolYearName);
+    const dept=ensureChildFolder_(year,safeFolderName_(department));
+    const grade=ensureChildFolder_(dept,safeFolderName_(gradeLevel));
+    const applicant=ensureChildFolder_(grade,safeFolderName_(applicantId));
+    ensureChildFolder_(applicant,'01 - Generated Forms');
+    ensureChildFolder_(applicant,'02 - Approved Profile Photo');
+    return {folderId:applicant.getId(),url:applicant.getUrl()};
+  });
 }
